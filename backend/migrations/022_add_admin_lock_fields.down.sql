@@ -1,0 +1,3 @@
+ALTER TABLE admins DROP COLUMN IF EXISTS login_attempts;
+ALTER TABLE admins DROP COLUMN IF EXISTS locked_until;
+ALTER TABLE admins ALTER COLUMN role SET DEFAULT 'admin';

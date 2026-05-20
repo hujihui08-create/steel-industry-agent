@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS admin_logs;
+DROP TABLE IF EXISTS bad_cases;
+DROP TABLE IF EXISTS intents;

@@ -1,0 +1,80 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Credentials and secrets
+credentials.json
+secrets.*
+*secret*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Node.js dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+build/
+out/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependency directories
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directories
+coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Trae specific - exclude design specs, PRD docs, and internal rules
+.trae/
+.opencode/
+.cursor/
+.figma/
+
+# PRD documentation (exclude from git)
+../prd/
+
+# OpenCode IDE configuration
+opencode.json
+
+# Go build artifacts
+*.exe
+*.test
+handler_coverage
+
+# Docker environment files
+.env.production
+
+# Figma Make design system reference (component references + design specs)
+Untitled/
+
+# Temp files
+temp_response.html

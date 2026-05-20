@@ -1,0 +1,7 @@
+.env
+.env.local
+.env.production
+*.exe
+tmp/
+vendor/
+.DS_Store
