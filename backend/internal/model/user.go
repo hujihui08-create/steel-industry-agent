@@ -11,6 +11,7 @@ type User struct {
 	Company      string    `gorm:"column:company" json:"company"`
 	Role         string    `gorm:"column:role" json:"role"`
 	Region       string    `gorm:"column:region" json:"region"`
+	Status       int       `gorm:"column:status;default:1" json:"status"`
 	CreatedAt    time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"column:updated_at" json:"updated_at"`
 }

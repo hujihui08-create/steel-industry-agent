@@ -17,6 +17,7 @@ type tenderService interface {
 	GetTenderDetail(ctx context.Context, id uint) (*model.Tender, error)
 	AddFavorite(ctx context.Context, userID, tenderID uint) error
 	RemoveFavorite(ctx context.Context, userID, tenderID uint) error
+	GetFavorites(ctx context.Context, userID uint) ([]model.Tender, error)
 	GetRecommend(ctx context.Context, userID uint) ([]model.Tender, error)
 	GetCalendar(ctx context.Context) (map[string]interface{}, error)
 }
@@ -108,6 +109,60 @@ func (h *TenderHandler) RemoveFavorite(c *gin.Context) {
 	}
 
 	response.Success(c, nil)
+}
+
+// AddFavoriteByID adds a tender to the user's favorites using tender ID from URL path.
+func (h *TenderHandler) AddFavoriteByID(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：id格式不正确")
+		return
+	}
+
+	userIDVal, _ := c.Get("user_id")
+	userID := userIDVal.(uint)
+
+	if err := h.tenderService.AddFavorite(c.Request.Context(), userID, uint(id)); err != nil {
+		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// RemoveFavoriteByID removes a tender from the user's favorites using tender ID from URL path.
+func (h *TenderHandler) RemoveFavoriteByID(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：id格式不正确")
+		return
+	}
+
+	userIDVal, _ := c.Get("user_id")
+	userID := userIDVal.(uint)
+
+	if err := h.tenderService.RemoveFavorite(c.Request.Context(), userID, uint(id)); err != nil {
+		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// GetFavorites returns the current user's favorited tenders.
+func (h *TenderHandler) GetFavorites(c *gin.Context) {
+	userIDVal, _ := c.Get("user_id")
+	userID := userIDVal.(uint)
+
+	tenders, err := h.tenderService.GetFavorites(c.Request.Context(), userID)
+	if err != nil {
+		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
+
+	response.Success(c, tenders)
 }
 
 // GetRecommend returns personalized tender recommendations based on the user's favorites.

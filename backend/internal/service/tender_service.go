@@ -104,6 +104,25 @@ func (s *TenderService) GetRecommend(ctx context.Context, userID uint) ([]model.
 	return recommended, nil
 }
 
+// GetFavorites returns the full tender details for all tenders favorited by the user.
+func (s *TenderService) GetFavorites(ctx context.Context, userID uint) ([]model.Tender, error) {
+	favorites, err := s.userFavoriteRepo.FindByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	tenders := make([]model.Tender, 0, len(favorites))
+	for _, fav := range favorites {
+		tender, err := s.tenderRepo.FindByID(ctx, fav.TenderID)
+		if err != nil {
+			continue
+		}
+		tenders = append(tenders, *tender)
+	}
+
+	return tenders, nil
+}
+
 // GetCalendar returns tenders with deadlines within the next 30 days.
 func (s *TenderService) GetCalendar(ctx context.Context) (map[string]interface{}, error) {
 	allTenders, err := s.tenderRepo.FindAll(ctx, 200, 0)

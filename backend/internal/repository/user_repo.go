@@ -47,3 +47,27 @@ func (r *UserRepository) FindByPhone(ctx context.Context, phone string) (*model.
 func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
 	return r.db.WithContext(ctx).Save(user).Error
 }
+
+// FindAll returns a paginated list of all users with optional keyword filter.
+func (r *UserRepository) FindAll(ctx context.Context, keyword string, limit, offset int) ([]model.User, int64, error) {
+	var users []model.User
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&model.User{})
+	if keyword != "" {
+		like := "%" + keyword + "%"
+		query = query.Where("nickname ILIKE ? OR phone ILIKE ? OR company ILIKE ?", like, like, like)
+	}
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := query.Order("created_at DESC").Limit(limit).Offset(offset).Find(&users).Error; err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
+}
+
+// UpdateStatus updates the status field of a user.
+func (r *UserRepository) UpdateStatus(ctx context.Context, id uint, status int) error {
+	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).Update("status", status).Error
+}

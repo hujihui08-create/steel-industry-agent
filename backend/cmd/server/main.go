@@ -59,6 +59,8 @@ func main() {
 	crawlerSourceRepo := repository.NewCrawlerSourceRepository(db)
 	crawlerLogRepo := repository.NewCrawlerLogRepository(db)
 	categoryRepo := repository.NewCategoryRepository(db)
+	badCaseRepo := repository.NewBadCaseRepository(db)
+	tokenUsageRepo := repository.NewTokenUsageRepository(db)
 
 	cacheService := service.NewCacheService(db, redisClient)
 
@@ -88,7 +90,7 @@ func main() {
 		categoryRepo,
 	)
 
-	adminService := service.NewAdminService(adminRepo)
+	adminService := service.NewAdminService(adminRepo, userRepo)
 
 	agentConfigRepo := repository.NewAgentConfigRepository(db)
 	agentConfigService := service.NewAgentConfigService(agentConfigRepo, categoryRepo)
@@ -146,6 +148,20 @@ func main() {
 	debugService := service.NewDebugService(chatService, intentRepo, agentConfigService, chatRepo, redisClient)
 	debugHandler := handler.NewDebugHandler(debugService)
 
+	intentService := service.NewIntentService(intentRepo)
+	intentHandler := handler.NewIntentHandler(intentService)
+
+	badCaseService := service.NewBadCaseService(badCaseRepo)
+	badCaseHandler := handler.NewBadCaseHandler(badCaseService)
+
+	adminLogService := service.NewAdminLogService(adminLogRepo)
+	adminLogHandler := handler.NewAdminLogHandler(adminLogService)
+
+	backupHandler := handler.NewBackupHandler(backupService)
+
+	tokenUsageService := service.NewTokenUsageService(tokenUsageRepo)
+	tokenUsageHandler := handler.NewTokenUsageHandler(tokenUsageService)
+
 	categoryService := service.NewCategoryService(categoryRepo, steelPriceRepo)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 
@@ -171,6 +187,11 @@ func main() {
 		categoryHandler,
 		adminNotifHandler,
 		debugHandler,
+		intentHandler,
+		badCaseHandler,
+		backupHandler,
+		adminLogHandler,
+		tokenUsageHandler,
 		adminRepo,
 		adminLogRepo,
 	)

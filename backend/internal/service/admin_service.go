@@ -27,11 +27,12 @@ const lockDuration = 30 * time.Minute
 // AdminService handles admin management business logic.
 type AdminService struct {
 	adminRepo *repository.AdminRepository
+	userRepo  *repository.UserRepository
 }
 
 // NewAdminService creates a new AdminService with the given admin repository.
-func NewAdminService(adminRepo *repository.AdminRepository) *AdminService {
-	return &AdminService{adminRepo: adminRepo}
+func NewAdminService(adminRepo *repository.AdminRepository, userRepo *repository.UserRepository) *AdminService {
+	return &AdminService{adminRepo: adminRepo, userRepo: userRepo}
 }
 
 // Login authenticates an admin by username and password, returning a JWT token.
@@ -248,4 +249,22 @@ func (s *AdminService) UpdateProfile(ctx context.Context, adminID uint, nickname
 	}
 
 	return s.adminRepo.UpdateProfile(ctx, admin.ID, nickname)
+}
+
+func (s *AdminService) ListMobileUsers(ctx context.Context, keyword string, page, pageSize int) ([]model.User, int64, error) {
+	limit := pageSize
+	offset := (page - 1) * pageSize
+	return s.userRepo.FindAll(ctx, keyword, limit, offset)
+}
+
+func (s *AdminService) GetMobileUserDetail(ctx context.Context, id uint) (*model.User, error) {
+	return s.userRepo.FindByID(ctx, id)
+}
+
+func (s *AdminService) DisableMobileUser(ctx context.Context, id uint) error {
+	return s.userRepo.UpdateStatus(ctx, id, 0)
+}
+
+func (s *AdminService) EnableMobileUser(ctx context.Context, id uint) error {
+	return s.userRepo.UpdateStatus(ctx, id, 1)
 }

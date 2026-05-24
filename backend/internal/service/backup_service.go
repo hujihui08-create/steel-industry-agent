@@ -109,8 +109,6 @@ func (s *BackupService) StartScheduler(stopCh <-chan struct{}) {
 	go func() {
 		for {
 			now := time.Now()
-			// Calculate the next occurrence: today at 03:00 if not yet passed,
-			// otherwise tomorrow at 03:00.
 			next := time.Date(now.Year(), now.Month(), now.Day(), 3, 0, 0, 0, now.Location())
 			if !now.Before(next) {
 				next = next.AddDate(0, 0, 1)
@@ -127,6 +125,123 @@ func (s *BackupService) StartScheduler(stopCh <-chan struct{}) {
 			}
 		}
 	}()
+}
+
+func (s *BackupService) TriggerBackup() (string, error) {
+	if err := os.MkdirAll(s.backupDir, 0755); err != nil {
+		return "", err
+	}
+
+	filename := "steel_agent_backup_" + time.Now().Format("20060102_150405") + ".sql"
+	filePath := filepath.Join(s.backupDir, filename)
+
+	cmd := exec.Command("pg_dump",
+		"-h", s.dbHost,
+		"-p", s.dbPort,
+		"-U", s.dbUser,
+		"-d", s.dbName,
+	)
+
+	outFile, err := os.Create(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer outFile.Close()
+
+	cmd.Stdout = outFile
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", err
+	}
+
+	return filename, nil
+}
+
+func (s *BackupService) Overview() (map[string]interface{}, error) {
+	records, err := s.listBackupFiles()
+	if err != nil {
+		return nil, err
+	}
+
+	lastBackup := ""
+	totalSize := int64(0)
+	if len(records) > 0 {
+		lastBackup = records[0]["filename"].(string)
+	}
+	for _, r := range records {
+		if sz, ok := r["size"].(int64); ok {
+			totalSize += sz
+		}
+	}
+
+	return map[string]interface{}{
+		"last_backup": lastBackup,
+		"total_count": len(records),
+		"total_size":  totalSize,
+	}, nil
+}
+
+func (s *BackupService) Records(page, pageSize int) (map[string]interface{}, error) {
+	records, err := s.listBackupFiles()
+	if err != nil {
+		return nil, err
+	}
+
+	start := (page - 1) * pageSize
+	if start < 0 {
+		start = 0
+	}
+	end := start + pageSize
+	if end > len(records) {
+		end = len(records)
+	}
+
+	paged := records
+	if start < len(records) {
+		paged = records[start:end]
+	} else {
+		paged = []map[string]interface{}{}
+	}
+
+	return map[string]interface{}{
+		"list":      paged,
+		"total":     len(records),
+		"page":      page,
+		"page_size": pageSize,
+	}, nil
+}
+
+func (s *BackupService) GetFilePath(filename string) string {
+	return filepath.Join(s.backupDir, filename)
+}
+
+func (s *BackupService) listBackupFiles() ([]map[string]interface{}, error) {
+	entries, err := os.ReadDir(s.backupDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []map[string]interface{}{}, nil
+		}
+		return nil, err
+	}
+
+	var records []map[string]interface{}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		records = append(records, map[string]interface{}{
+			"filename":   entry.Name(),
+			"size":       info.Size(),
+			"created_at": info.ModTime().Format("2006-01-02 15:04:05"),
+		})
+	}
+
+	return records, nil
 }
 
 

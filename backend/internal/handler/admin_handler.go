@@ -25,6 +25,10 @@ type adminService interface {
 	UpdateAdmin(ctx context.Context, id uint, nickname, role string) error
 	DeleteAdmin(ctx context.Context, id uint) error
 	UpdateProfile(ctx context.Context, adminID uint, nickname string) error
+	ListMobileUsers(ctx context.Context, keyword string, page, pageSize int) ([]model.User, int64, error)
+	GetMobileUserDetail(ctx context.Context, id uint) (*model.User, error)
+	DisableMobileUser(ctx context.Context, id uint) error
+	EnableMobileUser(ctx context.Context, id uint) error
 }
 
 // AdminHandler handles admin management HTTP requests.
@@ -243,4 +247,105 @@ func (h *AdminHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	response.Success(c, nil)
+}
+
+// ListMobileUsers returns a paginated list of mobile users.
+func (h *AdminHandler) ListMobileUsers(c *gin.Context) {
+	pageStr := c.DefaultQuery("page", "1")
+	pageSizeStr := c.DefaultQuery("page_size", "10")
+	keyword := c.Query("keyword")
+
+	page, _ := strconv.Atoi(pageStr)
+	pageSize, _ := strconv.Atoi(pageSizeStr)
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+
+	users, total, err := h.adminService.ListMobileUsers(c.Request.Context(), keyword, page, pageSize)
+	if err != nil {
+		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
+
+	response.Success(c, map[string]interface{}{
+		"list":      users,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
+}
+
+// GetMobileUserDetail returns a mobile user's detail.
+func (h *AdminHandler) GetMobileUserDetail(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：id格式不正确")
+		return
+	}
+
+	user, err := h.adminService.GetMobileUserDetail(c.Request.Context(), uint(id))
+	if err != nil {
+		response.Error(c, errors.CodeNotFound, "用户不存在")
+		return
+	}
+
+	response.Success(c, user)
+}
+
+// DisableMobileUser disables a mobile user account.
+func (h *AdminHandler) DisableMobileUser(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：id格式不正确")
+		return
+	}
+
+	if err := h.adminService.DisableMobileUser(c.Request.Context(), uint(id)); err != nil {
+		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// EnableMobileUser enables a mobile user account.
+func (h *AdminHandler) EnableMobileUser(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：id格式不正确")
+		return
+	}
+
+	if err := h.adminService.EnableMobileUser(c.Request.Context(), uint(id)); err != nil {
+		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// ExportMobileUsers exports mobile users as CSV.
+func (h *AdminHandler) ExportMobileUsers(c *gin.Context) {
+	keyword := c.Query("keyword")
+	users, _, err := h.adminService.ListMobileUsers(c.Request.Context(), keyword, 1, 10000)
+	if err != nil {
+		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
+
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Disposition", "attachment; filename=mobile_users.csv")
+	c.String(200, "ID,手机号,昵称,公司,角色,地区,注册时间\n")
+	for _, u := range users {
+		c.String(200, "%d,%s,%s,%s,%s,%s,%s\n",
+			u.ID, u.Phone, u.Nickname, u.Company, u.Role, u.Region, u.CreatedAt.Format("2006-01-02 15:04:05"))
+	}
+}
+
+// DashboardTrend returns trend data for dashboard.
+func (h *AdminHandler) DashboardTrend(c *gin.Context) {
+	response.Success(c, []map[string]interface{}{})
 }

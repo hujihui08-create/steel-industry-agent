@@ -29,6 +29,11 @@ func Setup(
 	categoryHandler *handler.CategoryHandler,
 	adminNotifHandler *handler.AdminNotificationHandler,
 	debugHandler *handler.DebugHandler,
+	intentHandler *handler.IntentHandler,
+	badCaseHandler *handler.BadCaseHandler,
+	backupHandler *handler.BackupHandler,
+	adminLogHandler *handler.AdminLogHandler,
+	tokenUsageHandler *handler.TokenUsageHandler,
 	adminRepo *repository.AdminRepository,
 	adminLogRepo *repository.AdminLogRepository,
 ) {
@@ -71,6 +76,7 @@ func Setup(
 		users.GET("/profile", userHandler.GetProfile)
 		users.PUT("/profile", userHandler.UpdateProfile)
 		users.PUT("/password", userHandler.UpdatePassword)
+		users.GET("/token-usage", tokenUsageHandler.GetDailyUsage)
 	}
 
 	prices := api.Group("/prices")
@@ -123,9 +129,12 @@ func Setup(
 	tenders := api.Group("/tenders")
 	{
 		tenders.GET("", tenderHandler.GetTenderList)
+		tenders.GET("/favorites", tenderHandler.GetFavorites)
 		tenders.GET("/:id", tenderHandler.GetTenderDetail)
 		tenders.POST("/favorites", tenderHandler.AddFavorite)
 		tenders.DELETE("/favorites/:id", tenderHandler.RemoveFavorite)
+		tenders.POST("/:id/favorite", tenderHandler.AddFavoriteByID)
+		tenders.DELETE("/:id/favorite", tenderHandler.RemoveFavoriteByID)
 		tenders.GET("/recommend", tenderHandler.GetRecommend)
 	}
 
@@ -172,6 +181,7 @@ func Setup(
 	adminDashboard.Use(middleware.RequireRole(adminRepo, "super_admin", "operator", "data_admin", "viewer"))
 	{
 		adminDashboard.GET("/dashboard", adminHandler.Dashboard)
+		adminDashboard.GET("/dashboard/trend", adminHandler.DashboardTrend)
 	}
 
 	adminProtectedAuth := api.Group("/admin/auth")
@@ -231,6 +241,65 @@ func Setup(
 		adminCrawler.GET("/logs", crawlerHandler.ListLogs)
 		adminCrawler.POST("/trigger/:source_id", crawlerHandler.TriggerCrawl)
 		adminCrawler.GET("/status", crawlerHandler.GetCrawlStatus)
+	}
+
+	adminIntents := api.Group("/admin/intents")
+	adminIntents.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
+	{
+		adminIntents.GET("", intentHandler.List)
+		adminIntents.POST("", intentHandler.Create)
+		adminIntents.PUT("/:id", intentHandler.Update)
+		adminIntents.DELETE("/:id", intentHandler.Delete)
+		adminIntents.GET("/stats", intentHandler.Stats)
+	}
+
+	adminBadCases := api.Group("/admin/badcases")
+	adminBadCases.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
+	{
+		adminBadCases.GET("", badCaseHandler.List)
+		adminBadCases.GET("/stats", badCaseHandler.Stats)
+		adminBadCases.GET("/:id", badCaseHandler.GetByID)
+		adminBadCases.PUT("/:id", badCaseHandler.Update)
+		adminBadCases.GET("/export", badCaseHandler.Export)
+	}
+
+	adminBackup := api.Group("/admin/backup")
+	adminBackup.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
+	{
+		adminBackup.GET("/overview", backupHandler.Overview)
+		adminBackup.GET("/records", backupHandler.Records)
+		adminBackup.POST("/trigger", backupHandler.Trigger)
+		adminBackup.POST("/restore/:backupId", backupHandler.Restore)
+		adminBackup.GET("/download/:backupId", backupHandler.Download)
+		adminBackup.GET("/settings", backupHandler.GetSettings)
+		adminBackup.PUT("/settings", backupHandler.UpdateSettings)
+	}
+
+	adminMobileUsers := api.Group("/admin/mobile-users")
+	adminMobileUsers.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
+	{
+		adminMobileUsers.GET("", adminHandler.ListMobileUsers)
+		adminMobileUsers.GET("/:id", adminHandler.GetMobileUserDetail)
+		adminMobileUsers.PUT("/:id/disable", adminHandler.DisableMobileUser)
+		adminMobileUsers.PUT("/:id/enable", adminHandler.EnableMobileUser)
+		adminMobileUsers.GET("/export", adminHandler.ExportMobileUsers)
+	}
+
+	adminLogs := api.Group("/admin/logs")
+	adminLogs.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
+	{
+		adminLogs.GET("", adminLogHandler.List)
+		adminLogs.GET("/:id", adminLogHandler.GetByID)
+		adminLogs.GET("/export", adminLogHandler.Export)
+	}
+
+	adminSettings := api.Group("/admin/settings")
+	adminSettings.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
+	{
+		adminSettings.GET("", backupHandler.GetSettings)
+		adminSettings.PUT("", backupHandler.UpdateSettings)
+		adminSettings.POST("/upload-logo", backupHandler.UpdateSettings)
+		adminSettings.POST("/test-email", backupHandler.UpdateSettings)
 	}
 
 	adminCategories := api.Group("/admin/categories")
