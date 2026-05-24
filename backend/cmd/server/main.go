@@ -27,6 +27,9 @@ import (
 func main() {
 	config.Load()
 
+	// Validate critical configuration and warn about missing keys.
+	validateCriticalConfig()
+
 	redisClient := config.InitRedis()
 
 	db := config.InitDB()
@@ -351,4 +354,23 @@ func initEmbeddingConfig(adapter *ai.LLMAdapter, knowledgeSvc *service.Knowledge
 		APIKey:  envCfg.EmbeddingAPIKey,
 		BaseURL: baseURL,
 	})
+}
+
+// validateCriticalConfig checks for missing critical API keys and logs
+// clear warnings to help operators detect misconfiguration early.
+func validateCriticalConfig() {
+	cfg := config.AppConfig
+
+	if cfg.OpenAIAPIKey == "" && cfg.QwenAPIKey == "" && cfg.DeepSeekAPIKey == "" {
+		log.Println("⚠️  WARNING: No AI model API key configured (OPENAI_API_KEY / QWEN_API_KEY / DEEPSEEK_API_KEY). AI chat and tool calling will not work.")
+	}
+	if cfg.EmbeddingAPIKey == "" {
+		log.Println("⚠️  WARNING: EMBEDDING_API_KEY is not set. RAG knowledge base vector search will be unavailable.")
+	}
+	if cfg.JWTSecret == "" || cfg.JWTSecret == "default-secret" || cfg.JWTSecret == "dev-secret-key-not-for-production" {
+		log.Println("⚠️  WARNING: JWT_SECRET is using a weak or default value. Set a strong secret in production.")
+	}
+	if cfg.APPEnv == "production" && cfg.DBPassword == "postgres" {
+		log.Println("⚠️  WARNING: Production database is using the default password. Please change DB_PASSWORD.")
+	}
 }

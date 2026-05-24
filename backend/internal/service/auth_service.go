@@ -18,6 +18,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const smsCodeTTL = 5 * time.Minute
+
 // AuthService handles authentication and authorization business logic.
 type AuthService struct {
 	userRepo    *repository.UserRepository
@@ -29,16 +31,37 @@ func NewAuthService(userRepo *repository.UserRepository, redisClient redis.Unive
 	return &AuthService{userRepo: userRepo, redisClient: redisClient}
 }
 
-// SendSMSCode sends a one-time SMS verification code to the given phone number.
+// SendSMSCode sends a one-time SMS verification code to the given phone number
+// and stores it in Redis with a 5-minute TTL.
 func (s *AuthService) SendSMSCode(ctx context.Context, phone string) error {
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	code := fmt.Sprintf("%06d", rng.Intn(1000000))
+
+	if s.redisClient != nil {
+		key := fmt.Sprintf("sms_code:%s", phone)
+		if err := s.redisClient.Set(ctx, key, code, smsCodeTTL).Err(); err != nil {
+			return fmt.Errorf("failed to store verification code: %w", err)
+		}
+	}
+
 	fmt.Printf("SMS code sent to %s: %s\n", phone, code)
 	return nil
 }
 
 // Login authenticates a user by phone number and SMS code, returning access and refresh tokens.
 func (s *AuthService) Login(ctx context.Context, phone, code string) (string, string, error) {
+	if s.redisClient != nil {
+		key := fmt.Sprintf("sms_code:%s", phone)
+		storedCode, err := s.redisClient.Get(ctx, key).Result()
+		if err != nil {
+			return "", "", errors.New("验证码无效或已过期")
+		}
+		if storedCode != code {
+			return "", "", errors.New("验证码错误")
+		}
+		s.redisClient.Del(ctx, key)
+	}
+
 	user, err := s.userRepo.FindByPhone(ctx, phone)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -89,6 +112,18 @@ func (s *AuthService) LoginPassword(ctx context.Context, phone, password string)
 
 // Register creates a new user account and returns access and refresh tokens.
 func (s *AuthService) Register(ctx context.Context, phone, password, code, nickname string) (string, string, error) {
+	if s.redisClient != nil {
+		key := fmt.Sprintf("sms_code:%s", phone)
+		storedCode, err := s.redisClient.Get(ctx, key).Result()
+		if err != nil {
+			return "", "", errors.New("验证码无效或已过期")
+		}
+		if storedCode != code {
+			return "", "", errors.New("验证码错误")
+		}
+		s.redisClient.Del(ctx, key)
+	}
+
 	_, err := s.userRepo.FindByPhone(ctx, phone)
 	if err == nil {
 		return "", "", errors.New("手机号已注册")

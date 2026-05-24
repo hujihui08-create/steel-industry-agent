@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"log"
 	"os"
 
@@ -90,7 +92,12 @@ func seedAdmins(db *gorm.DB) {
 	if adminCount == 0 {
 		defaultPassword := os.Getenv("ADMIN_DEFAULT_PASSWORD")
 		if defaultPassword == "" {
-			defaultPassword = "admin123"
+			b := make([]byte, 16)
+			if _, err := rand.Read(b); err != nil {
+				log.Fatalf("Failed to generate random password: %v", err)
+			}
+			defaultPassword = hex.EncodeToString(b)
+			log.Printf("Generated random admin password. Save it securely: %s", defaultPassword)
 		}
 		hash, err := bcrypt.GenerateFromPassword([]byte(defaultPassword), bcrypt.DefaultCost)
 		if err != nil {
@@ -106,6 +113,6 @@ func seedAdmins(db *gorm.DB) {
 		if err := db.Create(&admin).Error; err != nil {
 			log.Fatalf("Failed to create admin: %v", err)
 		}
-		log.Println("Default admin created (admin/" + defaultPassword + ")")
+		log.Println("Default admin created: " + defaultPassword)
 	}
 }

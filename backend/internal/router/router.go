@@ -1,6 +1,7 @@
 package router
 
 import (
+	"steel-agent-backend/internal/config"
 	"steel-agent-backend/internal/handler"
 	"steel-agent-backend/internal/middleware"
 	"steel-agent-backend/internal/repository"
@@ -262,9 +263,17 @@ func Setup(
 		adminDebug.POST("/tool/execute", debugHandler.ExecuteTool)
 		adminDebug.GET("/tool/schemas", debugHandler.GetToolSchemas)
 		adminDebug.GET("/tool/health", debugHandler.CheckToolHealth)
-		adminDebug.GET("/tool/mock", debugHandler.GetMockConfigs)
-		adminDebug.POST("/tool/mock", debugHandler.SaveMockConfig)
-		adminDebug.DELETE("/tool/mock", debugHandler.DeleteMockConfig)
-		adminDebug.POST("/prompt/preview", debugHandler.PreviewPrompt)
+	}
+
+	// Debug mock/write endpoints are only available in non-production environments.
+	if config.AppConfig.APPEnv != "production" {
+		adminDebugWritable := api.Group("/admin/debug")
+		adminDebugWritable.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
+		{
+			adminDebugWritable.GET("/tool/mock", debugHandler.GetMockConfigs)
+			adminDebugWritable.POST("/tool/mock", debugHandler.SaveMockConfig)
+			adminDebugWritable.DELETE("/tool/mock", debugHandler.DeleteMockConfig)
+			adminDebugWritable.POST("/prompt/preview", debugHandler.PreviewPrompt)
+		}
 	}
 }

@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
+
+	"steel-agent-backend/internal/config"
 )
 
 // BackupService handles scheduled daily database backups using pg_dump.
@@ -19,13 +21,15 @@ type BackupService struct {
 
 // NewBackupService creates a new BackupService instance.
 // backupDir is the directory where backup files will be stored.
+// Uses centralized configuration from config.AppConfig for database connection parameters.
 func NewBackupService(backupDir string) *BackupService {
+	cfg := config.AppConfig
 	return &BackupService{
 		backupDir: backupDir,
-		dbHost:    getEnvOrDefault("DB_HOST", "localhost"),
-		dbPort:    getEnvOrDefault("DB_PORT", "5432"),
-		dbUser:    getEnvOrDefault("DB_USER", "postgres"),
-		dbName:    getEnvOrDefault("DB_NAME", "steel_agent"),
+		dbHost:    cfg.DBHost,
+		dbPort:    cfg.DBPort,
+		dbUser:    cfg.DBUser,
+		dbName:    cfg.DBName,
 	}
 }
 
@@ -125,11 +129,4 @@ func (s *BackupService) StartScheduler(stopCh <-chan struct{}) {
 	}()
 }
 
-// getEnvOrDefault returns the value of the environment variable named by key,
-// or fallback if the variable is not set or empty.
-func getEnvOrDefault(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
+
