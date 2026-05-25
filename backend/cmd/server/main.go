@@ -77,6 +77,10 @@ func main() {
 	notificationService := service.NewNotificationService(notificationRepo)
 	settingsService := service.NewSettingsService(settingsRepo)
 
+	// Create BadCaseService first without ChatService (circular dep resolution).
+	// ChatService will be wired in afterwards via SetChatService.
+	badCaseService := service.NewBadCaseService(badCaseRepo, nil)
+
 	chatService := service.NewChatService(
 		chatRepo,
 		aiClient,
@@ -88,7 +92,11 @@ func main() {
 		alertRepo,
 		newsRepo,
 		categoryRepo,
+		badCaseService,
 	)
+
+	// Complete the circular dependency: BadCaseService needs ChatService for Verify.
+	badCaseService.SetChatService(chatService)
 
 	adminService := service.NewAdminService(adminRepo, userRepo)
 
@@ -113,6 +121,10 @@ func main() {
 		categoryRepo,
 		cacheService,
 	)
+
+	crawlerService.CleanupZombieLogs()
+	crawlerService.StartScheduler()
+
 	cleanupService := service.NewCleanupService(db)
 	// 启动后台清理调度器
 	go func() {
@@ -151,7 +163,6 @@ func main() {
 	intentService := service.NewIntentService(intentRepo)
 	intentHandler := handler.NewIntentHandler(intentService)
 
-	badCaseService := service.NewBadCaseService(badCaseRepo)
 	badCaseHandler := handler.NewBadCaseHandler(badCaseService)
 
 	adminLogService := service.NewAdminLogService(adminLogRepo)
@@ -214,6 +225,8 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Shutting down server...")
+
+	crawlerService.Stop()
 
 	// 30s 超时优雅关闭
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

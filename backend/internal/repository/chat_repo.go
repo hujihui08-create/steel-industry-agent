@@ -119,6 +119,16 @@ func (r *ChatRepository) SaveContext(ctx context.Context, sessionID uint, contex
 		Update("context", contextJSON).Error
 }
 
+// GetMessageByID finds a chat message by its primary key ID.
+func (r *ChatRepository) GetMessageByID(ctx context.Context, messageID uint) (*model.ChatMessage, error) {
+	var msg model.ChatMessage
+	err := r.db.WithContext(ctx).Where("id = ?", messageID).First(&msg).Error
+	if err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
 // CreateFeedback inserts a new AI feedback record.
 func (r *ChatRepository) CreateFeedback(ctx context.Context, feedback *model.AIFeedback) error {
 	return r.db.WithContext(ctx).Create(feedback).Error

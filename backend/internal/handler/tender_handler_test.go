@@ -21,6 +21,7 @@ type mockTenderService struct {
 	getTenderDetailFn func(ctx context.Context, id uint) (*model.Tender, error)
 	addFavoriteFn     func(ctx context.Context, userID, tenderID uint) error
 	removeFavoriteFn  func(ctx context.Context, userID, tenderID uint) error
+	getFavoritesFn    func(ctx context.Context, userID uint) ([]model.Tender, error)
 	getRecommendFn    func(ctx context.Context, userID uint) ([]model.Tender, error)
 	getCalendarFn     func(ctx context.Context) (map[string]interface{}, error)
 }
@@ -39,6 +40,10 @@ func (m *mockTenderService) AddFavorite(ctx context.Context, userID, tenderID ui
 
 func (m *mockTenderService) RemoveFavorite(ctx context.Context, userID, tenderID uint) error {
 	return m.removeFavoriteFn(ctx, userID, tenderID)
+}
+
+func (m *mockTenderService) GetFavorites(ctx context.Context, userID uint) ([]model.Tender, error) {
+	return m.getFavoritesFn(ctx, userID)
 }
 
 func (m *mockTenderService) GetRecommend(ctx context.Context, userID uint) ([]model.Tender, error) {

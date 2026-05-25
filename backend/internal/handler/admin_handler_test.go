@@ -16,16 +16,20 @@ import (
 )
 
 type mockAdminService struct {
-	loginFn          func(ctx context.Context, username, password string) (string, error)
-	logoutFn         func(ctx context.Context) error
-	getInfoFn        func(ctx context.Context, adminID uint) (*model.Admin, error)
-	updatePasswordFn func(ctx context.Context, adminID uint, oldPassword, newPassword string) error
-	dashboardFn      func(ctx context.Context) (map[string]int64, error)
-	listAdminsFn     func(ctx context.Context) ([]model.Admin, error)
-	createAdminFn    func(ctx context.Context, username, nickname, password, role string) (*model.Admin, error)
-	updateAdminFn    func(ctx context.Context, id uint, nickname, role string) error
-	deleteAdminFn    func(ctx context.Context, id uint) error
-	updateProfileFn  func(ctx context.Context, adminID uint, nickname string) error
+	loginFn            func(ctx context.Context, username, password string) (string, error)
+	logoutFn           func(ctx context.Context) error
+	getInfoFn          func(ctx context.Context, adminID uint) (*model.Admin, error)
+	updatePasswordFn   func(ctx context.Context, adminID uint, oldPassword, newPassword string) error
+	dashboardFn        func(ctx context.Context) (map[string]int64, error)
+	listAdminsFn       func(ctx context.Context) ([]model.Admin, error)
+	createAdminFn      func(ctx context.Context, username, nickname, password, role string) (*model.Admin, error)
+	updateAdminFn      func(ctx context.Context, id uint, nickname, role string) error
+	deleteAdminFn      func(ctx context.Context, id uint) error
+	updateProfileFn    func(ctx context.Context, adminID uint, nickname string) error
+	listMobileUsersFn  func(ctx context.Context, keyword string, page, pageSize int) ([]model.User, int64, error)
+	getMobileUserDetailFn func(ctx context.Context, id uint) (*model.User, error)
+	disableMobileUserFn func(ctx context.Context, id uint) error
+	enableMobileUserFn  func(ctx context.Context, id uint) error
 }
 
 func (m *mockAdminService) Login(ctx context.Context, username, password string) (string, error) {
@@ -66,6 +70,22 @@ func (m *mockAdminService) DeleteAdmin(ctx context.Context, id uint) error {
 
 func (m *mockAdminService) UpdateProfile(ctx context.Context, adminID uint, nickname string) error {
 	return m.updateProfileFn(ctx, adminID, nickname)
+}
+
+func (m *mockAdminService) ListMobileUsers(ctx context.Context, keyword string, page, pageSize int) ([]model.User, int64, error) {
+	return m.listMobileUsersFn(ctx, keyword, page, pageSize)
+}
+
+func (m *mockAdminService) GetMobileUserDetail(ctx context.Context, id uint) (*model.User, error) {
+	return m.getMobileUserDetailFn(ctx, id)
+}
+
+func (m *mockAdminService) DisableMobileUser(ctx context.Context, id uint) error {
+	return m.disableMobileUserFn(ctx, id)
+}
+
+func (m *mockAdminService) EnableMobileUser(ctx context.Context, id uint) error {
+	return m.enableMobileUserFn(ctx, id)
 }
 
 func setupAdminRouter(mock *mockAdminService) *gin.Engine {

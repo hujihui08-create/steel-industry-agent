@@ -204,23 +204,69 @@ export interface IntentTestHistory {
 
 /** 不良案例 */
 export interface BadCase {
-  id: string;
-  userQuestion: string;
-  aiResponse: string;
-  errorType: string;
+  id: number;
+  case_no: string;
+  user_query: string;
+  ai_response: string;
+  correct_response: string;
+  error_type: string;
   status: BadCaseStatus;
-  reportedBy: string;
-  reportedAt: string;
-  conversationId: string;
-  messageId: string;
-  correctResponse: string;
-  fixPlan: string;
-  fixerName: string;
-  fixedAt: string;
-  verificationResult: string;
+  fix_solution: string;
+  conversation_id: number | null;
+  reported_by: number | null;
+  created_at: string;
+  fixed_at: string | null;
+  verified_at: string | null;
 }
 
 export type BadCaseStatus = 'pending' | 'fixing' | 'fixed' | 'verified';
+
+/** Bad Case 统计（后端 /admin/bad-cases/statistics 返回的原始格式） */
+export interface BadCaseStatisticsResponse {
+  status_counts: {
+    pending: number;
+    fixing: number;
+    fixed: number;
+    verified: number;
+  };
+  daily_trend: BadCaseDailyTrend[];
+  fix_rate: number;
+  avg_fix_days: number;
+}
+
+export interface BadCaseDailyTrend {
+  date: string;
+  count: number;
+}
+
+/** Bad Case 筛选参数 */
+export interface BadCaseFilter {
+  page?: number;
+  page_size?: number;
+  error_type?: string;
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+  keyword?: string;
+}
+
+/** Bad Case 导入结果 */
+export interface BadCaseImportResult {
+  total: number;
+  success: number;
+  failed: number;
+  errors: { row: number; reason: string }[];
+}
+
+/** Bad Case 验证结果 */
+export interface BadCaseVerifyResult {
+  original_reply: string;
+  current_reply: string;
+  verified_at: string;
+  similarity: number;
+  verdict: 'fixed' | 'likely_fixed' | 'still_broken';
+  verdict_reason: string;
+}
 
 // ============================================================
 // 操作日志

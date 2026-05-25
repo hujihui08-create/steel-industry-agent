@@ -167,3 +167,103 @@ func TestCrawlerLogRepo_UpdateStatus(t *testing.T) {
 		t.Errorf("expected finished_at to be recent, got %v", *updated.FinishedAt)
 	}
 }
+
+func TestCrawlerLogRepo_CleanupZombieLogs(t *testing.T) {
+	db := setupCrawlerLogTestDB(t)
+	repo := NewCrawlerLogRepository(db)
+	ctx := context.Background()
+
+	now := time.Now()
+
+	// Insert 3 running logs (zombies).
+	for i := 0; i < 3; i++ {
+		log := &model.CrawlerLog{
+			SourceID:     uint(i + 1),
+			Status:       "running",
+			ItemsCrawled: 10 + i,
+			ErrorMessage: "",
+			StartedAt:    &now,
+		}
+		if err := repo.Create(ctx, log); err != nil {
+			t.Fatalf("Create failed: %v", err)
+		}
+	}
+
+	// Insert 2 success logs (should NOT be affected).
+	for i := 0; i < 2; i++ {
+		log := &model.CrawlerLog{
+			SourceID:     uint(i + 4),
+			Status:       "success",
+			ItemsCrawled: 100,
+			ErrorMessage: "",
+			StartedAt:    &now,
+		}
+		if err := repo.Create(ctx, log); err != nil {
+			t.Fatalf("Create failed: %v", err)
+		}
+	}
+
+	// Insert 1 failed log (should NOT be affected).
+	failedLog := &model.CrawlerLog{
+		SourceID:     6,
+		Status:       "failed",
+		ItemsCrawled: 0,
+		ErrorMessage: "timeout",
+		StartedAt:    &now,
+	}
+	if err := repo.Create(ctx, failedLog); err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	// Execute cleanup.
+	count, err := repo.CleanupZombieLogs(ctx)
+	if err != nil {
+		t.Fatalf("CleanupZombieLogs failed: %v", err)
+	}
+	if count != 3 {
+		t.Errorf("expected 3 affected rows, got %d", count)
+	}
+
+	// Verify that running logs were updated.
+	var runningLogs []model.CrawlerLog
+	if err := db.Where("source_id IN (?, ?, ?)", 1, 2, 3).Find(&runningLogs).Error; err != nil {
+		t.Fatalf("failed to query running logs: %v", err)
+	}
+	for _, l := range runningLogs {
+		if l.Status != "failed" {
+			t.Errorf("expected status 'failed' for zombie log %d, got '%s'", l.ID, l.Status)
+		}
+		if l.ErrorMessage != "服务重启，采集中断" {
+			t.Errorf("expected error_message '服务重启，采集中断' for zombie log %d, got '%s'", l.ID, l.ErrorMessage)
+		}
+		if l.FinishedAt == nil {
+			t.Errorf("expected finished_at to be set for zombie log %d, got nil", l.ID)
+		}
+		if time.Since(*l.FinishedAt) > 5*time.Second {
+			t.Errorf("expected finished_at to be recent for zombie log %d, got %v", l.ID, *l.FinishedAt)
+		}
+	}
+
+	// Verify that success logs were NOT affected.
+	var successLogs []model.CrawlerLog
+	if err := db.Where("source_id IN (?, ?)", 4, 5).Find(&successLogs).Error; err != nil {
+		t.Fatalf("failed to query success logs: %v", err)
+	}
+	for _, l := range successLogs {
+		if l.Status != "success" {
+			t.Errorf("expected success log %d status to remain 'success', got '%s'", l.ID, l.Status)
+		}
+	}
+
+	// Verify that the failed log was NOT affected.
+	var refetchedFailed model.CrawlerLog
+	if err := db.Where("id = ?", failedLog.ID).First(&refetchedFailed).Error; err != nil {
+		t.Fatalf("failed to query failed log: %v", err)
+	}
+	if refetchedFailed.Status != "failed" {
+		t.Errorf("expected existing failed log status to remain 'failed', got '%s'", refetchedFailed.Status)
+	}
+	if refetchedFailed.ErrorMessage != "timeout" {
+		t.Errorf("expected existing failed log error_message to remain 'timeout', got '%s'", refetchedFailed.ErrorMessage)
+	}
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Plus,
   Pencil,
@@ -11,7 +11,9 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  Eye,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { AdminPageShell } from "./AdminPageShell";
 import { AdminModal } from "./AdminModal";
@@ -118,6 +120,11 @@ export default function CrawlerManage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [triggeringId, setTriggeringId] = useState<number | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const runningSinceRef = useRef<number>(0);
+  const MIN_RUNNING_DISPLAY_MS = 1500;
+
+  const navigate = useNavigate();
 
   const [logDrawerOpen, setLogDrawerOpen] = useState(false);
   const [logSourceName, setLogSourceName] = useState("");
@@ -153,6 +160,12 @@ export default function CrawlerManage() {
 
   useEffect(() => {
     loadData();
+    return () => {
+      if (pollTimerRef.current) {
+        clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
   }, [loadData]);
 
   const status = useCallback(
@@ -231,7 +244,7 @@ export default function CrawlerManage() {
     try {
       await updateCrawlerSource(source.id, { is_active: !source.is_active });
       showSuccessToast(source.is_active ? "已暂停" : "已启用");
-      loadData();
+      await loadData();
     } catch (err: any) {
       showErrorToast(err?.message || "操作失败");
     }
@@ -242,7 +255,102 @@ export default function CrawlerManage() {
     try {
       await triggerCrawl(source.id);
       showSuccessToast("采集任务已启动");
-      await loadData();
+
+      runningSinceRef.current = Date.now();
+
+      // Optimistically mark this source as running in statusMap
+      // so the UI immediately reflects the expected state.
+      setStatusMap((prev) => ({
+        ...prev,
+        [source.id]: {
+          source_id: source.id,
+          source_name: source.source_name,
+          source_type: source.source_type,
+          source_url: source.source_url,
+          is_active: source.is_active,
+          is_running: true,
+          last_crawl_at: prev[source.id]?.last_crawl_at ?? source.last_crawl_at,
+          last_success_at: prev[source.id]?.last_success_at ?? source.last_success_at,
+          next_crawl_at: null,
+        },
+      }));
+
+      // Clear any existing poll timer
+      if (pollTimerRef.current) {
+        clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+
+      let pollCount = 0;
+      const maxPolls = 30;
+      let delay = 500;
+
+      const poll = async () => {
+        pollCount++;
+        try {
+          const statusData = await getCrawlStatus();
+
+          // If crawl finished but minimum display time hasn't elapsed,
+          // keep showing "running" for better user feedback.
+          const elapsed = Date.now() - runningSinceRef.current;
+          if (statusData[source.id]?.is_running === false && elapsed < MIN_RUNNING_DISPLAY_MS) {
+            // Still within min display window — schedule another poll
+            // but don't update statusMap yet to preserve the visual running state.
+            if (pollCount >= maxPolls) {
+              if (pollTimerRef.current) {
+                clearTimeout(pollTimerRef.current);
+                pollTimerRef.current = null;
+              }
+              showSuccessToast("采集可能仍在进行中，请稍后刷新查看");
+              return;
+            }
+            delay = 2000;
+            pollTimerRef.current = setTimeout(poll, delay);
+            return;
+          }
+
+          setStatusMap(statusData);
+
+          // Check if this source is no longer running
+          if (statusData[source.id]?.is_running === false) {
+            if (pollTimerRef.current) {
+              clearTimeout(pollTimerRef.current);
+              pollTimerRef.current = null;
+            }
+            await loadData();
+            return;
+          }
+
+          // Max attempts reached
+          if (pollCount >= maxPolls) {
+            if (pollTimerRef.current) {
+              clearTimeout(pollTimerRef.current);
+              pollTimerRef.current = null;
+            }
+            showSuccessToast("采集可能仍在进行中，请稍后刷新查看");
+            return;
+          }
+
+          // Subsequent polls use 2s interval
+          delay = 2000;
+          pollTimerRef.current = setTimeout(poll, delay);
+        } catch {
+          // If status check fails, keep polling until max
+          if (pollCount >= maxPolls) {
+            if (pollTimerRef.current) {
+              clearTimeout(pollTimerRef.current);
+              pollTimerRef.current = null;
+            }
+            showSuccessToast("采集可能仍在进行中，请稍后刷新查看");
+            return;
+          }
+          delay = 2000;
+          pollTimerRef.current = setTimeout(poll, delay);
+        }
+      };
+
+      // Immediate first poll to sync real status
+      poll();
     } catch (err: any) {
       showErrorToast(err?.message || "触发失败");
     } finally {
@@ -483,6 +591,19 @@ export default function CrawlerManage() {
                       <Play size={12} strokeWidth={1.75} />
                     )}
                     {running ? "采集中…" : "立即采集"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigate(`/admin/data-list?type=${encodeURIComponent(source.source_type)}&source=${encodeURIComponent(source.source_name)}`);
+                    }}
+                    className={cn(
+                      "flex items-center gap-1 px-3 h-7 rounded-full text-[12px]",
+                      "border border-[#E5E5E5] text-[#404040]",
+                      "hover:border-[#0A0A0A] hover:text-[#0A0A0A] transition-colors duration-150",
+                    )}
+                  >
+                    <Eye size={12} strokeWidth={1.75} />
+                    查看数据
                   </button>
                   <div className="flex-1" />
                   <button

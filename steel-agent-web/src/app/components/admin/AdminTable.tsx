@@ -164,7 +164,7 @@ function SortIcon({ active, direction }: SortIconProps) {
 
 function AdminTableInner<T>({
   columns,
-  data,
+  data: rawData,
   sortBy,
   sortOrder,
   onSort,
@@ -177,11 +177,13 @@ function AdminTableInner<T>({
   empty,
   onRowClick,
   selectable = false,
-  selectedIds = [],
+  selectedIds: rawSelectedIds = [],
   onSelectionChange,
   className,
   rowKey,
 }: AdminTableProps<T>) {
+  const data = rawData ?? ([] as unknown as T[]);
+  const selectedIds = rawSelectedIds ?? [];
   const totalPages = total ? Math.max(1, Math.ceil(total / pageSize)) : 0;
 
   // 三态排序切换

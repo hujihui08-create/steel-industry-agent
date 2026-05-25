@@ -238,27 +238,55 @@ export function Dashboard() {
       }
       setError(null);
 
-      try {
-        const [statsRes, trendRes, badCaseRes, toolRes, logsRes] =
-          await Promise.all([
-            getDashboardStats(),
-            getTrendData(period),
-            getBadCaseStats(),
-            getToolHealth(),
-            getRecentLogs(),
-          ]);
+      const results = await Promise.allSettled([
+        getDashboardStats(),
+        getTrendData(period),
+        getBadCaseStats(),
+        getToolHealth(),
+        getRecentLogs(),
+      ]);
 
-        setStats(statsRes);
-        setTrendData(trendRes);
-        setBadCaseStats(badCaseRes);
-        setToolHealth(toolRes);
-        setRecentLogs(logsRes);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "加载数据失败，请稍后重试");
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
+      const [
+        statsResult,
+        trendResult,
+        badCaseResult,
+        toolResult,
+        logsResult,
+      ] = results;
+
+      if (statsResult.status === "fulfilled") {
+        setStats(statsResult.value);
+      } else {
+        setStats(null);
+        setError("核心数据加载失败，请稍后重试");
       }
+
+      if (trendResult.status === "fulfilled") {
+        setTrendData(trendResult.value);
+      } else {
+        setTrendData([]);
+      }
+
+      if (badCaseResult.status === "fulfilled") {
+        setBadCaseStats(badCaseResult.value);
+      } else {
+        setBadCaseStats(null);
+      }
+
+      if (toolResult.status === "fulfilled") {
+        setToolHealth(toolResult.value);
+      } else {
+        setToolHealth([]);
+      }
+
+      if (logsResult.status === "fulfilled") {
+        setRecentLogs(logsResult.value);
+      } else {
+        setRecentLogs([]);
+      }
+
+      setLoading(false);
+      setRefreshing(false);
     },
     [],
   );
@@ -370,7 +398,7 @@ export function Dashboard() {
         />
       ) : (
         // ---- 正常内容 ----
-        <div className="overflow-y-auto">
+        <div>
           {/* ================================================ */}
           {/* 第一行：4 个统计卡片 */}
           {/* ================================================ */}

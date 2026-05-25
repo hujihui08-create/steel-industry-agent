@@ -10,6 +10,8 @@ import {
   Bot,
   AlertTriangle,
   TestTube,
+  Upload,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -18,15 +20,19 @@ import type {
   BadCase,
   BadCaseStatus,
   BadCaseStats,
+  BadCaseVerifyResult,
   PaginatedResponse,
 } from "@/app/types/admin";
 import type { AdminStatusBadgeStatus } from "./AdminStatusBadge";
 import {
   getBadCases,
   getBadCaseDetail,
-  updateBadCaseStatus,
+  updateBadCase,
   exportBadCases,
   getBadCaseStats as fetchBadCaseStats,
+  verifyBadCase,
+  importBadCases,
+  createBadCase,
 } from "@/app/api/admin";
 import { AdminPageShell } from "./AdminPageShell";
 import { AdminTable, type TableColumn } from "./AdminTable";
@@ -177,11 +183,27 @@ export default function BadCaseManagement() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<BadCase | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [editingFixPlan, setEditingFixPlan] = useState("");
+  const [editingFixSolution, setEditingFixSolution] = useState("");
   const [editingVerification, setEditingVerification] = useState("");
   const [savingStatus, setSavingStatus] = useState(false);
-  const fixPlanRef = useRef<HTMLTextAreaElement>(null);
+  const fixSolutionRef = useRef<HTMLTextAreaElement>(null);
   const savedScrollRef = useRef<number>(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ---------- 验证流程 ----------
+  const [verifyResult, setVerifyResult] = useState<BadCaseVerifyResult | null>(null);
+  const [verifying, setVerifying] = useState(false);
+
+  // ---------- 添加 Bad Case 弹窗 ----------
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addForm, setAddForm] = useState({
+    user_query: "",
+    ai_response: "",
+    correct_response: "",
+    error_type: "price_inaccurate",
+  });
+  const [addErrors, setAddErrors] = useState<Record<string, string>>({});
+  const [addingSubmitting, setAddingSubmitting] = useState(false);
 
   // ---------- 数据加载 ----------
   const loadData = useCallback(async () => {
@@ -192,7 +214,7 @@ export default function BadCaseManagement() {
         pageSize,
       };
       if (filterStatus !== "all") filter.status = filterStatus;
-      if (filterErrorType !== "all") filter.errorType = filterErrorType;
+      if (filterErrorType !== "all") filter.error_type = filterErrorType;
       if (searchKeyword.trim()) filter.keyword = searchKeyword.trim();
       // 日期筛选暂由前端处理（Mock API 不支持）
       if (filterDateStart) (filter as any).dateStart = filterDateStart;
@@ -232,10 +254,8 @@ export default function BadCaseManagement() {
 
   // ---------- 抽屉详情加载 ----------
   const openDrawer = useCallback(
-    async (id: string, focusFixPlan = false) => {
-      // 保存当前滚动位置
+    async (id: string, focusFixSolution = false) => {
       savedScrollRef.current = window.scrollY;
-
       setSelectedId(id);
       setDrawerOpen(true);
       setDetailLoading(true);
@@ -243,13 +263,12 @@ export default function BadCaseManagement() {
       try {
         const d = await getBadCaseDetail(id);
         setDetail(d);
-        setEditingFixPlan(d.fixPlan ?? "");
-        setEditingVerification(d.verificationResult ?? "");
+        setEditingFixSolution(d.fix_solution ?? "");
+        setEditingVerification("");
 
-        // 如果标记了需要聚焦修复方案 textarea
-        if (focusFixPlan) {
+        if (focusFixSolution) {
           setTimeout(() => {
-            fixPlanRef.current?.focus();
+            fixSolutionRef.current?.focus();
           }, 300);
         }
       } catch {
@@ -264,6 +283,8 @@ export default function BadCaseManagement() {
 
   const closeDrawer = useCallback(() => {
     setDrawerOpen(false);
+    setVerifyResult(null);
+    setVerifying(false);
     // 恢复滚动位置
     requestAnimationFrame(() => {
       window.scrollTo(0, savedScrollRef.current);
@@ -273,10 +294,18 @@ export default function BadCaseManagement() {
   // ---------- 操作 ----------
   /** 标记已修复 */
   const handleMarkFixed = useCallback(async () => {
-    if (!selectedId) return;
+    if (!selectedId || !detail) return;
+    if (!editingFixSolution.trim()) {
+      showErrorToast("请先填写修复方案");
+      fixSolutionRef.current?.focus();
+      return;
+    }
     setSavingStatus(true);
     try {
-      await updateBadCaseStatus(selectedId, "fixed", editingFixPlan);
+      if (detail.status === "pending") {
+        await updateBadCase(selectedId, { status: "fixing", fix_solution: editingFixSolution.trim() });
+      }
+      await updateBadCase(selectedId, { status: "fixed", fix_solution: editingFixSolution.trim() });
       showSuccessToast("已标记为已修复");
       closeDrawer();
       loadData();
@@ -286,14 +315,28 @@ export default function BadCaseManagement() {
     } finally {
       setSavingStatus(false);
     }
-  }, [selectedId, editingFixPlan, closeDrawer, loadData, loadStats]);
+  }, [selectedId, detail, editingFixSolution, closeDrawer, loadData, loadStats]);
 
-  /** 标记已验证 */
+  /** 验证 Bad Case（Step 1: 调用 verifyBadCase API，获取对比结果） */
   const handleVerify = useCallback(async () => {
+    if (!selectedId) return;
+    setVerifying(true);
+    try {
+      const result = await verifyBadCase(selectedId);
+      setVerifyResult(result);
+    } catch {
+      showErrorToast("验证失败，请重试");
+    } finally {
+      setVerifying(false);
+    }
+  }, [selectedId]);
+
+  /** 确认验证（Step 2: 确认验证通过，更新状态） */
+  const handleConfirmVerify = useCallback(async () => {
     if (!selectedId) return;
     setSavingStatus(true);
     try {
-      await updateBadCaseStatus(selectedId, "verified", undefined);
+      await updateBadCase(selectedId, { status: "verified" });
       showSuccessToast("已验证通过");
       closeDrawer();
       loadData();
@@ -305,12 +348,17 @@ export default function BadCaseManagement() {
     }
   }, [selectedId, closeDrawer, loadData, loadStats]);
 
+  /** 仍需修复（重置验证结果，回到修复状态） */
+  const handleRetryFix = useCallback(() => {
+    setVerifyResult(null);
+  }, []);
+
   /** 导出 CSV */
   const handleExport = useCallback(async () => {
     try {
       const filter: Record<string, unknown> = {};
       if (filterStatus !== "all") filter.status = filterStatus;
-      if (filterErrorType !== "all") filter.errorType = filterErrorType;
+      if (filterErrorType !== "all") filter.error_type = filterErrorType;
       if (searchKeyword.trim()) filter.keyword = searchKeyword.trim();
 
       const blob = await exportBadCases(filter);
@@ -327,6 +375,58 @@ export default function BadCaseManagement() {
       showErrorToast("导出失败，请重试");
     }
   }, [filterStatus, filterErrorType, searchKeyword]);
+
+  /** 批量导入 */
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const result = await importBadCases(file);
+      showSuccessToast(`导入完成：成功 ${result.success} 条，失败 ${result.failed} 条`);
+      loadData();
+      loadStats();
+    } catch {
+      showErrorToast("导入失败，请检查文件格式");
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  /** 添加 Bad Case 提交 */
+  const handleAddSubmit = async () => {
+    const errors: Record<string, string> = {};
+    if (!addForm.user_query.trim()) errors.user_query = "请输入用户问题";
+    if (!addForm.ai_response.trim()) errors.ai_response = "请输入AI错误回复";
+    if (!addForm.error_type) errors.error_type = "请选择问题类型";
+
+    setAddErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    setAddingSubmitting(true);
+    try {
+      await createBadCase({
+        user_query: addForm.user_query.trim(),
+        ai_response: addForm.ai_response.trim(),
+        correct_response: addForm.correct_response.trim() || undefined,
+        error_type: addForm.error_type,
+      });
+      showSuccessToast("添加成功");
+      setAddModalOpen(false);
+      setAddForm({
+        user_query: "",
+        ai_response: "",
+        correct_response: "",
+        error_type: "price_inaccurate",
+      });
+      setAddErrors({});
+      loadData();
+      loadStats();
+    } catch {
+      showErrorToast("添加失败，请重试");
+    } finally {
+      setAddingSubmitting(false);
+    }
+  };
 
   /** 处理统计卡片点击 -- 切换筛选 */
   const handleStatClick = useCallback(
@@ -372,7 +472,7 @@ export default function BadCaseManagement() {
       key: "userQuestion",
       title: "用户问题",
       render: (_: unknown, row: BadCase) => {
-        const q = String(row.userQuestion ?? "");
+        const q = String(row.user_query ?? "");
         return (
           <span
             className="block max-w-[280px] truncate"
@@ -388,7 +488,7 @@ export default function BadCaseManagement() {
       title: "问题类型",
       width: "120px",
       render: (_: unknown, row: BadCase) => {
-        const t = String(row.errorType ?? "");
+        const t = String(row.error_type ?? "");
         return (
           <span className="text-[13px] leading-[1.5] text-[#404040]">
             {errorTypeLabel(t)}
@@ -514,6 +614,13 @@ export default function BadCaseManagement() {
   /** 顶部操作按钮 */
   const actions = (
     <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx,.csv,.json"
+        className="hidden"
+        onChange={handleImport}
+      />
       <Button
         variant="outline"
         onClick={handleExport}
@@ -530,6 +637,22 @@ export default function BadCaseManagement() {
         导出
       </Button>
       <Button
+        variant="outline"
+        onClick={() => fileInputRef.current?.click()}
+        className={cn(
+          "h-9 px-4 rounded-full",
+          "border border-[#E5E5E5]",
+          "text-[13px] leading-[1.5] text-[#404040]",
+          "hover:bg-[#FAFAFA] hover:border-[#0A0A0A]",
+          "transition-colors duration-150",
+          "gap-1.5",
+        )}
+      >
+        <Upload size={14} strokeWidth={1.75} />
+        导入
+      </Button>
+      <Button
+        onClick={() => setAddModalOpen(true)}
         className={cn(
           "h-9 px-4 rounded-full",
           "bg-[#0A0A0A] text-white",
@@ -548,6 +671,45 @@ export default function BadCaseManagement() {
   /** 抽屉底部操作按钮 */
   const drawerFooter = detail ? (
     <>
+      {/* 已验证状态 - 显示对比结果，确认验证 / 仍需修复 */}
+      {detail.status === "fixed" && verifyResult ? (
+        <>
+          <Button
+            onClick={handleRetryFix}
+            variant="outline"
+            className={cn(
+              "h-9 px-5 rounded-full",
+              "border border-[#E5E5E5]",
+              "text-[13px] leading-[1.5] text-[#404040]",
+              "hover:bg-[#FAFAFA]",
+              "transition-colors duration-150",
+            )}
+          >
+            仍需修复
+          </Button>
+          <Button
+            onClick={handleConfirmVerify}
+            disabled={savingStatus}
+            className={cn(
+              "h-9 px-5 rounded-full",
+              "bg-[#1F7A4D] text-white",
+              "text-[13px] leading-[1.5]",
+              "hover:bg-[#166534]",
+              "transition-colors duration-150",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "gap-1.5",
+            )}
+          >
+            {savingStatus ? (
+              <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <CheckCircle2 size={14} strokeWidth={1.75} />
+            )}
+            确认验证
+          </Button>
+        </>
+      ) : null}
+
       {(detail.status === "pending" || detail.status === "fixing") && (
         <Button
           onClick={handleMarkFixed}
@@ -570,10 +732,10 @@ export default function BadCaseManagement() {
           标记已修复
         </Button>
       )}
-      {detail.status === "fixed" && (
+      {detail.status === "fixed" && !verifyResult && (
         <Button
           onClick={handleVerify}
-          disabled={savingStatus}
+          disabled={verifying}
           className={cn(
             "h-9 px-5 rounded-full",
             "bg-[#1F7A4D] text-white",
@@ -584,12 +746,12 @@ export default function BadCaseManagement() {
             "gap-1.5",
           )}
         >
-          {savingStatus ? (
+          {verifying ? (
             <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           ) : (
             <CheckCircle2 size={14} strokeWidth={1.75} />
           )}
-          验证通过
+          {verifying ? "验证中..." : "验证"}
         </Button>
       )}
       <Button
@@ -877,7 +1039,7 @@ export default function BadCaseManagement() {
                     问题类型
                   </span>
                   <span className="text-[13px] leading-[1.5] text-[#404040]">
-                    {errorTypeLabel(detail.errorType)}
+                    {errorTypeLabel(detail.error_type)}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -894,7 +1056,7 @@ export default function BadCaseManagement() {
                     上报用户
                   </span>
                   <span className="text-[13px] leading-[1.5] text-[#404040]">
-                    {detail.reportedBy}
+                    {detail.reported_by ?? "-"}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -902,7 +1064,7 @@ export default function BadCaseManagement() {
                     上报时间
                   </span>
                   <span className="text-[13px] leading-[1.5] text-[#404040]">
-                    {detail.reportedAt}
+                    {detail.created_at}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -910,7 +1072,7 @@ export default function BadCaseManagement() {
                     会话ID
                   </span>
                   <span className="text-[13px] leading-[1.5] text-[#404040] font-mono text-[11px]">
-                    {detail.conversationId}
+                    {detail.conversation_id ?? "-"}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -918,7 +1080,7 @@ export default function BadCaseManagement() {
                     消息ID
                   </span>
                   <span className="text-[13px] leading-[1.5] text-[#404040] font-mono text-[11px]">
-                    {detail.messageId}
+                    -
                   </span>
                 </div>
               </div>
@@ -947,7 +1109,7 @@ export default function BadCaseManagement() {
                     className="text-[#737373] shrink-0 mt-0.5"
                   />
                   <p className="text-[15px] leading-[1.6] text-[#0A0A0A]">
-                    {detail.userQuestion}
+                    {detail.user_query}
                   </p>
                 </div>
               </div>
@@ -976,7 +1138,7 @@ export default function BadCaseManagement() {
                     className="text-[#737373] shrink-0 mt-0.5"
                   />
                   <p className="text-[15px] leading-[1.6] text-[#404040]">
-                    {detail.aiResponse}
+                    {detail.ai_response}
                   </p>
                 </div>
               </div>
@@ -999,7 +1161,7 @@ export default function BadCaseManagement() {
                 )}
               >
                 <p className="text-[15px] leading-[1.6] text-[#1F7A4D]">
-                  {detail.correctResponse || "暂无正确回复"}
+                  {detail.correct_response || "暂无正确回复"}
                 </p>
               </div>
             </div>
@@ -1015,10 +1177,10 @@ export default function BadCaseManagement() {
                 修复方案
               </h3>
               <Textarea
-                ref={fixPlanRef}
-                id="fix-plan-textarea"
-                value={editingFixPlan}
-                onChange={(e) => setEditingFixPlan(e.target.value)}
+                ref={fixSolutionRef}
+                id="fix-solution-textarea"
+                value={editingFixSolution}
+                onChange={(e) => setEditingFixSolution(e.target.value)}
                 placeholder={
                   detail.status === "verified"
                     ? "已验证通过，无需编辑"
@@ -1038,6 +1200,95 @@ export default function BadCaseManagement() {
                 )}
               />
             </div>
+
+            {/* ---- 验证对比结果 ---- */}
+            {verifyResult && (
+              <div className="flex flex-col gap-3">
+                <h3
+                  className={cn(
+                    "text-[13px] leading-[1.5] font-medium",
+                    "text-[#0A0A0A] tracking-[0.04em] uppercase",
+                  )}
+                >
+                  验证对比
+                </h3>
+
+                {/* 智能判定横幅 */}
+                <div
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-3 rounded-lg border",
+                    verifyResult.verdict === "fixed"
+                      ? "bg-[#F0FDF4] border-[#BBF7D0]"
+                      : verifyResult.verdict === "likely_fixed"
+                        ? "bg-[#FFFBEB] border-[#FDE68A]"
+                        : "bg-[#FEF2F2] border-[#FECACA]",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "text-[11px] leading-[1.5] font-medium uppercase tracking-[0.04em]",
+                      verifyResult.verdict === "fixed"
+                        ? "text-[#1F7A4D]"
+                        : verifyResult.verdict === "likely_fixed"
+                          ? "text-[#B45309]"
+                          : "text-[#B42318]",
+                    )}
+                  >
+                    {verifyResult.verdict === "fixed" ? "✅ 已修复" : verifyResult.verdict === "likely_fixed" ? "⚠️ 可能已修复" : "❌ 仍存在问题"}
+                  </span>
+                  <span className="text-[12px] leading-[1.5] text-[#404040]">
+                    {verifyResult.verdict_reason}
+                  </span>
+                  <span className="ml-auto text-[11px] leading-[1.5] text-[#737373] tabular-nums whitespace-nowrap">
+                    相似度 {verifyResult.similarity}%
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* 原始错误回复 */}
+                  <div
+                    className={cn(
+                      "p-4 rounded-lg",
+                      "bg-[#FEF2F2] border border-[#FECACA]",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "text-[11px] leading-[1.5] font-medium",
+                        "text-[#B42318] uppercase tracking-[0.04em]",
+                      )}
+                    >
+                      原始错误回复
+                    </span>
+                    <p className="mt-2 text-[13px] leading-[1.6] text-[#404040] whitespace-pre-wrap">
+                      {verifyResult.original_reply}
+                    </p>
+                  </div>
+                  {/* 当前 AI 回复 */}
+                  <div
+                    className={cn(
+                      "p-4 rounded-lg",
+                      "bg-[#F0FDF4] border border-[#BBF7D0]",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "text-[11px] leading-[1.5] font-medium",
+                        "text-[#1F7A4D] uppercase tracking-[0.04em]",
+                      )}
+                    >
+                      当前 AI 回复
+                    </span>
+                    <p className="mt-2 text-[13px] leading-[1.6] text-[#404040] whitespace-pre-wrap">
+                      {verifyResult.current_reply}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[11px] leading-[1.5] text-[#737373]">
+                  验证时间: {verifyResult.verified_at}
+                </span>
+              </div>
+            )}
 
             {/* ---- 验证结果 ---- */}
             <div className="flex flex-col gap-2">
@@ -1077,6 +1328,244 @@ export default function BadCaseManagement() {
           </div>
         ) : null}
       </AdminDrawer>
+
+      {/* ================================================================ */}
+      {/* 5. 添加 Bad Case 弹窗 */}
+      {/* ================================================================ */}
+      {addModalOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setAddModalOpen(false);
+          }}
+        >
+          {/* 遮罩 */}
+          <div className="absolute inset-0 bg-black/30" />
+
+          {/* 弹窗 */}
+          <div
+            className={cn(
+              "relative z-10",
+              "bg-white border border-[#E5E5E5] rounded-2xl",
+              "shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
+              "w-full max-w-lg",
+              "mx-4",
+            )}
+          >
+            {/* 标题栏 */}
+            <div className="flex items-center justify-between px-6 pt-6 pb-3">
+              <h2 className="text-[16px] leading-[1.4] font-medium text-[#0A0A0A]">
+                添加 Bad Case
+              </h2>
+              <button
+                type="button"
+                onClick={() => setAddModalOpen(false)}
+                className={cn(
+                  "inline-flex items-center justify-center",
+                  "h-8 w-8 rounded-full",
+                  "text-[#737373] hover:text-[#0A0A0A] hover:bg-[#FAFAFA]",
+                  "transition-colors duration-150",
+                )}
+                aria-label="关闭"
+              >
+                <X size={16} strokeWidth={1.75} />
+              </button>
+            </div>
+
+            {/* 表单 */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleAddSubmit();
+              }}
+              className="px-6 pb-3 flex flex-col gap-4"
+            >
+              {/* 用户问题 */}
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="add-user-query"
+                  className="text-[12px] leading-[1.5] font-medium text-[#404040]"
+                >
+                  用户问题 <span className="text-[#B42318]">*</span>
+                </label>
+                <textarea
+                  id="add-user-query"
+                  value={addForm.user_query}
+                  onChange={(e) => {
+                    setAddForm((prev) => ({ ...prev, user_query: e.target.value }));
+                    if (addErrors.user_query) setAddErrors((prev) => ({ ...prev, user_query: "" }));
+                  }}
+                  maxLength={300}
+                  rows={3}
+                  placeholder="输入用户原始问题..."
+                  className={cn(
+                    "rounded-md px-3 py-2",
+                    "border",
+                    addErrors.user_query ? "border-[#B42318]" : "border-[#E5E5E5]",
+                    "text-[13px] leading-[1.6] text-[#404040]",
+                    "placeholder:text-[#A3A3A3]",
+                    "resize-none",
+                    "outline-none focus:border-[#0A0A0A] focus:ring-2 focus:ring-[#0A0A0A]/5",
+                    "transition-colors duration-150",
+                  )}
+                />
+                {addErrors.user_query && (
+                  <span className="text-[11px] leading-[1.5] text-[#B42318]">
+                    {addErrors.user_query}
+                  </span>
+                )}
+              </div>
+
+              {/* AI 错误回复 */}
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="add-ai-response"
+                  className="text-[12px] leading-[1.5] font-medium text-[#404040]"
+                >
+                  AI 错误回复 <span className="text-[#B42318]">*</span>
+                </label>
+                <textarea
+                  id="add-ai-response"
+                  value={addForm.ai_response}
+                  onChange={(e) => {
+                    setAddForm((prev) => ({ ...prev, ai_response: e.target.value }));
+                    if (addErrors.ai_response) setAddErrors((prev) => ({ ...prev, ai_response: "" }));
+                  }}
+                  rows={4}
+                  placeholder="输入AI的错误回复内容..."
+                  className={cn(
+                    "rounded-md px-3 py-2",
+                    "border",
+                    addErrors.ai_response ? "border-[#B42318]" : "border-[#E5E5E5]",
+                    "text-[13px] leading-[1.6] text-[#404040]",
+                    "placeholder:text-[#A3A3A3]",
+                    "resize-none",
+                    "outline-none focus:border-[#0A0A0A] focus:ring-2 focus:ring-[#0A0A0A]/5",
+                    "transition-colors duration-150",
+                  )}
+                />
+                {addErrors.ai_response && (
+                  <span className="text-[11px] leading-[1.5] text-[#B42318]">
+                    {addErrors.ai_response}
+                  </span>
+                )}
+              </div>
+
+              {/* 正确回复 */}
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="add-correct-response"
+                  className="text-[12px] leading-[1.5] font-medium text-[#404040]"
+                >
+                  正确回复
+                </label>
+                <textarea
+                  id="add-correct-response"
+                  value={addForm.correct_response}
+                  onChange={(e) =>
+                    setAddForm((prev) => ({ ...prev, correct_response: e.target.value }))
+                  }
+                  rows={3}
+                  placeholder="输入正确的回复内容（可选）..."
+                  className={cn(
+                    "rounded-md px-3 py-2",
+                    "border border-[#E5E5E5]",
+                    "text-[13px] leading-[1.6] text-[#404040]",
+                    "placeholder:text-[#A3A3A3]",
+                    "resize-none",
+                    "outline-none focus:border-[#0A0A0A] focus:ring-2 focus:ring-[#0A0A0A]/5",
+                    "transition-colors duration-150",
+                  )}
+                />
+              </div>
+
+              {/* 问题类型 */}
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="add-error-type"
+                  className="text-[12px] leading-[1.5] font-medium text-[#404040]"
+                >
+                  问题类型 <span className="text-[#B42318]">*</span>
+                </label>
+                <Select
+                  value={addForm.error_type}
+                  onValueChange={(v) => {
+                    setAddForm((prev) => ({ ...prev, error_type: v }));
+                    if (addErrors.error_type) setAddErrors((prev) => ({ ...prev, error_type: "" }));
+                  }}
+                >
+                  <SelectTrigger
+                    id="add-error-type"
+                    className={cn(
+                      "h-9 w-full rounded-[10px]",
+                      "border",
+                      addErrors.error_type ? "border-[#B42318]" : "border-[#E5E5E5]",
+                      "bg-white text-[13px] text-[#404040]",
+                      "focus:border-[#0A0A0A] focus:ring-1 focus:ring-[#0A0A0A]/10",
+                    )}
+                  >
+                    <SelectValue placeholder="选择问题类型" />
+                  </SelectTrigger>
+                  <SelectContent className="border-[#E5E5E5] rounded-[10px]">
+                    {ERROR_TYPE_OPTIONS.filter((opt) => opt.value !== "all").map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-[13px]">
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {addErrors.error_type && (
+                  <span className="text-[11px] leading-[1.5] text-[#B42318]">
+                    {addErrors.error_type}
+                  </span>
+                )}
+              </div>
+
+              {/* 按钮 */}
+              <div className="flex items-center justify-end gap-2 pt-2 pb-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setAddModalOpen(false)}
+                  disabled={addingSubmitting}
+                  className={cn(
+                    "h-9 px-5 rounded-full",
+                    "border border-[#E5E5E5]",
+                    "text-[13px] leading-[1.5] text-[#404040]",
+                    "hover:bg-[#FAFAFA]",
+                    "transition-colors duration-150",
+                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                  )}
+                >
+                  取消
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={addingSubmitting}
+                  className={cn(
+                    "h-9 px-5 rounded-full",
+                    "bg-[#0A0A0A] text-white",
+                    "text-[13px] leading-[1.5]",
+                    "hover:bg-[#404040]",
+                    "transition-colors duration-150",
+                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                    "gap-1.5",
+                  )}
+                >
+                  {addingSubmitting ? (
+                    <>
+                      <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      添加中...
+                    </>
+                  ) : (
+                    "确认添加"
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </AdminPageShell>
   );
 }

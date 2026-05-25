@@ -14,6 +14,7 @@ const SIDEBAR_PATH_TO_TOP_MENU: Record<string, string> = {
   "/admin": "dashboard",
   "/admin/agent-config": "agent",
   "/admin/intent-management": "agent",
+  "/admin/agent-debug": "agent",
   "/admin/bad-case": "quality",
   "/admin/knowledge-manage": "data",
   "/admin/vector-search-test": "data",
@@ -32,6 +33,7 @@ const PATH_TO_SIDEBAR_ID: Record<string, string> = {
   "/admin": "overview",
   "/admin/agent-config": "agent-config",
   "/admin/intent-management": "intent-management",
+  "/admin/agent-debug": "agent-debug",
   "/admin/bad-case": "bad-case",
   "/admin/knowledge-manage": "knowledge-manage",
   "/admin/vector-search-test": "vector-search-test",
@@ -236,9 +238,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   // 内容区域布局类名
   const contentClassName = cn(
-    "min-h-screen transition-[margin] duration-200 ease-out",
+    "overflow-y-auto transition-[margin] duration-200 ease-out",
     // 移动端：仅 header 高度
-    isMobile ? "pt-[56px]" : "pt-[104px]",
+    isMobile ? "h-screen pt-[56px]" : "h-screen pt-[104px]",
     // 侧边栏左边距
     isMobile
       ? ""

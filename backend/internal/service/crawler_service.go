@@ -271,7 +271,7 @@ func (s *CrawlerService) TriggerCrawl(sourceID uint) error {
 	if s.runningTasks[sourceID] {
 		s.mu.Unlock()
 		log.Printf("[CrawlerService] Source %d is already running, skipping TriggerCrawl", sourceID)
-		return nil
+		return fmt.Errorf("数据源 %d 正在采集中，请稍后再试", sourceID)
 	}
 	s.runningTasks[sourceID] = true
 	s.mu.Unlock()
@@ -288,12 +288,27 @@ func (s *CrawlerService) TriggerCrawl(sourceID uint) error {
 	return nil
 }
 
-// GetCrawlStatus returns a status overview for all active data sources, including
-// whether each source is currently running and when it was last crawled.
-func (s *CrawlerService) GetCrawlStatus() (map[uint]CrawlStatus, error) {
-	sources, err := s.sourceRepo.FindActive()
+// CleanupZombieLogs marks all running crawl logs as failed. This should be called
+// on service startup to handle logs left in "running" state from a previous crash.
+func (s *CrawlerService) CleanupZombieLogs() {
+	ctx := context.Background()
+	count, err := s.logRepo.CleanupZombieLogs(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch active sources: %w", err)
+		log.Printf("[CrawlerService] Failed to cleanup zombie logs: %v", err)
+		return
+	}
+	if count > 0 {
+		log.Printf("[CrawlerService] Cleaned up %d zombie crawl logs", count)
+	}
+}
+
+// GetCrawlStatus returns a status overview for ALL data sources (including inactive ones),
+// whether each source is currently running and when it was last crawled.
+// Inactive sources always have IsRunning forced to false.
+func (s *CrawlerService) GetCrawlStatus() (map[uint]CrawlStatus, error) {
+	sources, err := s.sourceRepo.FindAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch sources: %w", err)
 	}
 
 	s.mu.Lock()
@@ -311,13 +326,18 @@ func (s *CrawlerService) GetCrawlStatus() (map[uint]CrawlStatus, error) {
 			}
 		}
 
+		isRunning := s.runningTasks[src.ID]
+		if !src.IsActive {
+			isRunning = false // Inactive sources are never running.
+		}
+
 		result[src.ID] = CrawlStatus{
 			SourceID:      src.ID,
 			SourceName:    src.SourceName,
 			SourceType:    src.SourceType,
 			SourceURL:     src.SourceURL,
 			IsActive:      src.IsActive,
-			IsRunning:     s.runningTasks[src.ID],
+			IsRunning:     isRunning,
 			LastCrawlAt:   src.LastCrawlAt,
 			LastSuccessAt: src.LastSuccessAt,
 			NextCrawlAt:   nextCrawlAt,
@@ -378,11 +398,12 @@ func (s *CrawlerService) parsePriceHTML(source model.CrawlerSource, c *colly.Col
 		}
 
 		// Extract each field using the configured CSS selectors.
+		// Values are truncated to fit column limits (spec: 200, region: 200, category: 50).
 		if sel, ok := rule.Fields["category"]; ok {
-			price.Category = strings.TrimSpace(e.ChildText(sel))
+			price.Category = truncateStr(strings.TrimSpace(e.ChildText(sel)), 50)
 		}
 		if sel, ok := rule.Fields["spec"]; ok {
-			price.Spec = strings.TrimSpace(e.ChildText(sel))
+			price.Spec = truncateStr(strings.TrimSpace(e.ChildText(sel)), 200)
 		}
 		if sel, ok := rule.Fields["price"]; ok {
 			price.Price = sanitizeNumber(e.ChildText(sel))
@@ -394,7 +415,7 @@ func (s *CrawlerService) parsePriceHTML(source model.CrawlerSource, c *colly.Col
 			price.ChangePct = sanitizeNumber(e.ChildText(sel))
 		}
 		if sel, ok := rule.Fields["region"]; ok {
-			price.Region = strings.TrimSpace(e.ChildText(sel))
+			price.Region = truncateStr(strings.TrimSpace(e.ChildText(sel)), 200)
 		}
 
 		// Only persist rows that have at least a category (bare minimum).
@@ -402,9 +423,9 @@ func (s *CrawlerService) parsePriceHTML(source model.CrawlerSource, c *colly.Col
 			return
 		}
 
-		// Validate category against enabled categories list.
-		if _, err := s.categoryRepo.FindByNameAndType(ctx, price.Category, "spot"); err != nil {
-			log.Printf("[crawler] category '%s' not in enabled list, skipping", price.Category)
+		// Skip items whose category is explicitly disabled.
+		if cat, err := s.categoryRepo.FindByNameAndType(ctx, price.Category, "spot"); err == nil && cat.Status == "disabled" {
+			log.Printf("[crawler] category '%s' is disabled, skipping", price.Category)
 			return
 		}
 
@@ -589,6 +610,15 @@ func sanitizeNumber(raw string) float64 {
 		return 0
 	}
 	return val
+}
+
+// truncateStr truncates a string to maxLen runes.
+func truncateStr(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	return string(runes[:maxLen])
 }
 
 // parseDateField attempts to parse a date string into time.Time.

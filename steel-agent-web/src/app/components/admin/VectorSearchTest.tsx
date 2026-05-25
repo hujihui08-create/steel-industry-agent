@@ -28,8 +28,8 @@ export default function VectorSearchTest() {
     setHistoryLoading(true);
     try {
       const res = await adminKnowledgeApi.adminGetSearchHistory(10, (historyPage - 1) * 10);
-      setHistory(res.list);
-      setHistoryTotal(res.total);
+      setHistory(res.list ?? []);
+      setHistoryTotal(res.total ?? 0);
     } catch {
       // ignore
     } finally {
@@ -52,7 +52,7 @@ export default function VectorSearchTest() {
         threshold,
         type_filter: typeFilter || undefined,
       });
-      setResults(res);
+      setResults(res ?? []);
       loadHistory();
     } catch {
       showErrorToast("检索失败，请重试");
@@ -198,7 +198,7 @@ export default function VectorSearchTest() {
           {/* 检索结果 */}
           {searching ? (
             <AdminLoading />
-          ) : results.length > 0 ? (
+          ) : (results ?? []).length > 0 ? (
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <h3 className="text-[14px] leading-[1.5] font-medium text-[#0A0A0A]">
@@ -279,7 +279,7 @@ export default function VectorSearchTest() {
 
             {historyLoading ? (
               <AdminLoading />
-            ) : history.length === 0 ? (
+            ) : (history ?? []).length === 0 ? (
               <AdminEmpty
                 title="暂无检索历史"
                 description="执行向量检索测试后，历史记录会出现在这里"

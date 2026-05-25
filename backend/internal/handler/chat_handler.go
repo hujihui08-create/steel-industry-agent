@@ -21,7 +21,7 @@ type chatService interface {
 	ContinueGeneration(ctx context.Context, userID uint, sessionID uint) (<-chan string, error)
 	DeleteSession(ctx context.Context, userID uint, sessionID uint) error
 	GetSessionMessages(ctx context.Context, userID uint, sessionID uint) ([]model.ChatMessage, error)
-	SubmitFeedback(ctx context.Context, userID uint, messageID uint, isHelpful bool, comment string) error
+	SubmitFeedback(ctx context.Context, userID uint, messageID uint, isHelpful bool, comment string, errorType string) error
 }
 
 // ChatHandler handles AI chat-related HTTP requests.
@@ -141,13 +141,14 @@ func (h *ChatHandler) SubmitFeedback(c *gin.Context) {
 		MessageID uint   `json:"message_id" binding:"required"`
 		IsHelpful bool   `json:"is_helpful"`
 		Comment   string `json:"comment"`
+		ErrorType string `json:"error_type"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, errors.CodeParamError, "参数错误")
 		return
 	}
 	userIDVal, _ := c.Get("user_id")
-	if err := h.chatService.SubmitFeedback(c.Request.Context(), userIDVal.(uint), req.MessageID, req.IsHelpful, req.Comment); err != nil {
+	if err := h.chatService.SubmitFeedback(c.Request.Context(), userIDVal.(uint), req.MessageID, req.IsHelpful, req.Comment, req.ErrorType); err != nil {
 		response.Error(c, errors.CodeInternalError, err.Error())
 		return
 	}

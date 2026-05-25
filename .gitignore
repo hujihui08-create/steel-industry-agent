@@ -76,6 +76,9 @@ handler_coverage
 # Figma Make design system reference (component references + design specs)
 Untitled/
 
+# TypeScript build info
+*.tsbuildinfo
+
 # Temp files
 temp_response.html
 file_list.txt

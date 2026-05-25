@@ -91,7 +91,7 @@ export default function KnowledgeManage() {
         limit: PAGE_SIZE,
         offset: (page - 1) * PAGE_SIZE,
       });
-      setData(list);
+      setData(list ?? []);
       setTotal(t);
     } catch { showErrorToast("加载知识库失败"); } finally { setLoading(false); }
   }, [page, searchKeyword, filterType, filterStatus, filterCategory]);
@@ -244,7 +244,7 @@ export default function KnowledgeManage() {
         </div>
 
         {/* Table */}
-        {loading ? <AdminLoading /> : data.length === 0 ? <AdminEmpty /> : (
+        {loading ? <AdminLoading /> : (data ?? []).length === 0 ? <AdminEmpty /> : (
           <AdminTable<KnowledgeItem>
             columns={columns}
             data={data}

@@ -21,7 +21,7 @@ type mockChatService struct {
 	continueGenerationFn func(ctx context.Context, userID uint, sessionID uint) (<-chan string, error)
 	deleteSessionFn      func(ctx context.Context, userID uint, sessionID uint) error
 	getMessagesFn        func(ctx context.Context, userID uint, sessionID uint) ([]model.ChatMessage, error)
-	submitFeedbackFn     func(ctx context.Context, userID uint, messageID uint, isHelpful bool, comment string) error
+	submitFeedbackFn     func(ctx context.Context, userID uint, messageID uint, isHelpful bool, comment string, errorType string) error
 }
 
 func (m *mockChatService) ChatCompletions(ctx context.Context, userID uint, sessionID uint, content string) (<-chan string, error) {
@@ -60,9 +60,9 @@ func (m *mockChatService) GetSessionMessages(ctx context.Context, userID uint, s
 	return nil, nil
 }
 
-func (m *mockChatService) SubmitFeedback(ctx context.Context, userID uint, messageID uint, isHelpful bool, comment string) error {
+func (m *mockChatService) SubmitFeedback(ctx context.Context, userID uint, messageID uint, isHelpful bool, comment string, errorType string) error {
 	if m.submitFeedbackFn != nil {
-		return m.submitFeedbackFn(ctx, userID, messageID, isHelpful, comment)
+		return m.submitFeedbackFn(ctx, userID, messageID, isHelpful, comment, errorType)
 	}
 	return nil
 }
@@ -273,7 +273,7 @@ func TestContinueGeneration_Success(t *testing.T) {
 
 func TestSubmitFeedback_Helpful(t *testing.T) {
 	mock := &mockChatService{
-		submitFeedbackFn: func(ctx context.Context, userID uint, messageID uint, isHelpful bool, comment string) error {
+		submitFeedbackFn: func(ctx context.Context, userID uint, messageID uint, isHelpful bool, comment string, errorType string) error {
 			return nil
 		},
 	}
@@ -304,7 +304,7 @@ func TestSubmitFeedback_Helpful(t *testing.T) {
 
 func TestSubmitFeedback_NotHelpful(t *testing.T) {
 	mock := &mockChatService{
-		submitFeedbackFn: func(ctx context.Context, userID uint, messageID uint, isHelpful bool, comment string) error {
+		submitFeedbackFn: func(ctx context.Context, userID uint, messageID uint, isHelpful bool, comment string, errorType string) error {
 			return nil
 		},
 	}

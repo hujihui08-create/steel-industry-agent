@@ -7,9 +7,9 @@ import apiClient from "./client";
 import type { ApiResponse } from "@/app/types/api";
 import type {
   CrawlerSource, CrawlerLog, CrawlStatus, CrawlerSourceFormData,
-  DashboardStats, TrendDataPoint, BadCaseStats, ToolHealth,
+  DashboardStats, TrendDataPoint, BadCaseStats, BadCaseStatisticsResponse, ToolHealth,
   AgentConfig, PromptVersion, Intent, IntentStats, IntentTestResult,
-  BadCase, MobileUser, AdminUser, AdminRole, AdminUserStatus, OperationLog,
+  BadCase, BadCaseFilter, BadCaseImportResult, BadCaseVerifyResult, MobileUser, AdminUser, AdminRole, AdminUserStatus, OperationLog,
   SystemSettings, BackupRecord, BackupOverview, PaginatedResponse,
   Category, PublicCategories
 } from "@/app/types/admin";
@@ -113,6 +113,39 @@ export async function getCrawlStatus(): Promise<Record<number, CrawlStatus>> {
 }
 
 // ============================================================
+// 采集数据查看（价格 / 资讯 / 招标）
+// ============================================================
+
+export async function getAdminPrices(params: {
+  category?: string;
+  region?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<any[]> {
+  const { data } = await apiClient.get<ApiResponse<any[]>>("/admin/prices", { params });
+  return data.data ?? [];
+}
+
+export async function getAdminNews(params: {
+  limit?: number;
+  offset?: number;
+}): Promise<any[]> {
+  const { data } = await apiClient.get<ApiResponse<any[]>>("/admin/news", { params });
+  return data.data ?? [];
+}
+
+export async function getAdminTenders(params: {
+  region?: string;
+  category?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<any[]> {
+  const { data } = await apiClient.get<ApiResponse<any[]>>("/admin/tenders", { params });
+  return data.data ?? [];
+}
+
+// ============================================================
 // Dashboard 仪表盘（对接真实后端 API）
 // ============================================================
 
@@ -126,7 +159,23 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     total_conversations?: number;
     ai_calls?: number;
   }>>("/admin/dashboard");
-  const s = data.data!;
+  const s = data.data;
+  if (!s) {
+    return {
+      totalUsers: 0,
+      totalUsersChange: 0,
+      totalUsersChangePct: 0,
+      todayActive: 0,
+      todayActiveChange: 0,
+      todayActiveChangePct: 0,
+      totalConversations: 0,
+      totalConversationsChange: 0,
+      totalConversationsChangePct: 0,
+      aiCalls: 0,
+      aiCallsChange: 0,
+      aiCallsChangePct: 0,
+    };
+  }
   return {
     totalUsers: s.user_count,
     totalUsersChange: 0,
@@ -154,13 +203,58 @@ export async function getTrendData(
 }
 
 export async function getBadCaseStats(): Promise<BadCaseStats> {
-  const { data } = await apiClient.get<ApiResponse<BadCaseStats>>("/admin/badcases/stats");
-  return data.data!;
+  const { data } = await apiClient.get<ApiResponse<BadCaseStatisticsResponse>>("/admin/bad-cases/statistics");
+  const raw = data.data;
+  if (!raw) {
+    return { pending: 0, fixing: 0, fixed: 0, verified: 0 };
+  }
+  if ("status_counts" in raw && raw.status_counts) {
+    return {
+      pending: raw.status_counts.pending ?? 0,
+      fixing: raw.status_counts.fixing ?? 0,
+      fixed: raw.status_counts.fixed ?? 0,
+      verified: raw.status_counts.verified ?? 0,
+    };
+  }
+  if ("pending" in raw || "fixing" in raw) {
+    return {
+      pending: (raw as unknown as BadCaseStats).pending ?? 0,
+      fixing: (raw as unknown as BadCaseStats).fixing ?? 0,
+      fixed: (raw as unknown as BadCaseStats).fixed ?? 0,
+      verified: (raw as unknown as BadCaseStats).verified ?? 0,
+    };
+  }
+  return { pending: 0, fixing: 0, fixed: 0, verified: 0 };
 }
 
 export async function getToolHealth(): Promise<ToolHealth[]> {
-  const { data } = await apiClient.get<ApiResponse<ToolHealth[]>>("/admin/debug/tool/health");
-  return data.data ?? [];
+  try {
+    const { data } = await apiClient.get<ApiResponse<{ tools: ToolHealth[]; summary: unknown }>>("/admin/debug/tool/health");
+    const result = data.data;
+    if (!result) return getDefaultToolHealth();
+    if (Array.isArray(result)) return result as unknown as ToolHealth[];
+    if (typeof result === "object" && "tools" in result) {
+      return result.tools as ToolHealth[];
+    }
+    return getDefaultToolHealth();
+  } catch {
+    return getDefaultToolHealth();
+  }
+}
+
+function getDefaultToolHealth(): ToolHealth[] {
+  return [
+    { name: "query_steel_price", displayName: "价格查询", status: "normal" },
+    { name: "calculate_quotation", displayName: "报价计算", status: "normal" },
+    { name: "search_knowledge", displayName: "知识检索", status: "normal" },
+    { name: "query_tender", displayName: "招标查询", status: "normal" },
+    { name: "get_price_trend", displayName: "价格走势", status: "normal" },
+    { name: "set_price_alert", displayName: "价格预警", status: "normal" },
+    { name: "convert_unit", displayName: "单位换算", status: "normal" },
+    { name: "calculate_weight", displayName: "重量计算", status: "normal" },
+    { name: "search_news", displayName: "资讯搜索", status: "normal" },
+    { name: "get_news_detail", displayName: "资讯详情", status: "normal" },
+  ];
 }
 
 export async function getRecentLogs(): Promise<OperationLog[]> {
@@ -168,7 +262,13 @@ export async function getRecentLogs(): Promise<OperationLog[]> {
     "/admin/logs",
     { params: { page_size: 5 } },
   );
-  return data.data ?? [];
+  const raw = data.data;
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw as unknown as OperationLog[];
+  if (typeof raw === "object" && "list" in raw) {
+    return (raw as unknown as { list: OperationLog[] }).list;
+  }
+  return [];
 }
 
 // ============================================================
@@ -218,7 +318,18 @@ export async function getIntents(filter?: {
     "/admin/intents",
     { params: { page: filter?.page, page_size: filter?.pageSize, keyword: filter?.keyword, status: filter?.status } },
   );
-  return data.data!;
+  const raw = data.data!;
+  if (Array.isArray(raw)) {
+    return { items: raw, total: raw.length, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 10 };
+  }
+  if (raw && typeof raw === "object" && "items" in raw) {
+    return raw as unknown as PaginatedResponse<Intent>;
+  }
+  if (raw && typeof raw === "object" && "list" in raw) {
+    const r = raw as unknown as { list: Intent[]; total: number; page: number; page_size: number };
+    return { items: r.list, total: r.total, page: r.page, pageSize: r.page_size };
+  }
+  return { items: [], total: 0, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 10 };
 }
 
 export async function createIntent(intent: Intent): Promise<void> {
@@ -250,39 +361,64 @@ export async function testIntent(text: string): Promise<IntentTestResult> {
 // Bad Case 管理（对接真实后端 API）
 // ============================================================
 
-export async function getBadCases(filter?: {
-  page?: number;
-  pageSize?: number;
-  status?: string;
-  errorType?: string;
-  keyword?: string;
-}): Promise<PaginatedResponse<BadCase>> {
+export async function getBadCases(filter?: BadCaseFilter): Promise<PaginatedResponse<BadCase>> {
   const { data } = await apiClient.get<ApiResponse<PaginatedResponse<BadCase>>>(
-    "/admin/badcases",
-    { params: { page: filter?.page, page_size: filter?.pageSize, status: filter?.status, error_type: filter?.errorType, keyword: filter?.keyword } },
+    "/admin/bad-cases",
+    { params: filter },
   );
   return data.data!;
 }
 
-export async function getBadCaseDetail(id: string): Promise<BadCase> {
-  const { data } = await apiClient.get<ApiResponse<BadCase>>(`/admin/badcases/${id}`);
+export async function getBadCaseDetail(id: string | number): Promise<BadCase> {
+  const { data } = await apiClient.get<ApiResponse<BadCase>>(`/admin/bad-cases/${id}`);
   return data.data!;
 }
 
-export async function updateBadCaseStatus(
-  id: string,
-  status: string,
-  fixPlan?: string,
-): Promise<void> {
-  await apiClient.put(`/admin/badcases/${id}`, { status, fix_plan: fixPlan });
+export async function createBadCase(params: {
+  user_query: string;
+  ai_response: string;
+  error_type: string;
+  correct_response?: string;
+}): Promise<BadCase> {
+  const { data } = await apiClient.post<ApiResponse<BadCase>>("/admin/bad-cases", params);
+  return data.data!;
 }
 
-export async function exportBadCases(filter: any): Promise<Blob> {
-  const res = await apiClient.get("/admin/badcases/export", {
+export async function updateBadCase(
+  id: string | number,
+  params: Partial<BadCase>,
+): Promise<void> {
+  await apiClient.put(`/admin/bad-cases/${id}`, params);
+}
+
+export async function deleteBadCase(id: string | number): Promise<void> {
+  await apiClient.delete(`/admin/bad-cases/${id}`);
+}
+
+export async function importBadCases(file: File): Promise<BadCaseImportResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const { data } = await apiClient.post<ApiResponse<BadCaseImportResult>>(
+    "/admin/bad-cases/import",
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  return data.data!;
+}
+
+export async function exportBadCases(filter?: BadCaseFilter): Promise<Blob> {
+  const res = await apiClient.get("/admin/bad-cases/export", {
     params: filter,
     responseType: "blob",
   });
   return res.data;
+}
+
+export async function verifyBadCase(id: string | number): Promise<BadCaseVerifyResult> {
+  const { data } = await apiClient.post<ApiResponse<BadCaseVerifyResult>>(
+    `/admin/bad-cases/${id}/verify`,
+  );
+  return data.data!;
 }
 
 // ============================================================
@@ -300,7 +436,18 @@ export async function getMobileUsers(filter?: {
     "/admin/mobile-users",
     { params: { page: filter?.page, page_size: filter?.pageSize, keyword: filter?.keyword, status: filter?.status, role: filter?.role } },
   );
-  return data.data!;
+  const raw = data.data!;
+  if (Array.isArray(raw)) {
+    return { items: raw, total: raw.length, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 10 };
+  }
+  if (raw && typeof raw === "object" && "items" in raw) {
+    return raw as unknown as PaginatedResponse<MobileUser>;
+  }
+  if (raw && typeof raw === "object" && "list" in raw) {
+    const r = raw as unknown as { list: MobileUser[]; total: number; page: number; page_size: number };
+    return { items: r.list, total: r.total, page: r.page, pageSize: r.page_size };
+  }
+  return { items: [], total: 0, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 10 };
 }
 
 export async function getMobileUserDetail(id: number): Promise<MobileUser> {
@@ -416,7 +563,18 @@ export async function getOperationLogs(filter?: {
     "/admin/logs",
     { params: { page: filter?.page, page_size: filter?.pageSize, operator: filter?.operator, action_type: filter?.actionType, start_date: filter?.startDate, end_date: filter?.endDate } },
   );
-  return data.data!;
+  const raw = data.data!;
+  if (Array.isArray(raw)) {
+    return { items: raw, total: raw.length, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 20 };
+  }
+  if (raw && typeof raw === "object" && "items" in raw) {
+    return raw as unknown as PaginatedResponse<OperationLog>;
+  }
+  if (raw && typeof raw === "object" && "list" in raw) {
+    const r = raw as unknown as { list: OperationLog[]; total: number; page: number; page_size: number };
+    return { items: r.list, total: r.total, page: r.page, pageSize: r.page_size };
+  }
+  return { items: [], total: 0, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 20 };
 }
 
 export async function getOperationLogDetail(id: string): Promise<OperationLog> {

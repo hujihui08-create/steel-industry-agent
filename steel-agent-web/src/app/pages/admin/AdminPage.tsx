@@ -23,6 +23,7 @@ const AgentDebugTool = lazy(() => import("@/app/components/admin/AgentDebugTool"
 const AdminProfilePage = lazy(() => import("@/app/pages/admin/AdminProfilePage"));
 const AdminChangePasswordPage = lazy(() => import("@/app/pages/admin/AdminChangePasswordPage"));
 const CategoryManage = lazy(() => import("@/app/pages/admin/CategoryManage"));
+const SteelDataList = lazy(() => import("@/app/components/admin/SteelDataList"));
 
 function PageFallback() {
   return (
@@ -54,6 +55,7 @@ export default function AdminPage() {
           <Route path="category-manage" element={<CategoryManage />} />
           <Route path="profile" element={<AdminProfilePage />} />
           <Route path="change-password" element={<AdminChangePasswordPage />} />
+          <Route path="data-list" element={<SteelDataList />} />
         </Routes>
       </Suspense>
     </AdminLayout>

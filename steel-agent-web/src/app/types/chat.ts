@@ -124,6 +124,7 @@ export interface AIFeedback {
   message_id: number;
   is_helpful: boolean;
   comment?: string;
+  error_type?: string;
 }
 
 /** 快捷指令 */

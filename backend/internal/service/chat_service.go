@@ -356,6 +356,7 @@ type ChatService struct {
 	alertRepo        *repository.PriceAlertRepository
 	newsRepo         *repository.NewsRepository
 	categoryRepo     *repository.CategoryRepository
+	badCaseService   *BadCaseService
 
 	activeCancels map[uint]context.CancelFunc
 	mu            sync.Mutex
@@ -374,6 +375,7 @@ func NewChatService(
 	alertRepo *repository.PriceAlertRepository,
 	newsRepo *repository.NewsRepository,
 	categoryRepo *repository.CategoryRepository,
+	badCaseService *BadCaseService,
 ) *ChatService {
 	return &ChatService{
 		chatRepo:         chatRepo,
@@ -386,6 +388,7 @@ func NewChatService(
 		alertRepo:        alertRepo,
 		newsRepo:         newsRepo,
 		categoryRepo:     categoryRepo,
+		badCaseService:   badCaseService,
 		activeCancels:    make(map[uint]context.CancelFunc),
 	}
 }
@@ -1575,12 +1578,55 @@ func (s *ChatService) GetSessionMessages(ctx context.Context, userID uint, sessi
 // Task 6: SubmitFeedback stores user feedback on an AI response.
 // ---------------------------------------------------------------------------
 
-func (s *ChatService) SubmitFeedback(ctx context.Context, userID uint, messageID uint, isHelpful bool, comment string) error {
+func (s *ChatService) SubmitFeedback(ctx context.Context, userID uint, messageID uint, isHelpful bool, comment string, errorType string) error {
 	feedback := &model.AIFeedback{
 		MessageID: messageID,
 		UserID:    userID,
 		IsHelpful: isHelpful,
 		Comment:   comment,
 	}
-	return s.chatRepo.CreateFeedback(ctx, feedback)
+	if err := s.chatRepo.CreateFeedback(ctx, feedback); err != nil {
+		return err
+	}
+
+	// When feedback is negative, automatically create a BadCase for quality analysis.
+	// This is best-effort: even if BadCase creation fails, the feedback is already saved.
+	if !isHelpful && s.badCaseService != nil {
+		msg, err := s.chatRepo.GetMessageByID(ctx, messageID)
+		if err != nil {
+			return nil
+		}
+
+		// Try to find the preceding user message in the same session.
+		userQuery := ""
+		messages, msgErr := s.chatRepo.FindMessagesBySessionID(ctx, msg.SessionID)
+		if msgErr == nil {
+			for i := len(messages) - 1; i >= 0; i-- {
+				if messages[i].ID < messageID && messages[i].Role == "user" {
+					userQuery = messages[i].Content
+					break
+				}
+			}
+		}
+		if userQuery == "" {
+			userQuery = msg.Content
+		}
+
+		bcErrType := errorType
+		if bcErrType == "" {
+			bcErrType = "data_anomaly"
+		}
+
+		sessionID := msg.SessionID
+		badCase := &model.BadCase{
+			UserQuery:      userQuery,
+			AIResponse:     msg.Content,
+			ErrorType:      bcErrType,
+			Status:         "pending",
+			ConversationID: &sessionID,
+			ReportedBy:     &userID,
+		}
+		s.badCaseService.Create(ctx, badCase)
+	}
+	return nil
 }

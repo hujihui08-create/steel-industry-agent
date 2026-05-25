@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -31,6 +32,7 @@ func TestBadCaseRepo_FindAll(t *testing.T) {
 	// Insert 3 bad cases
 	for i := 0; i < 3; i++ {
 		bc := &model.BadCase{
+			CaseNo:     fmt.Sprintf("BC-20260525-%03d", i+1),
 			UserQuery:  "test query " + string(rune('A'+i)),
 			AIResponse: "test response " + string(rune('A'+i)),
 			ErrorType:  "hallucination",

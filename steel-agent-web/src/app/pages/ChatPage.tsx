@@ -77,6 +77,10 @@ export default function ChatPage() {
 
   // ---- Command palette open state ---------------------------
   const [commandOpen, setCommandOpen] = useState(false);
+  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
+  const [feedbackMessageId, setFeedbackMessageId] = useState<number>(0);
+  const [feedbackErrorType, setFeedbackErrorType] = useState('data_anomaly');
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
 
   // ---- News detail dialog state ------------------------------
   const [detailNews, setDetailNews] = useState<NewsItem | null>(null);
@@ -273,12 +277,36 @@ export default function ChatPage() {
       (m) => m.role === 'assistant',
     );
     if (assistantMessages.length > 0) {
+      const lastAssistantId = assistantMessages[assistantMessages.length - 1].id;
+      if (!isHelpful) {
+        setFeedbackMessageId(lastAssistantId);
+        setFeedbackDialogOpen(true);
+        return;
+      }
       import('@/app/api/chat').then(({ submitFeedback }) => {
         submitFeedback({
-          message_id: assistantMessages[assistantMessages.length - 1].id,
-          is_helpful: isHelpful,
+          message_id: lastAssistantId,
+          is_helpful: true,
         });
       });
+    }
+  };
+
+  const handleFeedbackSubmit = async () => {
+    setFeedbackSubmitting(true);
+    try {
+      const { submitFeedback } = await import('@/app/api/chat');
+      await submitFeedback({
+        message_id: feedbackMessageId,
+        is_helpful: false,
+        error_type: feedbackErrorType,
+      });
+      toast.success('感谢反馈，我们会尽快修正');
+    } catch {
+      toast.error('反馈提交失败');
+    } finally {
+      setFeedbackSubmitting(false);
+      setFeedbackDialogOpen(false);
     }
   };
 
@@ -1618,6 +1646,69 @@ export default function ChatPage() {
 
       {/* ---- Login Dialog (未登录引导) ---- */}
       <LoginDialog open={loginDialogOpen} onOpenChange={(open) => { if (!open) closeLoginDialog(); }} />
+
+      {/* ---- 负反馈问题类型选择弹窗 ---- */}
+      {feedbackDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={(e) => { if (e.target === e.currentTarget) setFeedbackDialogOpen(false); }}>
+          <div className="absolute inset-0 bg-black/30" />
+          <div className="relative bg-white border border-[#E5E5E5] rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.04)] w-full max-w-sm mx-4 z-10">
+            <div className="px-5 pt-5 pb-2">
+              <h3 className="text-[16px] leading-[1.4] font-medium text-[#0A0A0A]">问题反馈</h3>
+              <p className="text-[13px] text-[#737373] mt-1">请选择本次回复的问题类型，帮助我们改进</p>
+            </div>
+            <div className="px-5 pb-2 flex flex-col gap-2">
+              {[
+                { value: 'price_inaccurate', label: '价格不准确' },
+                { value: 'missing_data', label: '数据缺失' },
+                { value: 'calculation_error', label: '计算错误' },
+                { value: 'refuse_answer', label: '拒绝回答' },
+                { value: 'data_anomaly', label: '数据异常' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setFeedbackErrorType(opt.value)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] leading-[1.5] border transition-colors duration-150 ${
+                    feedbackErrorType === opt.value
+                      ? 'border-[#0A0A0A] bg-[#FAFAFA] text-[#0A0A0A]'
+                      : 'border-[#E5E5E5] text-[#404040] hover:border-[#0A0A0A]/30'
+                  }`}
+                >
+                  {feedbackErrorType === opt.value && (
+                    <div className="w-4 h-4 rounded-full bg-[#0A0A0A] flex items-center justify-center">
+                      <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                    </div>
+                  )}
+                  {feedbackErrorType !== opt.value && (
+                    <div className="w-4 h-4 rounded-full border border-[#D4D4D4]" />
+                  )}
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 pb-5 pt-2">
+              <button
+                type="button"
+                onClick={() => setFeedbackDialogOpen(false)}
+                className="h-9 px-4 rounded-full border border-[#E5E5E5] text-[13px] text-[#404040] hover:bg-[#FAFAFA] transition-colors duration-150"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleFeedbackSubmit}
+                disabled={feedbackSubmitting}
+                className="h-9 px-5 rounded-full bg-[#0A0A0A] text-white text-[13px] hover:bg-[#404040] transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                {feedbackSubmitting ? (
+                  <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : null}
+                提交反馈
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

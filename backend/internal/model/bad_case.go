@@ -5,6 +5,7 @@ import "time"
 // BadCase represents a flagged poor-quality AI response for analysis and improvement.
 type BadCase struct {
 	ID              uint       `gorm:"primaryKey" json:"id"`
+	CaseNo          string     `gorm:"size:20;uniqueIndex" json:"case_no"`
 	UserQuery       string     `gorm:"type:text;not null" json:"user_query"`
 	AIResponse      string     `gorm:"type:text;not null" json:"ai_response"`
 	CorrectResponse *string    `gorm:"type:text" json:"correct_response"`

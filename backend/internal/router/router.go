@@ -243,6 +243,24 @@ func Setup(
 		adminCrawler.GET("/status", crawlerHandler.GetCrawlStatus)
 	}
 
+	adminPrices := api.Group("/admin/prices")
+	adminPrices.Use(middleware.RequireRole(adminRepo, "super_admin", "operator", "data_admin"))
+	{
+		adminPrices.GET("", priceHandler.GetPriceList)
+	}
+
+	adminNews := api.Group("/admin/news")
+	adminNews.Use(middleware.RequireRole(adminRepo, "super_admin", "operator", "data_admin"))
+	{
+		adminNews.GET("", priceHandler.GetNewsList)
+	}
+
+	adminTenders := api.Group("/admin/tenders")
+	adminTenders.Use(middleware.RequireRole(adminRepo, "super_admin", "operator", "data_admin"))
+	{
+		adminTenders.GET("", tenderHandler.GetTenderList)
+	}
+
 	adminIntents := api.Group("/admin/intents")
 	adminIntents.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
 	{
@@ -253,14 +271,18 @@ func Setup(
 		adminIntents.GET("/stats", intentHandler.Stats)
 	}
 
-	adminBadCases := api.Group("/admin/badcases")
+	adminBadCases := api.Group("/admin/bad-cases")
 	adminBadCases.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
 	{
 		adminBadCases.GET("", badCaseHandler.List)
-		adminBadCases.GET("/stats", badCaseHandler.Stats)
+		adminBadCases.POST("", badCaseHandler.Create)
+		adminBadCases.GET("/statistics", badCaseHandler.Statistics)
+		adminBadCases.GET("/export", badCaseHandler.Export)
+		adminBadCases.POST("/import", badCaseHandler.Import)
 		adminBadCases.GET("/:id", badCaseHandler.GetByID)
 		adminBadCases.PUT("/:id", badCaseHandler.Update)
-		adminBadCases.GET("/export", badCaseHandler.Export)
+		adminBadCases.DELETE("/:id", badCaseHandler.Delete)
+		adminBadCases.POST("/:id/verify", badCaseHandler.Verify)
 	}
 
 	adminBackup := api.Group("/admin/backup")

@@ -208,7 +208,7 @@ export default function CategoryManage() {
   // ============================================================
 
   // ---------- 加载态 ----------
-  if (loading && categories.length === 0) {
+  if (loading && (categories ?? []).length === 0) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -286,13 +286,13 @@ export default function CategoryManage() {
           </SelectContent>
         </Select>
         <span className="text-[12px] text-[#A3A3A3] ml-auto tabular-nums">
-          共 {categories.length} 个品种
+          共 {(categories ?? []).length} 个品种
         </span>
       </div>
 
       {/* 品种表格 */}
       <div className="bg-white border border-[#E5E5E5] rounded-2xl overflow-hidden">
-        {categories.length === 0 ? (
+        {(categories ?? []).length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Tag size={32} strokeWidth={1.75} className="text-[#D4D4D4] mb-3" />
             <p className="text-[14px] text-[#A3A3A3]">

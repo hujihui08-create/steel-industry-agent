@@ -176,6 +176,7 @@
 
   html {
     font-size: var(--font-size);
+    scrollbar-gutter: stable;
   }
 
   h1 {
@@ -247,6 +248,35 @@
   background-position: right 10px center;
   background-size: 12px;
   padding-right: 28px;
+}
+
+/* ============================================
+   Custom scrollbar — 细滚动条，匹配设计系统
+   ============================================ */
+
+/* Webkit (Chrome / Edge / Safari) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D4D4D4;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #A3A3A3;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #D4D4D4 transparent;
 }
 
 /* ============================================

@@ -59,3 +59,19 @@ func (r *CrawlerLogRepository) UpdateStatus(ctx context.Context, id uint, status
 	}
 	return r.db.WithContext(ctx).Model(&model.CrawlerLog{}).Where("id = ?", id).Updates(updates).Error
 }
+
+// CleanupZombieLogs marks all crawler logs that are stuck in "running" status as
+// "failed" with a descriptive error message. This should be called on service startup
+// to handle logs left in an inconsistent state by a previous crash or restart.
+// Returns the number of rows affected or an error.
+func (r *CrawlerLogRepository) CleanupZombieLogs(ctx context.Context) (int64, error) {
+	now := time.Now()
+	result := r.db.WithContext(ctx).Model(&model.CrawlerLog{}).
+		Where("status = ?", "running").
+		Updates(map[string]interface{}{
+			"status":        "failed",
+			"error_message": "服务重启，采集中断",
+			"finished_at":   now,
+		})
+	return result.RowsAffected, result.Error
+}

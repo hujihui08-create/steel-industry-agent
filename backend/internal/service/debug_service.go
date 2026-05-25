@@ -48,7 +48,7 @@ type ToolExecuteResult struct {
 
 type ToolHealthItem struct {
 	Name         string  `json:"name"`
-	DisplayName  string  `json:"display_name"`
+	DisplayName  string  `json:"displayName"`
 	Status       string  `json:"status"`
 	ResponseTime int64   `json:"response_time"`
 	SuccessRate  float64 `json:"success_rate"`
@@ -66,8 +66,30 @@ type ToolHealthResult struct {
 
 type ToolSchema struct {
 	Name        string                 `json:"name"`
+	DisplayName string                 `json:"display_name"`
 	Description string                 `json:"description"`
 	Parameters  map[string]interface{} `json:"parameters"`
+}
+
+// toolDisplayNames maps tool function names to human-readable Chinese names.
+var toolDisplayNames = map[string]string{
+	"query_steel_price":  "价格查询",
+	"calculate_quotation": "报价计算",
+	"search_knowledge":    "知识检索",
+	"query_tender":        "招标查询",
+	"get_price_trend":     "价格走势",
+	"set_price_alert":     "价格预警",
+	"convert_unit":        "单位换算",
+	"calculate_weight":    "重量计算",
+	"search_news":         "资讯搜索",
+	"get_news_detail":     "资讯详情",
+}
+
+func toolDisplayName(name string) string {
+	if dn, ok := toolDisplayNames[name]; ok {
+		return dn
+	}
+	return name
 }
 
 type IntentTestResult struct {
@@ -235,6 +257,7 @@ func (s *DebugService) GetToolSchemas() ([]ToolSchema, error) {
 		params, _ := t.Function.Parameters.(map[string]interface{})
 		schema := ToolSchema{
 			Name:        t.Function.Name,
+			DisplayName: toolDisplayName(t.Function.Name),
 			Description: t.Function.Description,
 			Parameters:  params,
 		}
@@ -391,7 +414,7 @@ func (s *DebugService) CheckToolHealth(ctx context.Context) (*ToolHealthResult, 
 			}
 
 			results <- chanResult{item: item}
-		}(schema.Name, schema.Description)
+		}(schema.Name, schema.DisplayName)
 	}
 
 	healthResult := &ToolHealthResult{}
