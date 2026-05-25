@@ -34,6 +34,7 @@ func Setup(
 	backupHandler *handler.BackupHandler,
 	adminLogHandler *handler.AdminLogHandler,
 	tokenUsageHandler *handler.TokenUsageHandler,
+	mobileRoleHandler *handler.MobileRoleHandler,
 	adminRepo *repository.AdminRepository,
 	adminLogRepo *repository.AdminLogRepository,
 ) {
@@ -301,10 +302,22 @@ func Setup(
 	adminMobileUsers.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
 	{
 		adminMobileUsers.GET("", adminHandler.ListMobileUsers)
+		adminMobileUsers.GET("/retention", mobileRoleHandler.GetRetentionStats)
 		adminMobileUsers.GET("/:id", adminHandler.GetMobileUserDetail)
 		adminMobileUsers.PUT("/:id/disable", adminHandler.DisableMobileUser)
 		adminMobileUsers.PUT("/:id/enable", adminHandler.EnableMobileUser)
 		adminMobileUsers.GET("/export", adminHandler.ExportMobileUsers)
+	}
+
+	adminMobileRoles := api.Group("/admin/mobile-roles")
+	adminMobileRoles.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
+	{
+		adminMobileRoles.GET("", mobileRoleHandler.ListRoles)
+		adminMobileRoles.POST("", mobileRoleHandler.CreateRole)
+		adminMobileRoles.PUT("/:id", mobileRoleHandler.UpdateRole)
+		adminMobileRoles.DELETE("/:id", mobileRoleHandler.DeleteRole)
+		adminMobileRoles.GET("/permissions", mobileRoleHandler.GetPermissions)
+		adminMobileRoles.PUT("/permissions", mobileRoleHandler.SavePermissions)
 	}
 
 	adminLogs := api.Group("/admin/logs")

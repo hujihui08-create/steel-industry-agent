@@ -7,6 +7,7 @@ import {
   Bug,
   Smartphone,
   Shield,
+  Key,
   FileText,
   Settings,
   Database,
@@ -108,6 +109,12 @@ export const SIDEBAR_MENU_MAP: Record<string, SidebarMenuItem[]> = {
       label: "后台用户",
       icon: Shield,
       path: "/admin/admin-users",
+    },
+    {
+      id: "role-permission",
+      label: "角色与权限",
+      icon: Key,
+      path: "/admin/role-permission",
     },
   ],
   system: [

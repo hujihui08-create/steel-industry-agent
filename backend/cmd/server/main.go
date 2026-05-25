@@ -56,6 +56,7 @@ func main() {
 	chatRepo := repository.NewChatRepository(db)
 	intentRepo := repository.NewIntentRepository(db)
 	adminRepo := repository.NewAdminRepository(db)
+	mobileRoleRepo := repository.NewMobileRoleRepository(db)
 	crawlerSourceRepo := repository.NewCrawlerSourceRepository(db)
 	crawlerLogRepo := repository.NewCrawlerLogRepository(db)
 	categoryRepo := repository.NewCategoryRepository(db)
@@ -100,6 +101,7 @@ func main() {
 	badCaseService.SetChatService(chatService)
 
 	adminService := service.NewAdminService(adminRepo, userRepo)
+	mobileRoleService := service.NewMobileRoleService(mobileRoleRepo, userRepo)
 
 	agentConfigRepo := repository.NewAgentConfigRepository(db)
 	agentConfigService := service.NewAgentConfigService(agentConfigRepo, categoryRepo)
@@ -152,6 +154,7 @@ func main() {
 	alertHandler := handler.NewAlertHandler(alertService)
 	chatHandler := handler.NewChatHandler(chatService)
 	adminHandler := handler.NewAdminHandler(adminService)
+	mobileRoleHandler := handler.NewMobileRoleHandler(mobileRoleService)
 	agentConfigHandler := handler.NewAgentConfigHandler(agentConfigService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
 	settingsHandler := handler.NewSettingsHandler(settingsService)
@@ -204,6 +207,7 @@ func main() {
 		backupHandler,
 		adminLogHandler,
 		tokenUsageHandler,
+		mobileRoleHandler,
 		adminRepo,
 		adminLogRepo,
 	)
@@ -250,6 +254,14 @@ func main() {
 
 func runMigrations(db *gorm.DB) error {
 	migrationsDir := "migrations"
+
+	if err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+		version VARCHAR(255) PRIMARY KEY,
+		applied_at TIMESTAMP DEFAULT NOW()
+	)`).Error; err != nil {
+		return fmt.Errorf("init schema_migrations: %w", err)
+	}
+
 	entries, err := os.ReadDir(migrationsDir)
 	if err != nil {
 		return fmt.Errorf("read migrations dir: %w", err)
@@ -264,14 +276,33 @@ func runMigrations(db *gorm.DB) error {
 	sort.Strings(upFiles)
 
 	for _, name := range upFiles {
+		version := strings.TrimSuffix(name, ".up.sql")
+
+		var count int64
+		if err := db.Raw("SELECT COUNT(*) FROM schema_migrations WHERE version = ?", version).Scan(&count).Error; err != nil {
+			log.Printf("WARNING: check migration version %s: %v", version, err)
+		}
+		if count > 0 {
+			log.Printf("Migration already applied, skipping: %s", name)
+			continue
+		}
+
 		path := filepath.Join(migrationsDir, name)
 		sql, err := os.ReadFile(path)
 		if err != nil {
-			return fmt.Errorf("read %s: %w", name, err)
+			log.Printf("WARNING: read migration file %s: %v", name, err)
+			continue
 		}
+
 		if err := db.Exec(string(sql)).Error; err != nil {
-			return fmt.Errorf("execute %s: %w", name, err)
+			log.Printf("WARNING: execute migration %s: %v (service will continue)", name, err)
+			continue
 		}
+
+		if err := db.Exec("INSERT INTO schema_migrations (version) VALUES (?)", version).Error; err != nil {
+			log.Printf("WARNING: record migration %s: %v", version, err)
+		}
+
 		log.Printf("Migration applied: %s", name)
 	}
 	return nil

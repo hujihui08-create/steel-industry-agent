@@ -11,7 +11,7 @@ import type {
   AgentConfig, PromptVersion, Intent, IntentStats, IntentTestResult,
   BadCase, BadCaseFilter, BadCaseImportResult, BadCaseVerifyResult, MobileUser, AdminUser, AdminRole, AdminUserStatus, OperationLog,
   SystemSettings, BackupRecord, BackupOverview, PaginatedResponse,
-  Category, PublicCategories
+  Category, PublicCategories, MobileRole, RetentionStats
 } from "@/app/types/admin";
 
 // ============================================================
@@ -768,4 +768,52 @@ export async function getPublicCategories(): Promise<PublicCategories> {
   const data = await res.json();
   if (data.code !== 200) throw new Error(data.message || "获取失败");
   return data.data;
+}
+
+// ============================================================
+// 角色与权限管理
+// ============================================================
+
+export async function getMobileRoles(): Promise<MobileRole[]> {
+  const { data } = await apiClient.get<ApiResponse<MobileRole[]>>('/admin/mobile-roles')
+  return data.data!
+}
+
+export async function createMobileRole(
+  params: { name: string; description?: string; status?: number },
+): Promise<MobileRole> {
+  const { data } = await apiClient.post<ApiResponse<MobileRole>>('/admin/mobile-roles', params)
+  return data.data!
+}
+
+export async function updateMobileRole(
+  id: number,
+  params: { name?: string; description?: string; status?: number },
+): Promise<MobileRole> {
+  const { data } = await apiClient.put<ApiResponse<MobileRole>>(`/admin/mobile-roles/${id}`, params)
+  return data.data!
+}
+
+export async function deleteMobileRole(id: number): Promise<void> {
+  await apiClient.delete(`/admin/mobile-roles/${id}`)
+}
+
+export async function getRolePermissions(): Promise<MobileRole[]> {
+  const { data } = await apiClient.get<ApiResponse<MobileRole[]>>('/admin/mobile-roles/permissions')
+  return data.data!
+}
+
+export async function saveRolePermissions(
+  roleId: number,
+  permissions: Record<string, boolean>,
+): Promise<void> {
+  await apiClient.put('/admin/mobile-roles/permissions', {
+    role_id: roleId,
+    permissions,
+  })
+}
+
+export async function getRetentionStats(): Promise<RetentionStats> {
+  const { data } = await apiClient.get<ApiResponse<RetentionStats>>('/admin/mobile-users/retention')
+  return data.data!
 }

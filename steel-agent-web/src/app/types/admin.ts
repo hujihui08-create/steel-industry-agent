@@ -429,3 +429,29 @@ export interface BaseFilterParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
+
+// ============================================================
+// 移动端角色管理
+// ============================================================
+
+export interface MobileRole {
+  id: number
+  name: string
+  description: string
+  permissions: Record<string, boolean>
+  status: number
+  user_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface RetentionStatItem {
+  value: number
+  change: number
+}
+
+export interface RetentionStats {
+  day1: RetentionStatItem
+  day7: RetentionStatItem
+  day30: RetentionStatItem
+}

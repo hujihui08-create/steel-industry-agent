@@ -12,6 +12,9 @@ const IntentManagement = lazy(() =>
 const BadCaseManagement = lazy(() => import("@/app/components/admin/BadCaseManagement"));
 const MobileUserManagement = lazy(() => import("@/app/components/admin/MobileUserManagement"));
 const AdminUserManagement = lazy(() => import("@/app/components/admin/AdminUserManagement"));
+const RolePermissionManagement = lazy(() =>
+  import("@/app/components/admin/RolePermissionManagement").then((m) => ({ default: m.RolePermissionManagement }))
+);
 const OperationLogs = lazy(() => import("@/app/components/admin/OperationLogs"));
 const SystemSettings = lazy(() => import("@/app/components/admin/SystemSettings"));
 const DataBackup = lazy(() => import("@/app/components/admin/DataBackup"));
@@ -49,6 +52,7 @@ export default function AdminPage() {
           <Route path="agent-debug" element={<AgentDebugTool />} />
           <Route path="mobile-users" element={<MobileUserManagement />} />
           <Route path="admin-users" element={<AdminUserManagement />} />
+          <Route path="role-permission" element={<RolePermissionManagement />} />
           <Route path="operation-logs" element={<OperationLogs />} />
           <Route path="system-settings" element={<SystemSettings />} />
           <Route path="data-backup" element={<DataBackup />} />

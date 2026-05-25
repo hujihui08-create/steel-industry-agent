@@ -27,13 +27,14 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { MobileUser, PaginatedResponse } from "@/app/types/admin";
+import type { MobileUser, PaginatedResponse, RetentionStats } from "@/app/types/admin";
 import {
   getMobileUsers,
   getMobileUserDetail,
   disableMobileUser,
   enableMobileUser,
   exportMobileUsers,
+  getRetentionStats,
 } from "@/app/api/admin";
 import { AdminPageShell } from "./AdminPageShell";
 import { AdminStatCard } from "./AdminStatCard";
@@ -228,6 +229,8 @@ export function MobileUserManagement() {
     monthlyActive: 0,
   });
 
+  const [retention, setRetention] = useState<RetentionStats | null>(null);
+
   // ---- 详情抽屉 ----
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<MobileUser | null>(null);
@@ -275,9 +278,19 @@ export function MobileUserManagement() {
     }
   }, [page, filters]);
 
+  const fetchRetention = useCallback(async () => {
+    try {
+      const data = await getRetentionStats();
+      setRetention(data);
+    } catch {
+      // Silent fail - retention is P1, not critical
+    }
+  }, []);
+
   useEffect(() => {
     fetchUsers();
-  }, [fetchUsers]);
+    fetchRetention();
+  }, [fetchUsers, fetchRetention]);
 
   // ============================================================
   // 事件处理
@@ -533,7 +546,7 @@ export function MobileUserManagement() {
         {/* ============================================================ */}
         {/* 1. 统计卡片行 */}
         {/* ============================================================ */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <AdminStatCard
             icon={<Users size={20} strokeWidth={1.75} />}
             label="注册总量"
@@ -561,6 +574,42 @@ export function MobileUserManagement() {
             changePct={7.8}
           />
         </div>
+
+        {retention && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <AdminStatCard
+              icon={<TrendingUp size={20} strokeWidth={1.75} />}
+              label="次日留存"
+              value={`${retention.day1.value}%`}
+              change={retention.day1.change}
+            />
+            <AdminStatCard
+              icon={<Calendar size={20} strokeWidth={1.75} />}
+              label="7日留存"
+              value={`${retention.day7.value}%`}
+              change={retention.day7.change}
+            />
+            <AdminStatCard
+              icon={<Clock size={20} strokeWidth={1.75} />}
+              label="30日留存"
+              value={`${retention.day30.value}%`}
+              change={retention.day30.change}
+            />
+          </div>
+        )}
+        {!retention && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white border border-[#E5E5E5] rounded-lg p-5 flex items-center justify-center h-[132px]">
+              <div className="w-4 h-4 border-2 border-[#E5E5E5] border-t-[#0A0A0A] rounded-full animate-spin" />
+            </div>
+            <div className="bg-white border border-[#E5E5E5] rounded-lg p-5 flex items-center justify-center h-[132px]">
+              <div className="w-4 h-4 border-2 border-[#E5E5E5] border-t-[#0A0A0A] rounded-full animate-spin" />
+            </div>
+            <div className="bg-white border border-[#E5E5E5] rounded-lg p-5 flex items-center justify-center h-[132px]">
+              <div className="w-4 h-4 border-2 border-[#E5E5E5] border-t-[#0A0A0A] rounded-full animate-spin" />
+            </div>
+          </div>
+        )}
 
         {/* ============================================================ */}
         {/* 2. 筛选栏 */}
