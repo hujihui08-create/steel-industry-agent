@@ -34,8 +34,10 @@ import {
   getDebugSessions,
   loadDebugSession,
   previewPrompt,
+  normalizeDebugInfo,
   type DebugChatStreamEvent,
   type DebugInfoData,
+  type IntentMatchData,
   type DebugSessionItem,
   type DebugMessage,
 } from "@/app/api/admin-debug";
@@ -168,7 +170,7 @@ export function DebugDialogueTab() {
         setAgentModels(config.models || []);
         setAgentSystemPrompt(config.systemPrompt || "");
         setAgentPrimaryModel(config.primaryModel);
-        if (config.models.length > 0) {
+        if ((config.models || []).length > 0) {
           const primary = config.models.find((m) => m.id === config.primaryModel || m.name === config.primaryModel);
           if (primary) setModel(primary.name);
         }
@@ -249,8 +251,19 @@ export function DebugDialogueTab() {
             break;
           }
           case "debug_info": {
-            const info = event.data as DebugInfoData;
-            Object.assign(debugInfoData, info);
+            const normalized = normalizeDebugInfo(event.data as Record<string, unknown>);
+            Object.assign(debugInfoData, {
+              intent: normalized.intent || debugInfoData.intent,
+              entities: normalized.entities,
+              promptTokens: normalized.promptTokens || debugInfoData.promptTokens,
+              completionTokens: normalized.completionTokens || debugInfoData.completionTokens,
+            });
+            break;
+          }
+          case "intent_match": {
+            const im = event.data as IntentMatchData;
+            debugInfoData.intent = im.intent || debugInfoData.intent;
+            if (im.entities) Object.assign(debugInfoData.entities, im.entities);
             break;
           }
           case "tool_call": {

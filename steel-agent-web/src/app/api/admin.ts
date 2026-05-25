@@ -264,11 +264,22 @@ export async function getRecentLogs(): Promise<OperationLog[]> {
   );
   const raw = data.data;
   if (!raw) return [];
-  if (Array.isArray(raw)) return raw as unknown as OperationLog[];
-  if (typeof raw === "object" && "list" in raw) {
-    return (raw as unknown as { list: OperationLog[] }).list;
+  let logs: any[] = [];
+  if (Array.isArray(raw)) logs = raw as any[];
+  else if (typeof raw === "object" && "list" in raw) {
+    logs = (raw as unknown as { list: any[] }).list;
   }
-  return [];
+
+  return logs.map((log: any) => ({
+    id: String(log.id ?? ""),
+    timestamp: log.created_at ?? "",
+    operator: log.admin_id ? `管理员#${log.admin_id}` : "-",
+    operatorAccount: log.admin_id ? String(log.admin_id) : "-",
+    actionType: log.action ?? "unknown",
+    summary: log.target_type ? `${log.action} ${log.target_type}` : (log.action ?? ""),
+    ip: log.ip_address ?? "-",
+    detail: typeof log.detail === "string" ? JSON.parse(log.detail || "{}") : (log.detail ?? {}),
+  })) as OperationLog[];
 }
 
 // ============================================================
@@ -308,36 +319,81 @@ export async function testModelConnection(params: {
 // 意图管理（对接真实后端 API）
 // ============================================================
 
+function mapIntentFromAPI(raw: Record<string, unknown>): Intent {
+  const keywords = raw.keywords;
+  const keywordsStr = Array.isArray(keywords)
+    ? (keywords as string[]).filter(Boolean).join(",")
+    : (typeof keywords === "string" ? keywords : "");
+  return {
+    id: String(raw.id ?? ""),
+    code: (raw.intent_code as string) ?? "",
+    name: (raw.intent_name as string) ?? "",
+    keywords: keywordsStr,
+    entities: [],
+    template: (raw.reply_template as string) ?? "",
+    priority: (raw.priority as number) ?? 0,
+    status: (raw.is_active as boolean) ? "enabled" : "disabled",
+  };
+}
+
+function mapIntentToAPI(intent: Intent): Record<string, unknown> {
+  return {
+    intent_code: intent.code,
+    intent_name: intent.name,
+    keywords: intent.keywords
+      ? intent.keywords.split(/[,，]/).map((s) => s.trim()).filter(Boolean)
+      : [],
+    reply_template: intent.template,
+    priority: intent.priority,
+    is_active: intent.status === "enabled",
+  };
+}
+
 export async function getIntents(filter?: {
   page?: number;
   pageSize?: number;
   keyword?: string;
   status?: string;
 }): Promise<PaginatedResponse<Intent>> {
-  const { data } = await apiClient.get<ApiResponse<PaginatedResponse<Intent>>>(
+  const { data } = await apiClient.get<ApiResponse<unknown>>(
     "/admin/intents",
     { params: { page: filter?.page, page_size: filter?.pageSize, keyword: filter?.keyword, status: filter?.status } },
   );
-  const raw = data.data!;
+  const raw = data.data;
+  if (!raw) {
+    return { items: [], total: 0, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 10 };
+  }
   if (Array.isArray(raw)) {
-    return { items: raw, total: raw.length, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 10 };
+    const items = (raw as Record<string, unknown>[]).map(mapIntentFromAPI);
+    return { items, total: items.length, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 10 };
   }
-  if (raw && typeof raw === "object" && "items" in raw) {
-    return raw as unknown as PaginatedResponse<Intent>;
+  if (typeof raw === "object" && "items" in raw) {
+    const r = raw as { items: Record<string, unknown>[]; total: number; page: number; pageSize: number };
+    return {
+      items: (r.items ?? []).map(mapIntentFromAPI),
+      total: r.total ?? 0,
+      page: r.page ?? filter?.page ?? 1,
+      pageSize: r.pageSize ?? filter?.pageSize ?? 10,
+    };
   }
-  if (raw && typeof raw === "object" && "list" in raw) {
-    const r = raw as unknown as { list: Intent[]; total: number; page: number; page_size: number };
-    return { items: r.list, total: r.total, page: r.page, pageSize: r.page_size };
+  if (typeof raw === "object" && "list" in raw) {
+    const r = raw as { list: Record<string, unknown>[]; total: number; page: number; page_size: number };
+    return {
+      items: (r.list ?? []).map(mapIntentFromAPI),
+      total: r.total ?? 0,
+      page: r.page ?? filter?.page ?? 1,
+      pageSize: r.page_size ?? filter?.pageSize ?? 10,
+    };
   }
   return { items: [], total: 0, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 10 };
 }
 
 export async function createIntent(intent: Intent): Promise<void> {
-  await apiClient.post("/admin/intents", intent);
+  await apiClient.post("/admin/intents", mapIntentToAPI(intent));
 }
 
 export async function updateIntent(intent: Intent): Promise<void> {
-  await apiClient.put(`/admin/intents/${intent.id}`, intent);
+  await apiClient.put(`/admin/intents/${intent.id}`, mapIntentToAPI(intent));
 }
 
 export async function deleteIntent(id: string): Promise<void> {
@@ -345,16 +401,54 @@ export async function deleteIntent(id: string): Promise<void> {
 }
 
 export async function getIntentStats(): Promise<IntentStats[]> {
-  const { data } = await apiClient.get<ApiResponse<IntentStats[]>>("/admin/intents/stats");
-  return data.data ?? [];
+  const { data } = await apiClient.get<ApiResponse<unknown>>("/admin/intents/stats");
+  const raw = data.data;
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return (raw as Record<string, unknown>[]).map((item) => ({
+      name: (item.name as string) ?? (item.intent_name as string) ?? "",
+      code: (item.code as string) ?? (item.intent_code as string) ?? "",
+      todayCalls: (item.today_calls as number) ?? (item.todayCalls as number) ?? 0,
+      hitRate: (item.hit_rate as number) ?? (item.hitRate as number) ?? 0,
+      avgResponseTime: (item.avg_response_time as number) ?? (item.avgResponseTime as number) ?? 0,
+    })) as IntentStats[];
+  }
+  if (typeof raw === "object" && "list" in raw) {
+    return ((raw as Record<string, unknown>).list as Record<string, unknown>[]).map((item) => ({
+      name: (item.name as string) ?? (item.intent_name as string) ?? "",
+      code: (item.code as string) ?? (item.intent_code as string) ?? "",
+      todayCalls: (item.today_calls as number) ?? (item.todayCalls as number) ?? 0,
+      hitRate: (item.hit_rate as number) ?? (item.hitRate as number) ?? 0,
+      avgResponseTime: (item.avg_response_time as number) ?? (item.avgResponseTime as number) ?? 0,
+    })) as IntentStats[];
+  }
+  return [];
+}
+
+function mapTestResultFromAPI(raw: Record<string, unknown>): IntentTestResult {
+  const intentObj = (raw.intent as Record<string, unknown>) ?? {};
+  const entitiesArr = (raw.entities as Array<Record<string, string>>) ?? [];
+  const entities: Record<string, string> = {};
+  for (const e of entitiesArr) {
+    if (e.key && e.value) entities[e.key] = e.value;
+  }
+  return {
+    intent: (intentObj.name as string) ?? (intentObj.code as string) ?? "unknown",
+    confidence: (intentObj.confidence as number) ?? 0,
+    entities,
+    matchType: (raw.match_method as string) ?? (raw.matchType as string) ?? "keyword",
+    tool: (raw.tool as string) ?? "",
+    params: (raw.params as Record<string, unknown>) ?? {},
+  };
 }
 
 export async function testIntent(text: string): Promise<IntentTestResult> {
-  const { data } = await apiClient.post<ApiResponse<IntentTestResult>>(
+  const { data } = await apiClient.post<ApiResponse<unknown>>(
     "/admin/debug/intent",
     { text },
   );
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "意图测试失败");
+  return mapTestResultFromAPI(data.data as Record<string, unknown>);
 }
 
 // ============================================================
@@ -551,6 +645,19 @@ export async function getUnreadCount(): Promise<{ count: number }> {
 // 操作日志（对接真实后端 API）
 // ============================================================
 
+function mapAdminLogToOperationLog(log: any): OperationLog {
+  return {
+    id: String(log.id ?? ""),
+    timestamp: log.created_at ?? "",
+    operator: log.admin_id ? `管理员#${log.admin_id}` : "-",
+    operatorAccount: log.admin_id ? String(log.admin_id) : "-",
+    actionType: log.action ?? "unknown",
+    summary: log.target_type ? `${log.action} ${log.target_type}` : (log.action ?? ""),
+    ip: log.ip_address ?? "-",
+    detail: typeof log.detail === "string" ? JSON.parse(log.detail || "{}") : (log.detail ?? {}),
+  };
+}
+
 export async function getOperationLogs(filter?: {
   page?: number;
   pageSize?: number;
@@ -565,21 +672,22 @@ export async function getOperationLogs(filter?: {
   );
   const raw = data.data!;
   if (Array.isArray(raw)) {
-    return { items: raw, total: raw.length, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 20 };
+    return { items: (raw as any[]).map(mapAdminLogToOperationLog), total: raw.length, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 20 };
   }
   if (raw && typeof raw === "object" && "items" in raw) {
-    return raw as unknown as PaginatedResponse<OperationLog>;
+    const r = raw as unknown as { items: any[]; total: number; page: number; pageSize: number };
+    return { items: r.items.map(mapAdminLogToOperationLog), total: r.total, page: r.page, pageSize: r.pageSize };
   }
   if (raw && typeof raw === "object" && "list" in raw) {
-    const r = raw as unknown as { list: OperationLog[]; total: number; page: number; page_size: number };
-    return { items: r.list, total: r.total, page: r.page, pageSize: r.page_size };
+    const r = raw as unknown as { list: any[]; total: number; page: number; page_size: number };
+    return { items: r.list.map(mapAdminLogToOperationLog), total: r.total, page: r.page, pageSize: r.page_size };
   }
   return { items: [], total: 0, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 20 };
 }
 
 export async function getOperationLogDetail(id: string): Promise<OperationLog> {
-  const { data } = await apiClient.get<ApiResponse<OperationLog>>(`/admin/logs/${id}`);
-  return data.data!;
+  const { data } = await apiClient.get<ApiResponse<any>>(`/admin/logs/${id}`);
+  return mapAdminLogToOperationLog(data.data!);
 }
 
 export async function exportOperationLogs(filter?: {

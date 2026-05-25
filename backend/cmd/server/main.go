@@ -93,6 +93,7 @@ func main() {
 		newsRepo,
 		categoryRepo,
 		badCaseService,
+		intentRepo,
 	)
 
 	// Complete the circular dependency: BadCaseService needs ChatService for Verify.

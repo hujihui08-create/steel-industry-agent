@@ -190,7 +190,8 @@ function ToolHealthRow({ tool }: { tool: ToolHealth }) {
 /** 最近操作日志行 */
 function LogRow({ log }: { log: OperationLog }) {
   // 提取时间部分（HH:mm）
-  const timePart = log.timestamp.slice(11, 16);
+  const timestamp = log.timestamp ?? "";
+  const timePart = timestamp.length >= 16 ? timestamp.slice(11, 16) : "--:--";
 
   return (
     <div className="flex items-start gap-3 py-2.5">
@@ -199,10 +200,10 @@ function LogRow({ log }: { log: OperationLog }) {
       </span>
       <div className="flex-1 min-w-0">
         <span className="text-[13px] leading-[1.5] text-[#0A0A0A]">
-          {log.operator}
+          {log.operator ?? "-"}
         </span>
         <span className="text-[13px] leading-[1.5] text-[#737373] ml-1.5">
-          {log.summary}
+          {log.summary ?? "-"}
         </span>
       </div>
     </div>

@@ -357,6 +357,7 @@ type ChatService struct {
 	newsRepo         *repository.NewsRepository
 	categoryRepo     *repository.CategoryRepository
 	badCaseService   *BadCaseService
+	intentRepo       *repository.IntentRepository
 
 	activeCancels map[uint]context.CancelFunc
 	mu            sync.Mutex
@@ -376,6 +377,7 @@ func NewChatService(
 	newsRepo *repository.NewsRepository,
 	categoryRepo *repository.CategoryRepository,
 	badCaseService *BadCaseService,
+	intentRepo *repository.IntentRepository,
 ) *ChatService {
 	return &ChatService{
 		chatRepo:         chatRepo,
@@ -389,6 +391,7 @@ func NewChatService(
 		newsRepo:         newsRepo,
 		categoryRepo:     categoryRepo,
 		badCaseService:   badCaseService,
+		intentRepo:       intentRepo,
 		activeCancels:    make(map[uint]context.CancelFunc),
 	}
 }
@@ -461,6 +464,150 @@ func applyContextWindow(messages []openai.ChatCompletionMessage, maxTurns int) [
 	}
 
 	return result
+}
+
+var intentToToolName = map[string]string{
+	"price_query":        "query_steel_price",
+	"price_trend":        "get_price_trend",
+	"quotation":          "calculate_quotation",
+	"tender":             "query_tender",
+	"knowledge_search":   "search_knowledge",
+	"price_alert":        "set_price_alert",
+	"unit_conversion":    "convert_unit",
+	"weight_calculation": "calculate_weight",
+	"news":               "search_news",
+}
+
+type intentMatchResult struct {
+	intentName  string
+	intentCode  string
+	confidence  float64
+	entities    map[string]string
+	matchMethod string
+}
+
+const intentClassifierPrompt = `你是一个钢铁行业意图分类器。根据用户输入，判断用户意图属于以下哪一类：
+- price_query: 查询价格、行情
+- price_trend: 查询价格走势、历史趋势
+- quotation: 计算报价、生成报价单
+- tender: 查询招标信息
+- knowledge_search: 行业知识、标准查询
+- price_alert: 设置价格预警
+- unit_conversion: 单位换算
+- weight_calculation: 重量计算
+- news: 行业资讯、新闻
+- unknown: 无法确定意图
+
+仅返回 JSON：{"intent":"xxx","confidence":0.9}`
+
+type intentClassifyResult struct {
+	Intent     string  `json:"intent"`
+	Confidence float64 `json:"confidence"`
+}
+
+func (s *ChatService) classifyIntentWithLLM(ctx context.Context, text string) (string, float64, error) {
+	msgs := []openai.ChatCompletionMessage{
+		{Role: openai.ChatMessageRoleSystem, Content: intentClassifierPrompt},
+		{Role: openai.ChatMessageRoleUser, Content: text},
+	}
+
+	resp, err := s.aiClient.Chat(ctx, msgs)
+	if err != nil {
+		return "", 0, fmt.Errorf("LLM意图分类失败: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return "", 0, fmt.Errorf("LLM意图分类无响应")
+	}
+
+	var result intentClassifyResult
+	if err := json.Unmarshal([]byte(resp.Choices[0].Message.Content), &result); err != nil {
+		return "", 0, fmt.Errorf("LLM意图分类结果解析失败: %w", err)
+	}
+
+	if result.Intent == "" || result.Intent == "unknown" {
+		return "", 0, nil
+	}
+
+	return result.Intent, result.Confidence, nil
+}
+
+func (s *ChatService) matchIntent(ctx context.Context, userMessage string) intentMatchResult {
+	defer func() {
+		if r := recover(); r != nil {
+			return
+		}
+	}()
+
+	intents, err := s.intentRepo.FindAll(ctx)
+	if err != nil {
+		return intentMatchResult{matchMethod: "none"}
+	}
+
+	var bestMatch *model.Intent
+	var bestScore int
+	for i := range intents {
+		intent := &intents[i]
+		if !intent.IsActive {
+			continue
+		}
+		score := 0
+		for _, kw := range intent.Keywords {
+			if kw != "" && strings.Contains(userMessage, kw) {
+				score++
+			}
+		}
+		if score > bestScore {
+			bestScore = score
+			bestMatch = intent
+		}
+	}
+
+	if bestMatch != nil && bestScore > 0 {
+		confidence := float64(bestScore) / float64(len(bestMatch.Keywords)+1)
+		return intentMatchResult{
+			intentName:  bestMatch.IntentName,
+			intentCode:  bestMatch.IntentCode,
+			confidence:  confidence,
+			entities:    extractEntitiesFromText(userMessage),
+			matchMethod: "keyword",
+		}
+	}
+
+	llmIntent, llmConfidence, llmErr := s.classifyIntentWithLLM(ctx, userMessage)
+	if llmErr != nil || llmIntent == "" {
+		return intentMatchResult{matchMethod: "none"}
+	}
+
+	return intentMatchResult{
+		intentName:  llmIntent,
+		intentCode:  llmIntent,
+		confidence:  llmConfidence,
+		entities:    extractEntitiesFromText(userMessage),
+		matchMethod: "llm",
+	}
+}
+
+func extractEntitiesFromText(text string) map[string]string {
+	entities := make(map[string]string)
+
+	categories := []string{"螺纹钢", "热卷", "冷轧", "中厚板", "镀锌板", "彩涂板", "不锈钢", "型钢", "管材"}
+	for _, cat := range categories {
+		if strings.Contains(text, cat) {
+			entities["category"] = cat
+			break
+		}
+	}
+
+	regions := []string{"上海", "北京", "广州", "深圳", "杭州", "南京", "武汉", "成都", "重庆", "天津"}
+	for _, reg := range regions {
+		if strings.Contains(text, reg) {
+			entities["region"] = reg
+			break
+		}
+	}
+
+	return entities
 }
 
 // ---------------------------------------------------------------------------
@@ -995,6 +1142,28 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 	// Apply context window (Task 4.1-4.2).
 	openaiMessages = applyContextWindow(openaiMessages, 5)
 
+	var intentResult intentMatchResult
+	if len(messages) > 0 {
+		userMessage := messages[len(messages)-1].Content
+		intentResult = s.matchIntent(ctx, userMessage)
+		if intentResult.matchMethod != "none" {
+			builder := fmt.Sprintf("[意图识别结果]\n用户意图: %s\n置信度: %.0f%%\n匹配方式: %s",
+				intentResult.intentName, intentResult.confidence*100, intentResult.matchMethod)
+			if tool, ok := intentToToolName[intentResult.intentCode]; ok {
+				builder += "\n建议工具: " + tool
+			}
+			if len(intentResult.entities) > 0 {
+				var parts []string
+				for k, v := range intentResult.entities {
+					parts = append(parts, k+"="+v)
+				}
+				builder += "\n关联实体: " + strings.Join(parts, ", ")
+			}
+			builder += "\n"
+			openaiMessages[0].Content = builder + "\n" + openaiMessages[0].Content
+		}
+	}
+
 	// Create cancellable context and register it (Task 5.1).
 	ctx, cancel := context.WithCancel(ctx)
 	s.mu.Lock()
@@ -1018,6 +1187,21 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 				"title":      title,
 			})
 			ch <- fmt.Sprintf("data: %s\n\n", string(sessionPayload))
+		}
+
+		if len(messages) > 0 {
+			if intentResult.matchMethod != "none" {
+				intentPayload, _ := json.Marshal(map[string]interface{}{
+					"type": "intent_match",
+					"data": map[string]interface{}{
+						"match_method": intentResult.matchMethod,
+						"intent":       intentResult.intentName,
+						"confidence":   intentResult.confidence,
+						"entities":     intentResult.entities,
+					},
+				})
+				ch <- fmt.Sprintf("data: %s\n\n", string(intentPayload))
+			}
 		}
 
 		var fullContentBuilder strings.Builder

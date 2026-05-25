@@ -217,20 +217,20 @@ export function AgentConfigPage() {
         const config = await getAgentConfig();
         if (cancelled) return;
 
-        setPrimaryModel(config.primaryModel);
-        setBackupModel(config.backupModel);
-        setTemperature(config.temperature);
-        setMaxTokens(config.maxTokens);
-        setTimeout_(config.timeout);
-        setApiKey(config.apiKey);
-        setSystemPrompt(config.systemPrompt);
-        setWelcomeMessage(config.welcomeMessage);
-        setQuickCommands([...config.quickCommands]);
-        setHallucinationRules([...config.hallucinationRules]);
-        setDisclaimer(config.disclaimer);
-        setForceToolForData(config.forceToolForData);
-        setUseTemplateForChat(config.useTemplateForChat);
-        setModels([...config.models]);
+        setPrimaryModel(config.primaryModel ?? "");
+        setBackupModel(config.backupModel ?? "");
+        setTemperature(config.temperature ?? 0.1);
+        setMaxTokens(config.maxTokens ?? 2048);
+        setTimeout_(config.timeout ?? 30);
+        setApiKey(config.apiKey ?? "");
+        setSystemPrompt(config.systemPrompt ?? "");
+        setWelcomeMessage(config.welcomeMessage ?? "");
+        setQuickCommands(Array.isArray(config.quickCommands) ? [...config.quickCommands] : []);
+        setHallucinationRules(Array.isArray(config.hallucinationRules) ? [...config.hallucinationRules] : []);
+        setDisclaimer(config.disclaimer ?? "");
+        setForceToolForData(config.forceToolForData ?? true);
+        setUseTemplateForChat(config.useTemplateForChat ?? false);
+        setModels(Array.isArray(config.models) ? [...config.models] : []);
         // 保存原始快照
         originalValues.current = JSON.stringify({
           primaryModel: config.primaryModel,
@@ -411,7 +411,7 @@ export function AgentConfigPage() {
 
   // ---------- 版本操作 ----------
   const handleVersionView = useCallback((version: PromptVersion) => {
-    setSystemPrompt(version.content);
+    setSystemPrompt(version.content ?? "");
     showSuccessToast(`已查看版本 ${version.version}`);
   }, []);
 
@@ -421,7 +421,7 @@ export function AgentConfigPage() {
 
   const confirmRollback = useCallback(() => {
     if (rollbackModal.version) {
-      setSystemPrompt(rollbackModal.version.content);
+      setSystemPrompt(rollbackModal.version.content ?? "");
       showSuccessToast(`已回滚到 ${rollbackModal.version.version}`);
       setRollbackModal({ open: false, version: null });
     }
@@ -526,14 +526,12 @@ export function AgentConfigPage() {
 
   // ---------- System Prompt 字符数 / Token 估算 ----------
   const promptStats = useMemo(() => {
-    const charCount = systemPrompt.length;
-    // 中文约 1.5 字符/token，英文约 4 字符/token
+    const charCount = (systemPrompt ?? "").length;
     const estimatedTokens = Math.ceil(charCount / 2.5);
     return { charCount, estimatedTokens };
   }, [systemPrompt]);
 
-  // ---------- 计算 prompt 行数用于行号 ----------
-  const promptLines = useMemo(() => systemPrompt.split("\n"), [systemPrompt]);
+  const promptLines = useMemo(() => (systemPrompt ?? "").split("\n"), [systemPrompt]);
 
   // ---------- 渲染加载态 ----------
   if (loading) {

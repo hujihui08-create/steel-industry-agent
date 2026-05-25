@@ -61,9 +61,14 @@ export interface CallChainStep {
   detail?: string;
 }
 
+export interface IntentTestEntity {
+  key: string;
+  value: string;
+}
+
 export interface IntentTestResult {
   intent: { code: string; name: string; confidence: number };
-  entities: Record<string, string>;
+  entities: IntentTestEntity[];
   matchedKeywords: string[];
   matchMethod: "keyword" | "model";
 }
@@ -102,8 +107,8 @@ export interface MockConfig {
 }
 
 export interface DebugChatStreamEvent {
-  type: "token" | "debug_info" | "tool_call" | "done" | "error";
-  data: DebugTokenData | DebugInfoData | ToolCallData | DebugDoneData | { message: string };
+  type: "token" | "debug_info" | "tool_call" | "done" | "error" | "intent_match";
+  data: DebugTokenData | DebugInfoData | ToolCallData | DebugDoneData | { message: string } | IntentMatchData;
 }
 
 export interface DebugTokenData {
@@ -119,6 +124,13 @@ export interface DebugInfoData {
   contextRefTurn: number | null;
   intentChanged: boolean;
   previousIntent: string | null;
+}
+
+export interface IntentMatchData {
+  match_method: "keyword" | "llm" | "none";
+  intent: string;
+  confidence: number;
+  entities: Record<string, string>;
 }
 
 export interface ToolCallData {
@@ -174,12 +186,61 @@ export async function executeTool(
 // ============================================================
 
 export async function testIntent(text: string): Promise<IntentTestResult> {
-  const { data } = await apiClient.post<ApiResponse<IntentTestResult>>(
+  const { data } = await apiClient.post<ApiResponse<{
+    intent: { code: string; name: string; confidence: number };
+    entities: IntentTestEntity[];
+    matched_keywords: string[];
+    match_method: string;
+  }>>(
     "/admin/debug/intent",
     { text },
   );
   if (!data?.data) throw new Error(data?.message || "意图测试失败");
-  return data.data;
+  return {
+    intent: data.data.intent,
+    entities: data.data.entities ?? [],
+    matchedKeywords: data.data.matched_keywords ?? [],
+    matchMethod: (data.data.match_method as "keyword" | "model") ?? "keyword",
+  };
+}
+
+// ============================================================
+// debug_info SSE 事件归一化
+// 后端发送: { intent: {code, name, confidence}, entities: [{key, value}], ... }
+// 前端期望: { intent: string, entities: Record<string, string>, ... }
+// ============================================================
+
+export function normalizeDebugInfo(raw: Record<string, unknown>): {
+  intent: string;
+  entities: Record<string, string>;
+  promptTokens: number;
+  completionTokens: number;
+  anaphoraResolved: boolean;
+  contextRefTurn: number | null;
+  intentChanged: boolean;
+  previousIntent: string | null;
+} {
+  const intentObj = (raw.intent as Record<string, unknown>) ?? {};
+  const intentStr = typeof raw.intent === "string"
+    ? raw.intent
+    : ((intentObj.name as string) ?? (intentObj.code as string) ?? "");
+
+  const entitiesArr = (raw.entities as Array<{ key: string; value: string }>) ?? [];
+  const entities: Record<string, string> = {};
+  for (const e of entitiesArr) {
+    if (e.key && e.value) entities[e.key] = e.value;
+  }
+
+  return {
+    intent: intentStr,
+    entities,
+    promptTokens: (raw.prompt_tokens as number) ?? (raw.promptTokens as number) ?? 0,
+    completionTokens: (raw.completion_tokens as number) ?? (raw.completionTokens as number) ?? 0,
+    anaphoraResolved: (raw.anaphora_resolved as boolean) ?? (raw.anaphoraResolved as boolean) ?? false,
+    contextRefTurn: (raw.context_ref_turn as number) ?? (raw.contextRefTurn as number) ?? null,
+    intentChanged: (raw.intent_changed as boolean) ?? (raw.intentChanged as boolean) ?? false,
+    previousIntent: (raw.previous_intent as string) ?? (raw.previousIntent as string) ?? null,
+  };
 }
 
 // ============================================================
