@@ -69,6 +69,14 @@ opencode.json
 *.exe
 *.test
 handler_coverage
+/server
+coverage
+
+# Database backups (may contain sensitive data)
+backend/backups/
+
+# Docker volumes
+docker-volumes/
 
 # Docker environment files
 .env.production
