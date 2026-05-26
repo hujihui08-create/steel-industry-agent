@@ -26,6 +26,18 @@ const AgentDebugTool = lazy(() => import("@/app/components/admin/AgentDebugTool"
 const AdminProfilePage = lazy(() => import("@/app/pages/admin/AdminProfilePage"));
 const AdminChangePasswordPage = lazy(() => import("@/app/pages/admin/AdminChangePasswordPage"));
 const CategoryManage = lazy(() => import("@/app/pages/admin/CategoryManage"));
+const LoginLogs = lazy(() =>
+  import("@/app/components/admin/LoginLogs").then((m) => ({ default: m.LoginLogs }))
+);
+const ApiStats = lazy(() =>
+  import("@/app/components/admin/ApiStats").then((m) => ({ default: m.ApiStats }))
+);
+const ScheduledTasks = lazy(() =>
+  import("@/app/components/admin/ScheduledTasks").then((m) => ({ default: m.ScheduledTasks }))
+);
+const MenuManagement = lazy(() =>
+  import("@/app/components/admin/MenuManagement").then((m) => ({ default: m.MenuManagement }))
+);
 const SteelDataList = lazy(() => import("@/app/components/admin/SteelDataList"));
 
 function PageFallback() {
@@ -57,6 +69,10 @@ export default function AdminPage() {
           <Route path="system-settings" element={<SystemSettings />} />
           <Route path="data-backup" element={<DataBackup />} />
           <Route path="category-manage" element={<CategoryManage />} />
+          <Route path="login-logs" element={<LoginLogs />} />
+          <Route path="api-stats" element={<ApiStats />} />
+          <Route path="scheduled-tasks" element={<ScheduledTasks />} />
+          <Route path="menu-management" element={<MenuManagement />} />
           <Route path="profile" element={<AdminProfilePage />} />
           <Route path="change-password" element={<AdminChangePasswordPage />} />
           <Route path="data-list" element={<SteelDataList />} />

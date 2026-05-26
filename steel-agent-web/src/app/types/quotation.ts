@@ -5,8 +5,9 @@
 
 /** 报价单 */
 export interface Quotation {
-  id: string;
+  id: number;
   title: string;
+  user_id?: number;
   customer_name: string;
   category: string;
   spec: string;
@@ -20,4 +21,5 @@ export interface Quotation {
   status: 'draft' | 'sent' | 'accepted' | 'rejected';
   delivery_location: string;
   created_at: string;
+  updated_at?: string;
 }

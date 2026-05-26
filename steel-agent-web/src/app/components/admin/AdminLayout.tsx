@@ -26,6 +26,10 @@ const SIDEBAR_PATH_TO_TOP_MENU: Record<string, string> = {
   "/admin/operation-logs": "system",
   "/admin/system-settings": "system",
   "/admin/data-backup": "system",
+  "/admin/login-logs": "system",
+  "/admin/api-stats": "system",
+  "/admin/scheduled-tasks": "system",
+  "/admin/menu-management": "system",
 };
 
 // 路径到侧边栏项 ID 的映射
@@ -45,6 +49,10 @@ const PATH_TO_SIDEBAR_ID: Record<string, string> = {
   "/admin/operation-logs": "operation-logs",
   "/admin/system-settings": "system-settings",
   "/admin/data-backup": "data-backup",
+  "/admin/login-logs": "login-logs",
+  "/admin/api-stats": "api-stats",
+  "/admin/scheduled-tasks": "scheduled-tasks",
+  "/admin/menu-management": "menu-management",
 };
 
 interface AdminLayoutProps {

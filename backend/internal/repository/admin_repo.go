@@ -77,6 +77,55 @@ func (r *AdminRepository) CountAlerts(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+// CountTodayActiveUsers returns the number of distinct mobile users who have
+// successfully logged in today.
+func (r *AdminRepository) CountTodayActiveUsers(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.LoginLog{}).
+		Where("user_type = ? AND login_type = ? AND created_at >= CURRENT_DATE", "mobile", "success").
+		Distinct("user_id").
+		Count(&count).Error
+	return count, err
+}
+
+// CountChatSessions returns the total number of AI chat sessions.
+func (r *AdminRepository) CountChatSessions(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.ChatSession{}).Count(&count).Error
+	return count, err
+}
+
+// CountApiCalls returns the total number of API call log records.
+func (r *AdminRepository) CountApiCalls(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.ApiCallLog{}).Count(&count).Error
+	return count, err
+}
+
+// CountDailyUsers returns the number of distinct mobile users with successful
+// logins on a given date (format: "2006-01-02").
+func (r *AdminRepository) CountDailyUsers(ctx context.Context, date string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.LoginLog{}).
+		Where("user_type = ? AND login_type = ? AND DATE(created_at) = ?", "mobile", "success", date).
+		Distinct("user_id").
+		Count(&count).Error
+	return count, err
+}
+
+// CountDailyConversations returns the number of chat sessions created on a
+// given date (format: "2006-01-02").
+func (r *AdminRepository) CountDailyConversations(ctx context.Context, date string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.ChatSession{}).
+		Where("DATE(created_at) = ?", date).
+		Count(&count).Error
+	return count, err
+}
+
 func (r *AdminRepository) ListAll(ctx context.Context) ([]model.Admin, error) {
 	var admins []model.Admin
 	err := r.db.WithContext(ctx).Select("id", "username", "nickname", "role", "status", "login_attempts", "locked_until", "last_login_at", "created_at", "updated_at").

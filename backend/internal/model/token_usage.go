@@ -10,5 +10,8 @@ type TokenUsage struct {
 	PromptTokens     int       `json:"prompt_tokens"`
 	CompletionTokens int       `json:"completion_tokens"`
 	TotalTokens      int       `json:"total_tokens"`
+	APIPath          string    `gorm:"size:100" json:"api_path"`
+	StatusCode       int       `json:"status_code"`
+	DurationMs       int       `json:"duration_ms"`
 	CreatedAt        time.Time `json:"created_at"`
 }

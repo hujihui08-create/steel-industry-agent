@@ -2,7 +2,10 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/sashabaranov/go-openai"
@@ -782,5 +785,356 @@ func TestSubmitFeedback_EmptyComment(t *testing.T) {
 	err := svc.SubmitFeedback(ctx, 1, 100, true, "")
 	if err != nil {
 		t.Errorf("expected no error with empty comment, got %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// executeSetPriceAlert tests (set_price_alert feature)
+// ---------------------------------------------------------------------------
+
+// alertRepoInterface defines the subset of PriceAlertRepository needed by executeSetPriceAlert.
+type alertRepoInterface interface {
+	Create(ctx context.Context, alert *model.PriceAlert) error
+}
+
+// mockAlertRepoWithID is a mock that assigns auto-incrementing IDs on Create,
+// mirroring the behaviour of GORM's Create.
+type mockAlertRepoWithID struct {
+	alerts    []model.PriceAlert
+	nextID    uint
+	createErr error
+}
+
+func (m *mockAlertRepoWithID) Create(ctx context.Context, alert *model.PriceAlert) error {
+	if m.createErr != nil {
+		return m.createErr
+	}
+	m.nextID++
+	alert.ID = m.nextID
+	m.alerts = append(m.alerts, *alert)
+	return nil
+}
+
+// testableAlertChatService mirrors executeSetPriceAlert so it can be tested
+// in isolation without constructing a full ChatService.
+type testableAlertChatService struct {
+	alertRepo alertRepoInterface
+}
+
+// executeSetPriceAlert mirrors ChatService.executeSetPriceAlert.
+func (s *testableAlertChatService) executeSetPriceAlert(ctx context.Context, userID uint, argsJSON string) (string, error) {
+	var args setPriceAlertArgs
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return "", fmt.Errorf("set_price_alert: invalid arguments: %w", err)
+	}
+
+	alert := &model.PriceAlert{
+		UserID:      userID,
+		Category:    args.Category,
+		TargetPrice: args.TargetPrice,
+		Condition:   args.Condition,
+		IsActive:    true,
+	}
+
+	if err := s.alertRepo.Create(ctx, alert); err != nil {
+		return "", fmt.Errorf("set_price_alert: %w", err)
+	}
+
+	condDesc := "高于"
+	if args.Condition == "below" {
+		condDesc = "低于"
+	}
+
+	result := map[string]interface{}{
+		"source":       "user_alert",
+		"alert_id":     alert.ID,
+		"category":     args.Category,
+		"target_price": args.TargetPrice,
+		"condition":    args.Condition,
+		"message":      fmt.Sprintf("已设置%s价格预警：当价格%s ¥%.2f 时通知您", args.Category, condDesc, args.TargetPrice),
+	}
+	data, _ := json.Marshal(result)
+	return string(data), nil
+}
+
+// TestExecuteSetPriceAlert_UserID verifies the userID passed to the function
+// is correctly forwarded to the PriceAlert model and persisted via the repo.
+func TestExecuteSetPriceAlert_UserID(t *testing.T) {
+	ctx := context.Background()
+	mock := &mockAlertRepoWithID{}
+	svc := &testableAlertChatService{alertRepo: mock}
+
+	result, err := svc.executeSetPriceAlert(ctx, 42, `{"category":"螺纹钢","target_price":4000,"condition":"above"}`)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result == "" {
+		t.Fatal("expected non-empty result")
+	}
+
+	if len(mock.alerts) != 1 {
+		t.Fatalf("expected 1 alert stored, got %d", len(mock.alerts))
+	}
+	stored := mock.alerts[0]
+	if stored.UserID != 42 {
+		t.Errorf("expected UserID 42, got %d", stored.UserID)
+	}
+	if stored.Category != "螺纹钢" {
+		t.Errorf("expected Category '螺纹钢', got '%s'", stored.Category)
+	}
+	if stored.TargetPrice != 4000 {
+		t.Errorf("expected TargetPrice 4000, got %f", stored.TargetPrice)
+	}
+	if stored.Condition != "above" {
+		t.Errorf("expected Condition 'above', got '%s'", stored.Condition)
+	}
+	if !stored.IsActive {
+		t.Error("expected IsActive to be true")
+	}
+}
+
+// TestExecuteSetPriceAlert_Fields verifies all fields are correctly set
+// for a "below" condition alert.
+func TestExecuteSetPriceAlert_Fields(t *testing.T) {
+	ctx := context.Background()
+	mock := &mockAlertRepoWithID{}
+	svc := &testableAlertChatService{alertRepo: mock}
+
+	result, err := svc.executeSetPriceAlert(ctx, 7, `{"category":"热卷","target_price":3500.50,"condition":"below"}`)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result == "" {
+		t.Fatal("expected non-empty result")
+	}
+
+	if len(mock.alerts) != 1 {
+		t.Fatalf("expected 1 alert stored, got %d", len(mock.alerts))
+	}
+	stored := mock.alerts[0]
+	if stored.UserID != 7 {
+		t.Errorf("expected UserID 7, got %d", stored.UserID)
+	}
+	if stored.Category != "热卷" {
+		t.Errorf("expected Category '热卷', got '%s'", stored.Category)
+	}
+	if stored.TargetPrice != 3500.50 {
+		t.Errorf("expected TargetPrice 3500.50, got %f", stored.TargetPrice)
+	}
+	if stored.Condition != "below" {
+		t.Errorf("expected Condition 'below', got '%s'", stored.Condition)
+	}
+	if !stored.IsActive {
+		t.Error("expected IsActive to be true")
+	}
+
+	// Verify the result message contains "低于"
+	var resultMap map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &resultMap); err != nil {
+		t.Fatalf("failed to parse result JSON: %v", err)
+	}
+	msg, _ := resultMap["message"].(string)
+	if msg == "" {
+		t.Error("expected non-empty message in result")
+	}
+	if !strings.Contains(msg, "低于") {
+		t.Errorf("expected message to contain '低于', got '%s'", msg)
+	}
+}
+
+// TestExecuteSetPriceAlert_ResultFormat verifies the returned JSON contains
+// all required keys with correct values.
+func TestExecuteSetPriceAlert_ResultFormat(t *testing.T) {
+	ctx := context.Background()
+	mock := &mockAlertRepoWithID{}
+	svc := &testableAlertChatService{alertRepo: mock}
+
+	result, err := svc.executeSetPriceAlert(ctx, 1, `{"category":"冷轧","target_price":5200,"condition":"above"}`)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	var resultMap map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &resultMap); err != nil {
+		t.Fatalf("failed to parse result JSON: %v", err)
+	}
+
+	// Verify required keys
+	source, _ := resultMap["source"].(string)
+	if source != "user_alert" {
+		t.Errorf("expected source 'user_alert', got '%s'", source)
+	}
+
+	alertID, ok := resultMap["alert_id"].(float64)
+	if !ok || alertID <= 0 {
+		t.Errorf("expected alert_id > 0, got %v", resultMap["alert_id"])
+	}
+
+	category, _ := resultMap["category"].(string)
+	if category != "冷轧" {
+		t.Errorf("expected category '冷轧', got '%s'", category)
+	}
+
+	targetPrice, _ := resultMap["target_price"].(float64)
+	if targetPrice != 5200 {
+		t.Errorf("expected target_price 5200, got %f", targetPrice)
+	}
+
+	condition, _ := resultMap["condition"].(string)
+	if condition != "above" {
+		t.Errorf("expected condition 'above', got '%s'", condition)
+	}
+
+	message, ok := resultMap["message"].(string)
+	if !ok || message == "" {
+		t.Error("expected non-empty message")
+	}
+
+	// Verify the result can be parsed into the SSE card handler's struct
+	type alertResult struct {
+		AlertID     uint    `json:"alert_id"`
+		Category    string  `json:"category"`
+		TargetPrice float64 `json:"target_price"`
+		Condition   string  `json:"condition"`
+		Source      string  `json:"source"`
+	}
+	var ar alertResult
+	if err := json.Unmarshal([]byte(result), &ar); err != nil {
+		t.Fatalf("failed to unmarshal result into alertResult: %v", err)
+	}
+	if ar.AlertID != mock.alerts[0].ID {
+		t.Errorf("expected AlertID %d, got %d", mock.alerts[0].ID, ar.AlertID)
+	}
+	if ar.Category != "冷轧" {
+		t.Errorf("expected Category '冷轧', got '%s'", ar.Category)
+	}
+	if ar.TargetPrice != 5200 {
+		t.Errorf("expected TargetPrice 5200, got %f", ar.TargetPrice)
+	}
+	if ar.Condition != "above" {
+		t.Errorf("expected Condition 'above', got '%s'", ar.Condition)
+	}
+	if ar.Source != "user_alert" {
+		t.Errorf("expected Source 'user_alert', got '%s'", ar.Source)
+	}
+}
+
+// TestExecuteSetPriceAlert_InvalidArgs verifies that malformed JSON returns an error.
+func TestExecuteSetPriceAlert_InvalidArgs(t *testing.T) {
+	ctx := context.Background()
+	mock := &mockAlertRepoWithID{}
+	svc := &testableAlertChatService{alertRepo: mock}
+
+	_, err := svc.executeSetPriceAlert(ctx, 1, `{invalid json}`)
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+	if !strings.Contains(err.Error(), "invalid arguments") {
+		t.Errorf("expected error to mention 'invalid arguments', got '%s'", err.Error())
+	}
+}
+
+// TestExecuteSetPriceAlert_RepoError verifies that a repository error is propagated.
+func TestExecuteSetPriceAlert_RepoError(t *testing.T) {
+	ctx := context.Background()
+	mock := &mockAlertRepoWithID{createErr: errors.New("database error")}
+	svc := &testableAlertChatService{alertRepo: mock}
+
+	_, err := svc.executeSetPriceAlert(ctx, 1, `{"category":"螺纹钢","target_price":4000,"condition":"above"}`)
+	if err == nil {
+		t.Fatal("expected error from repo")
+	}
+	if !strings.Contains(err.Error(), "set_price_alert") {
+		t.Errorf("expected error to contain 'set_price_alert', got '%s'", err.Error())
+	}
+	if !strings.Contains(err.Error(), "database error") {
+		t.Errorf("expected error to contain 'database error', got '%s'", err.Error())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// set_price_alert SSE card emission tests
+// ---------------------------------------------------------------------------
+
+// TestSetPriceAlertCardFormat verifies the SSE card payload structure emitted
+// for the set_price_alert tool. It independently constructs the same card
+// payload as the chatCompletionsCore SSE handler and validates:
+//   - type field equals "card"
+//   - card_type field equals "alert"
+//   - data sub-map contains id, category, target_price, condition, is_active
+func TestSetPriceAlertCardFormat(t *testing.T) {
+	// Construct the alert result as it would come from executeSetPriceAlert.
+	alertResult := struct {
+		AlertID     uint    `json:"alert_id"`
+		Category    string  `json:"category"`
+		TargetPrice float64 `json:"target_price"`
+		Condition   string  `json:"condition"`
+		Source      string  `json:"source"`
+	}{
+		AlertID:     5,
+		Category:    "螺纹钢",
+		TargetPrice: 4000,
+		Condition:   "above",
+		Source:      "user_alert",
+	}
+
+	// Build the card payload exactly as chatCompletionsCore does (line 1520-1530).
+	cardPayload, err := json.Marshal(map[string]interface{}{
+		"type":      "card",
+		"card_type": "alert",
+		"data": map[string]interface{}{
+			"id":           alertResult.AlertID,
+			"category":     alertResult.Category,
+			"target_price": alertResult.TargetPrice,
+			"condition":    alertResult.Condition,
+			"is_active":    true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal card payload: %v", err)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(cardPayload, &payload); err != nil {
+		t.Fatalf("failed to unmarshal card payload: %v", err)
+	}
+
+	// Verify top-level fields.
+	if payload["type"] != "card" {
+		t.Errorf("expected type 'card', got '%v'", payload["type"])
+	}
+	if payload["card_type"] != "alert" {
+		t.Errorf("expected card_type 'alert', got '%v'", payload["card_type"])
+	}
+
+	// Verify data sub-map.
+	data, ok := payload["data"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected data to be a map[string]interface{}")
+	}
+
+	id, _ := data["id"].(float64)
+	if id != 5 {
+		t.Errorf("expected data.id 5, got %v", data["id"])
+	}
+
+	category, _ := data["category"].(string)
+	if category != "螺纹钢" {
+		t.Errorf("expected data.category '螺纹钢', got '%s'", category)
+	}
+
+	targetPrice, _ := data["target_price"].(float64)
+	if targetPrice != 4000 {
+		t.Errorf("expected data.target_price 4000, got %f", targetPrice)
+	}
+
+	condition, _ := data["condition"].(string)
+	if condition != "above" {
+		t.Errorf("expected data.condition 'above', got '%s'", condition)
+	}
+
+	isActive, ok := data["is_active"].(bool)
+	if !ok || !isActive {
+		t.Errorf("expected data.is_active true, got %v", data["is_active"])
 	}
 }

@@ -133,7 +133,8 @@ func (s *AdminService) UpdatePassword(ctx context.Context, adminID uint, oldPass
 	return s.adminRepo.Update(ctx, admin)
 }
 
-// Dashboard returns aggregated dashboard statistics including user, quotation, tender, and alert counts.
+// Dashboard returns aggregated dashboard statistics including user, quotation,
+// tender, alert, activity, conversation and AI call counts.
 func (s *AdminService) Dashboard(ctx context.Context) (map[string]int64, error) {
 	userCount, err := s.adminRepo.CountUsers(ctx)
 	if err != nil {
@@ -155,12 +156,73 @@ func (s *AdminService) Dashboard(ctx context.Context) (map[string]int64, error) 
 		return nil, err
 	}
 
+	todayActive, err := s.adminRepo.CountTodayActiveUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	totalConversations, err := s.adminRepo.CountChatSessions(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	aiCalls, err := s.adminRepo.CountApiCalls(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return map[string]int64{
-		"user_count":      userCount,
-		"quotation_count": quotationCount,
-		"tender_count":    tenderCount,
-		"alert_count":     alertCount,
+		"user_count":          userCount,
+		"quotation_count":     quotationCount,
+		"tender_count":        tenderCount,
+		"alert_count":         alertCount,
+		"today_active":        todayActive,
+		"total_conversations": totalConversations,
+		"ai_calls":            aiCalls,
 	}, nil
+}
+
+// TrendDataPoint represents a single day's aggregated dashboard trend metrics.
+type TrendDataPoint struct {
+	Date          string `json:"date"`
+	Users         int64  `json:"users"`
+	Conversations int64  `json:"conversations"`
+}
+
+// DashboardTrend returns daily user and conversation counts for the given
+// number of days (up to 30).
+func (s *AdminService) DashboardTrend(ctx context.Context, days int) ([]TrendDataPoint, error) {
+	if days <= 0 {
+		days = 7
+	}
+	if days > 30 {
+		days = 30
+	}
+
+	now := time.Now()
+	points := make([]TrendDataPoint, 0, days)
+
+	for i := days - 1; i >= 0; i-- {
+		date := now.AddDate(0, 0, -i).Format("2006-01-02")
+
+		users, err := s.adminRepo.CountDailyUsers(ctx, date)
+		if err != nil {
+			return nil, err
+		}
+
+		conversations, err := s.adminRepo.CountDailyConversations(ctx, date)
+		if err != nil {
+			return nil, err
+		}
+
+		points = append(points, TrendDataPoint{
+			Date:          date[5:], // "MM-DD" format for chart display
+			Users:         users,
+			Conversations: conversations,
+		})
+	}
+
+	return points, nil
 }
 
 func (s *AdminService) ListAdmins(ctx context.Context) ([]model.Admin, error) {

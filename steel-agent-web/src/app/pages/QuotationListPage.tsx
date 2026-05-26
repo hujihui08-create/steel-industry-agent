@@ -6,8 +6,10 @@ import { LoadingSkeleton } from "@/app/components/shared/LoadingSkeleton";
 import { ErrorState } from "@/app/components/shared/ErrorState";
 import { EmptyState } from "@/app/components/shared/EmptyState";
 
-import { getQuotationList } from "@/app/api/quotations";
+import { getQuotationList, deleteQuotation } from "@/app/api/quotations";
 import type { Quotation } from "@/app/types/quotation";
+import { Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 // -----------------------------------------------------------
 // Status badge mapping
@@ -60,6 +62,25 @@ export default function QuotationListPage() {
     queryFn: getQuotationList,
     staleTime: 60_000,
   });
+
+  // --- Handlers ---
+
+  const handleDelete = async (e: React.MouseEvent, item: Quotation) => {
+    e.stopPropagation(); // prevent navigating to detail
+    if (!window.confirm("确定要删除此报价单吗？")) return;
+    try {
+      await deleteQuotation(item.id);
+      toast.success("报价单已删除");
+      refetch();
+    } catch {
+      toast.error("删除失败，请重试");
+    }
+  };
+
+  const handleEdit = (e: React.MouseEvent, item: Quotation) => {
+    e.stopPropagation(); // prevent navigating to detail
+    navigate(`/quotations/${item.id}?edit=true`);
+  };
 
   // --- Render helpers ---
 
@@ -122,6 +143,26 @@ export default function QuotationListPage() {
               <p className="text-[12px] leading-[1.5] text-steel-placeholder mt-1">
                 {formatDate(item.created_at)}
               </p>
+
+              {/* Row 4: action buttons */}
+              <div className="flex items-center gap-2 mt-2 pt-2 border-t border-steel-line">
+                <button
+                  type="button"
+                  onClick={(e) => handleEdit(e, item)}
+                  className="inline-flex items-center gap-1 text-[12px] leading-[1.5] text-steel-body hover:text-steel-ink transition-colors duration-150"
+                >
+                  <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  编辑
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => handleDelete(e, item)}
+                  className="inline-flex items-center gap-1 text-[12px] leading-[1.5] text-steel-down transition-colors duration-150"
+                >
+                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  删除
+                </button>
+              </div>
             </button>
           );
         })}

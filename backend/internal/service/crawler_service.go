@@ -100,6 +100,12 @@ func (s *CrawlerService) StartScheduler() {
 	}()
 }
 
+// RunSchedulerTick is the public entry point for manually triggering one polling
+// cycle of the crawler scheduler. It is used by ScheduledTaskService.
+func (s *CrawlerService) RunSchedulerTick() {
+	s.schedulerTick()
+}
+
 // schedulerTick performs a single polling iteration: finds all active sources and
 // triggers a crawl for any source whose crawl_interval has elapsed since last_crawl_at.
 func (s *CrawlerService) schedulerTick() {

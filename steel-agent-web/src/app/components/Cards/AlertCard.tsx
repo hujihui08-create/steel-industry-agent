@@ -3,7 +3,7 @@ import { Bell, List, ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface AlertCardProps {
-  id?: string;
+  id?: number;
   category: string;
   spec: string;
   region: string;

@@ -62,6 +62,10 @@ func main() {
 	categoryRepo := repository.NewCategoryRepository(db)
 	badCaseRepo := repository.NewBadCaseRepository(db)
 	tokenUsageRepo := repository.NewTokenUsageRepository(db)
+	apiCallLogRepo := repository.NewApiCallLogRepository(db)
+	menuRepo := repository.NewMenuRepository(db)
+	taskRepo := repository.NewScheduledTaskRepository(db)
+	taskLogRepo := repository.NewTaskExecutionLogRepository(db)
 
 	cacheService := service.NewCacheService(db, redisClient)
 
@@ -95,12 +99,14 @@ func main() {
 		categoryRepo,
 		badCaseService,
 		intentRepo,
+		tokenUsageRepo,
 	)
 
 	// Complete the circular dependency: BadCaseService needs ChatService for Verify.
 	badCaseService.SetChatService(chatService)
 
 	adminService := service.NewAdminService(adminRepo, userRepo)
+	menuService := service.NewMenuService(menuRepo)
 	mobileRoleService := service.NewMobileRoleService(mobileRoleRepo, userRepo)
 
 	agentConfigRepo := repository.NewAgentConfigRepository(db)
@@ -113,6 +119,10 @@ func main() {
 	adminNotifRepo := repository.NewAdminNotificationRepository(db)
 	adminNotifService := service.NewAdminNotificationService(adminNotifRepo)
 	adminNotifHandler := handler.NewAdminNotificationHandler(adminNotifService)
+
+	loginLogRepo := repository.NewLoginLogRepository(db)
+	loginLogService := service.NewLoginLogService(loginLogRepo)
+	loginLogHandler := handler.NewLoginLogHandler(loginLogService)
 
 	crawlerService := service.NewCrawlerService(
 		db,
@@ -141,11 +151,17 @@ func main() {
 		backupService.StartScheduler(make(chan struct{}))
 	}()
 
+	// 定时任务管理服务
+	scheduledTaskService := service.NewScheduledTaskService(taskRepo, taskLogRepo, cleanupService, backupService, crawlerService)
+	if err := scheduledTaskService.RegisterTasks(); err != nil {
+		log.Printf("WARNING: 注册定时任务失败: %v", err)
+	}
+
 	// 版本号从环境变量读取，默认 "1.0.0"
 	version := getEnvOrDefault("APP_VERSION", "1.0.0")
 	healthHandler := handler.NewHealthHandler(db, redisClient, version)
 
-	authHandler := handler.NewAuthHandler(authService)
+	authHandler := handler.NewAuthHandler(authService, loginLogService)
 	userHandler := handler.NewUserHandler(userService)
 	priceHandler := handler.NewPriceHandler(priceService)
 	quotationHandler := handler.NewQuotationHandler(quotationService)
@@ -153,7 +169,7 @@ func main() {
 	tenderHandler := handler.NewTenderHandler(tenderService)
 	alertHandler := handler.NewAlertHandler(alertService)
 	chatHandler := handler.NewChatHandler(chatService)
-	adminHandler := handler.NewAdminHandler(adminService)
+	adminHandler := handler.NewAdminHandler(adminService, menuService, loginLogService)
 	mobileRoleHandler := handler.NewMobileRoleHandler(mobileRoleService)
 	agentConfigHandler := handler.NewAgentConfigHandler(agentConfigService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
@@ -177,8 +193,15 @@ func main() {
 	tokenUsageService := service.NewTokenUsageService(tokenUsageRepo)
 	tokenUsageHandler := handler.NewTokenUsageHandler(tokenUsageService)
 
+	apiStatsService := service.NewApiCallLogService(apiCallLogRepo, tokenUsageRepo)
+	apiStatsHandler := handler.NewApiStatsHandler(apiStatsService)
+
 	categoryService := service.NewCategoryService(categoryRepo, steelPriceRepo)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
+
+	scheduledTaskHandler := handler.NewScheduledTaskHandler(scheduledTaskService)
+
+	menuHandler := handler.NewMenuHandler(menuService)
 
 	r := gin.Default()
 
@@ -208,8 +231,13 @@ func main() {
 		adminLogHandler,
 		tokenUsageHandler,
 		mobileRoleHandler,
+		scheduledTaskHandler,
+		apiStatsHandler,
+		loginLogHandler,
+		menuHandler,
 		adminRepo,
 		adminLogRepo,
+		apiCallLogRepo,
 	)
 
 	srv := &http.Server{

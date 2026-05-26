@@ -35,8 +35,13 @@ func Setup(
 	adminLogHandler *handler.AdminLogHandler,
 	tokenUsageHandler *handler.TokenUsageHandler,
 	mobileRoleHandler *handler.MobileRoleHandler,
+	scheduledTaskHandler *handler.ScheduledTaskHandler,
+	apiStatsHandler *handler.ApiStatsHandler,
+	loginLogHandler *handler.LoginLogHandler,
+	menuHandler *handler.MenuHandler,
 	adminRepo *repository.AdminRepository,
 	adminLogRepo *repository.AdminLogRepository,
+	apiCallLogRepo *repository.ApiCallLogRepository,
 ) {
 	// Health check routes — registered before any middleware so that
 	// orchestrators can probe liveness/readiness without interference.
@@ -53,6 +58,7 @@ func Setup(
 	r.Use(middleware.RateLimit(100, 200))
 
 	api := r.Group("/api/v1")
+	api.Use(middleware.ApiCallLog(apiCallLogRepo))
 
 	auth := api.Group("/auth")
 	{
@@ -326,6 +332,41 @@ func Setup(
 		adminLogs.GET("", adminLogHandler.List)
 		adminLogs.GET("/:id", adminLogHandler.GetByID)
 		adminLogs.GET("/export", adminLogHandler.Export)
+	}
+
+	adminScheduledTasks := api.Group("/admin/scheduled-tasks")
+	adminScheduledTasks.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
+	{
+		adminScheduledTasks.GET("", scheduledTaskHandler.List)
+		adminScheduledTasks.POST("/trigger", scheduledTaskHandler.Trigger)
+		adminScheduledTasks.GET("/logs", scheduledTaskHandler.Logs)
+		adminScheduledTasks.POST("/toggle", scheduledTaskHandler.Toggle)
+	}
+
+	adminApiStats := api.Group("/admin/api-stats")
+	adminApiStats.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
+	{
+		adminApiStats.GET("/overview", apiStatsHandler.Overview)
+		adminApiStats.GET("/endpoints", apiStatsHandler.EndpointStats)
+		adminApiStats.GET("/models", apiStatsHandler.ModelStats)
+		adminApiStats.GET("/users", apiStatsHandler.UserStats)
+		adminApiStats.GET("/trend", apiStatsHandler.Trend)
+	}
+
+	adminLoginLogs := api.Group("/admin/login-logs")
+	adminLoginLogs.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
+	{
+		adminLoginLogs.GET("", loginLogHandler.List)
+		adminLoginLogs.GET("/stats", loginLogHandler.Stats)
+	}
+
+	adminMenus := api.Group("/admin/menus")
+	adminMenus.Use(middleware.RequireRole(adminRepo, "super_admin"))
+	{
+		adminMenus.GET("/tree", menuHandler.GetMenuTree)
+		adminMenus.POST("", menuHandler.Create)
+		adminMenus.PUT("/:id", menuHandler.Update)
+		adminMenus.DELETE("/:id", menuHandler.Delete)
 	}
 
 	adminSettings := api.Group("/admin/settings")

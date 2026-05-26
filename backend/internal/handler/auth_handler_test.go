@@ -9,10 +9,18 @@ import (
 	"strings"
 	"testing"
 
+	"steel-agent-backend/internal/config"
 	"steel-agent-backend/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
+
+func init() {
+	config.AppConfig = &config.Config{
+		JWTSecret:        "test-secret",
+		JWTRefreshSecret: "test-refresh-secret",
+	}
+}
 
 type mockAuthService struct {
 	sendSMSCodeFn   func(ctx context.Context, phone string) error
@@ -52,7 +60,7 @@ func (m *mockAuthService) Logout(ctx context.Context, refreshToken string) error
 
 func setupAuthRouter(mock *mockAuthService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
-	handler := &AuthHandler{authService: mock}
+	handler := &AuthHandler{authService: mock, loginLogRecorder: &mockLoginLogRecorder{}}
 	router := gin.New()
 	router.POST("/api/v1/auth/sms-code", handler.GetSMSCode)
 	router.POST("/api/v1/auth/login", handler.Login)

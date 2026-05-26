@@ -73,7 +73,7 @@ type ToolSchema struct {
 
 // toolDisplayNames maps tool function names to human-readable Chinese names.
 var toolDisplayNames = map[string]string{
-	"query_steel_price":  "价格查询",
+	"query_steel_price":   "价格查询",
 	"calculate_quotation": "报价计算",
 	"search_knowledge":    "知识检索",
 	"query_tender":        "招标查询",
@@ -98,9 +98,9 @@ type IntentTestResult struct {
 		Name       string  `json:"name"`
 		Confidence float64 `json:"confidence"`
 	} `json:"intent"`
-	Entities          []IntentEntity `json:"entities"`
-	MatchedKeywords   []string       `json:"matched_keywords"`
-	MatchMethod       string         `json:"match_method"`
+	Entities        []IntentEntity `json:"entities"`
+	MatchedKeywords []string       `json:"matched_keywords"`
+	MatchMethod     string         `json:"match_method"`
 }
 
 type IntentEntity struct {
@@ -116,10 +116,10 @@ type PromptPreviewResult struct {
 }
 
 type DebugSession struct {
-	ID        uint      `json:"id"`
-	Title     string    `json:"title"`
-	CreatedAt time.Time `json:"created_at"`
-	TurnCount int       `json:"turn_count"`
+	ID        uint           `json:"id"`
+	Title     string         `json:"title"`
+	CreatedAt time.Time      `json:"created_at"`
+	TurnCount int            `json:"turn_count"`
 	Messages  []DebugMessage `json:"messages,omitempty"`
 }
 
@@ -326,7 +326,7 @@ func (s *DebugService) ExecuteTool(ctx context.Context, toolName string, params 
 		},
 	}
 
-	execResult, execErr := s.chatService.ExecuteTool(ctx, toolCall)
+	execResult, execErr := s.chatService.ExecuteTool(ctx, 0, toolCall)
 	step3Duration := time.Since(step3Start).Milliseconds()
 	chain = append(chain, ToolCallChainStep{
 		Step:       "工具执行",
@@ -372,7 +372,7 @@ func (s *DebugService) CheckToolHealth(ctx context.Context) (*ToolHealthResult, 
 	results := make(chan chanResult, len(toolSchemas))
 
 	testParams := map[string]map[string]interface{}{
-		"query_steel_price": {"category": "螺纹钢"},
+		"query_steel_price":   {"category": "螺纹钢"},
 		"calculate_quotation": {"category": "螺纹钢", "spec": "HRB400E 20mm", "quantity": 1},
 		"search_knowledge":    {"query": "HRB400E"},
 		"query_tender":        {"keyword": "螺纹钢"},
@@ -600,12 +600,12 @@ func (s *DebugService) StreamDebugChat(ctx context.Context, req *DebugDialogueRe
 
 		for _, tc := range choice.Message.ToolCalls {
 			sendSSEEvent(ch, "tool_call", map[string]interface{}{
-				"tool_name":  tc.Function.Name,
-				"arguments":  tc.Function.Arguments,
+				"tool_name": tc.Function.Name,
+				"arguments": tc.Function.Arguments,
 			})
 
 			toolStart := time.Now()
-			execResult, execErr := s.chatService.ExecuteTool(ctx, tc)
+			execResult, execErr := s.chatService.ExecuteTool(ctx, 0, tc)
 			toolDuration := time.Since(toolStart).Milliseconds()
 
 			if execErr != nil {

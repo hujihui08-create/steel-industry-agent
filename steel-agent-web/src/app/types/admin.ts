@@ -455,3 +455,106 @@ export interface RetentionStats {
   day7: RetentionStatItem
   day30: RetentionStatItem
 }
+
+// ============================================================
+// 登录日志
+// ============================================================
+
+export interface LoginLogEntry {
+  id: number;
+  user_type: 'admin' | 'mobile';
+  admin_id: number | null;
+  user_id: number | null;
+  login_type: 'success' | 'failure';
+  fail_reason: string;
+  ip_address: string;
+  user_agent: string;
+  created_at: string;
+}
+
+export interface LoginLogStats {
+  today_total: number;
+  today_success: number;
+  today_failure: number;
+}
+
+// ============================================================
+// API 调用统计
+// ============================================================
+
+export interface ApiCallOverview {
+  today_total: number;
+  avg_duration_ms: number;
+  error_rate: number;
+  today_tokens: number;
+}
+
+export interface ApiEndpointStat {
+  api_path: string;
+  call_count: number;
+  avg_duration_ms: number;
+  error_count: number;
+  error_rate: number;
+}
+
+export interface ApiModelStat {
+  model: string;
+  call_count: number;
+  total_tokens: number;
+}
+
+export interface ApiUserStat {
+  user_id: number;
+  call_count: number;
+  total_tokens: number;
+}
+
+export interface ApiTrendPoint {
+  date: string;
+  call_count: number;
+  avg_duration_ms: number;
+}
+
+// ============================================================
+// 定时任务管理
+// ============================================================
+
+export interface ScheduledTask {
+  id: number;
+  name: string;
+  description: string;
+  cron_expr: string;
+  status: 'running' | 'paused';
+  last_run_at: string | null;
+  next_run_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskExecutionLog {
+  id: number;
+  task_id: number;
+  started_at: string;
+  finished_at: string | null;
+  status: 'success' | 'failed';
+  result_detail: string;
+  error_message: string;
+}
+
+// ============================================================
+// 菜单管理
+// ============================================================
+
+export interface MenuNode {
+  id: number;
+  parent_id: number | null;
+  name: string;
+  icon: string;
+  path: string;
+  sort_order: number;
+  visible_roles: string;
+  status: number;
+  children?: MenuNode[];
+  created_at: string;
+  updated_at: string;
+}

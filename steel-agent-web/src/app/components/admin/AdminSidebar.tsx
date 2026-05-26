@@ -16,6 +16,10 @@ import {
   Sliders,
   Globe,
   Tag,
+  LogIn,
+  BarChart3,
+  Clock,
+  Menu,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -135,6 +139,30 @@ export const SIDEBAR_MENU_MAP: Record<string, SidebarMenuItem[]> = {
       label: "数据备份",
       icon: Database,
       path: "/admin/data-backup",
+    },
+    {
+      id: "login-logs",
+      label: "登录日志",
+      icon: LogIn,
+      path: "/admin/login-logs",
+    },
+    {
+      id: "api-stats",
+      label: "API统计",
+      icon: BarChart3,
+      path: "/admin/api-stats",
+    },
+    {
+      id: "scheduled-tasks",
+      label: "定时任务",
+      icon: Clock,
+      path: "/admin/scheduled-tasks",
+    },
+    {
+      id: "menu-management",
+      label: "菜单管理",
+      icon: Menu,
+      path: "/admin/menu-management",
     },
   ],
 };

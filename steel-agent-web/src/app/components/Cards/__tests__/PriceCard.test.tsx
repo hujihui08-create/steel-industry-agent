@@ -3,6 +3,19 @@ import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { PriceCard, type PriceCardProps } from "@/app/components/Cards/PriceCard";
 
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+vi.mock("@/app/stores/alertStore", () => ({
+  useAlertStore: () => ({
+    createAlert: vi.fn().mockResolvedValue({}),
+  }),
+}));
+
 function renderCard(props: Partial<PriceCardProps> = {}) {
   const defaultProps: PriceCardProps = {
     title: "螺纹钢 HRB400E",
@@ -132,24 +145,26 @@ describe("PriceCard", () => {
     expect(onViewTrend).toHaveBeenCalledOnce();
   });
 
-  it("should render set alert button when onSetAlert is provided", () => {
-    const onSetAlert = vi.fn();
-    renderCard({ onSetAlert });
+  it("should render set alert button when prices exist", () => {
+    renderCard();
     expect(screen.getByText("设置预警")).toBeInTheDocument();
   });
 
-  it("should call onSetAlert when set alert button clicked", async () => {
-    const onSetAlert = vi.fn();
+  it("should render set alert and view trend buttons via click", async () => {
     const user = userEvent.setup();
-    renderCard({ onSetAlert });
+    renderCard();
 
+    expect(screen.getByText("设置预警")).toBeInTheDocument();
     await user.click(screen.getByText("设置预警"));
-    expect(onSetAlert).toHaveBeenCalledOnce();
   });
 
-  it("should NOT render action buttons when callbacks not provided", () => {
+  it("should NOT render view trend button when callback not provided", () => {
     renderCard();
     expect(screen.queryByText("查看走势")).not.toBeInTheDocument();
+  });
+
+  it("should NOT render set alert button when prices is empty", () => {
+    renderCard({ prices: [] });
     expect(screen.queryByText("设置预警")).not.toBeInTheDocument();
   });
 });

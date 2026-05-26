@@ -1,6 +1,8 @@
 import { ArrowUpRight, ArrowDownRight, Minus, Bell, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAlertStore } from "@/app/stores/alertStore";
+import { toast } from "sonner";
 
 export interface PriceItem {
   region: string;
@@ -16,7 +18,6 @@ export interface PriceCardProps {
   source?: string;
   sourceTime?: string;
   onViewTrend?: (e: React.MouseEvent) => void;
-  onSetAlert?: (e: React.MouseEvent) => void;
 }
 
 function formatPrice(value: number): string {
@@ -45,8 +46,28 @@ export function PriceCard({
   source,
   sourceTime,
   onViewTrend,
-  onSetAlert,
 }: PriceCardProps) {
+  const { createAlert } = useAlertStore();
+
+  const handleSetAlert = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const firstPrice = prices[0];
+    if (!firstPrice) return;
+    try {
+      await createAlert({
+        category: title,
+        spec: "",
+        region: firstPrice.region,
+        target_price: firstPrice.price,
+        condition: "above",
+      });
+      toast.success("预警设置成功");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "创建预警失败";
+      toast.error(message);
+    }
+  };
   return (
     <div>
       <div className="rounded-2xl border border-steel-line overflow-hidden">
@@ -116,7 +137,7 @@ export function PriceCard({
       </div>
 
       {/* Action pills */}
-      {(onViewTrend || onSetAlert) && (
+      {(onViewTrend || prices.length > 0) && (
         <div className="flex flex-wrap gap-2 mt-3">
           {onViewTrend && (
             <Button
@@ -129,11 +150,11 @@ export function PriceCard({
               查看走势
             </Button>
           )}
-          {onSetAlert && (
+          {prices.length > 0 && (
             <Button
               variant="outline"
               size="sm"
-              onClick={(e) => onSetAlert(e)}
+              onClick={handleSetAlert}
               className="rounded-full border-steel-line text-steel-ink hover:bg-transparent hover:border-steel-ink text-[13px] h-8 px-3.5"
             >
               <Bell className="size-3.5" strokeWidth={1.75} />

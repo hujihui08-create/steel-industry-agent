@@ -12,16 +12,15 @@ export type CalculateQuotationParams = {
 
 export type CalculateQuotationResult = {
   material_cost: number;
+  process_cost: number;
   freight_cost: number;
   tax_cost: number;
   total_price: number;
-  category: string;
-  spec: string;
-  quantity: number;
-  region: string;
+  unit_price: number;
 };
 
 export type CreateQuotationParams = {
+  title?: string;
   category: string;
   spec: string;
   quantity: number;
@@ -44,7 +43,7 @@ export async function getQuotationList(): Promise<Quotation[]> {
 }
 
 export async function getQuotationDetail(
-  id: string,
+  id: number | string,
 ): Promise<Quotation> {
   const { data } = await apiClient.get<ApiResponse<Quotation>>(
     `/quotations/${id}`,
@@ -73,4 +72,40 @@ export async function createQuotation(
   );
   if (!data?.data) throw new Error(data?.message || "创建报价单失败");
   return data.data;
+}
+
+export async function updateQuotation(
+  id: number,
+  data: Partial<CreateQuotationParams>,
+): Promise<Quotation> {
+  const { data: res } = await apiClient.put<ApiResponse<Quotation>>(
+    `/quotations/${id}`,
+    data,
+  );
+  if (!res?.data) throw new Error(res?.message || "更新报价单失败");
+  return res.data;
+}
+
+export async function deleteQuotation(id: number): Promise<void> {
+  const { data } = await apiClient.delete<ApiResponse<null>>(
+    `/quotations/${id}`,
+  );
+  if (data?.code !== 200 && data?.code !== undefined) {
+    throw new Error(data?.message || "删除报价单失败");
+  }
+}
+
+export async function exportQuotationPDF(id: number): Promise<void> {
+  const { data } = await apiClient.get<Blob>(`/quotations/${id}/pdf`, {
+    responseType: "blob",
+  });
+
+  const url = window.URL.createObjectURL(data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `quotation_${id}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
 }

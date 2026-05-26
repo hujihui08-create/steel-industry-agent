@@ -21,8 +21,8 @@ interface AlertState {
 
   fetchAlerts: () => Promise<void>;
   createAlert: (data: CreateAlertParams) => Promise<PriceAlert>;
-  updateAlert: (id: string, data: UpdateAlertParams) => Promise<PriceAlert>;
-  deleteAlert: (id: string) => Promise<void>;
+  updateAlert: (id: number, data: UpdateAlertParams) => Promise<PriceAlert>;
+  deleteAlert: (id: number) => Promise<void>;
   reset: () => void;
 }
 
@@ -58,7 +58,7 @@ export const useAlertStore = create<AlertState>((set, get) => ({
     }
   },
 
-  updateAlert: async (id: string, data: UpdateAlertParams) => {
+  updateAlert: async (id: number, data: UpdateAlertParams) => {
     set({ isLoading: true, error: null });
     try {
       const updatedAlert = await updateAlertApi(id, data);
@@ -76,7 +76,7 @@ export const useAlertStore = create<AlertState>((set, get) => ({
     }
   },
 
-  deleteAlert: async (id: string) => {
+  deleteAlert: async (id: number) => {
     set({ isLoading: true, error: null });
     try {
       await deleteAlert(id);

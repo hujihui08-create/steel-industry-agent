@@ -9,27 +9,37 @@ import (
 	"strings"
 	"testing"
 
+	"steel-agent-backend/internal/config"
 	"steel-agent-backend/internal/model"
+	"steel-agent-backend/internal/service"
 	"steel-agent-backend/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
 
+func init() {
+	config.AppConfig = &config.Config{
+		JWTSecret:        "test-secret",
+		JWTRefreshSecret: "test-refresh-secret",
+	}
+}
+
 type mockAdminService struct {
-	loginFn            func(ctx context.Context, username, password string) (string, error)
-	logoutFn           func(ctx context.Context) error
-	getInfoFn          func(ctx context.Context, adminID uint) (*model.Admin, error)
-	updatePasswordFn   func(ctx context.Context, adminID uint, oldPassword, newPassword string) error
-	dashboardFn        func(ctx context.Context) (map[string]int64, error)
-	listAdminsFn       func(ctx context.Context) ([]model.Admin, error)
-	createAdminFn      func(ctx context.Context, username, nickname, password, role string) (*model.Admin, error)
-	updateAdminFn      func(ctx context.Context, id uint, nickname, role string) error
-	deleteAdminFn      func(ctx context.Context, id uint) error
-	updateProfileFn    func(ctx context.Context, adminID uint, nickname string) error
-	listMobileUsersFn  func(ctx context.Context, keyword string, page, pageSize int) ([]model.User, int64, error)
+	loginFn               func(ctx context.Context, username, password string) (string, error)
+	logoutFn              func(ctx context.Context) error
+	getInfoFn             func(ctx context.Context, adminID uint) (*model.Admin, error)
+	updatePasswordFn      func(ctx context.Context, adminID uint, oldPassword, newPassword string) error
+	dashboardFn           func(ctx context.Context) (map[string]int64, error)
+	listAdminsFn          func(ctx context.Context) ([]model.Admin, error)
+	createAdminFn         func(ctx context.Context, username, nickname, password, role string) (*model.Admin, error)
+	updateAdminFn         func(ctx context.Context, id uint, nickname, role string) error
+	deleteAdminFn         func(ctx context.Context, id uint) error
+	updateProfileFn       func(ctx context.Context, adminID uint, nickname string) error
+	listMobileUsersFn     func(ctx context.Context, keyword string, page, pageSize int) ([]model.User, int64, error)
 	getMobileUserDetailFn func(ctx context.Context, id uint) (*model.User, error)
-	disableMobileUserFn func(ctx context.Context, id uint) error
-	enableMobileUserFn  func(ctx context.Context, id uint) error
+	disableMobileUserFn   func(ctx context.Context, id uint) error
+	enableMobileUserFn    func(ctx context.Context, id uint) error
+	dashboardTrendFn      func(ctx context.Context, days int) ([]service.TrendDataPoint, error)
 }
 
 func (m *mockAdminService) Login(ctx context.Context, username, password string) (string, error) {
@@ -88,9 +98,20 @@ func (m *mockAdminService) EnableMobileUser(ctx context.Context, id uint) error 
 	return m.enableMobileUserFn(ctx, id)
 }
 
+func (m *mockAdminService) DashboardTrend(ctx context.Context, days int) ([]service.TrendDataPoint, error) {
+	return m.dashboardTrendFn(ctx, days)
+}
+
+type mockLoginLogRecorder struct{}
+
+func (m *mockLoginLogRecorder) RecordLoginSuccess(_ context.Context, _ string, _, _ *uint, _, _ string) {
+}
+func (m *mockLoginLogRecorder) RecordLoginFailure(_ context.Context, _ string, _, _ *uint, _, _, _ string) {
+}
+
 func setupAdminRouter(mock *mockAdminService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
-	handler := &AdminHandler{adminService: mock}
+	handler := &AdminHandler{adminService: mock, loginLogRecorder: &mockLoginLogRecorder{}}
 	router := gin.New()
 
 	setUserID := func(c *gin.Context) {
@@ -208,17 +229,19 @@ func TestAdminGetInfo(t *testing.T) {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
 		Data    struct {
-			ID       uint   `json:"id"`
-			Username string `json:"username"`
-			Nickname string `json:"nickname"`
+			Admin struct {
+				ID       uint   `json:"id"`
+				Username string `json:"username"`
+				Nickname string `json:"nickname"`
+			} `json:"admin"`
 		} `json:"data"`
 	}
 	json.Unmarshal(w.Body.Bytes(), &resp)
 	if resp.Code != 200 {
 		t.Errorf("expected code 200, got %d", resp.Code)
 	}
-	if resp.Data.Username != "admin" {
-		t.Errorf("expected username 'admin', got '%s'", resp.Data.Username)
+	if resp.Data.Admin.Username != "admin" {
+		t.Errorf("expected username 'admin', got '%s'", resp.Data.Admin.Username)
 	}
 }
 

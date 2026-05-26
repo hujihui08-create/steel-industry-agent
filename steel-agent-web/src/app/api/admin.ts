@@ -11,7 +11,9 @@ import type {
   AgentConfig, PromptVersion, Intent, IntentStats, IntentTestResult,
   BadCase, BadCaseFilter, BadCaseImportResult, BadCaseVerifyResult, MobileUser, AdminUser, AdminRole, AdminUserStatus, OperationLog,
   SystemSettings, BackupRecord, BackupOverview, PaginatedResponse,
-  Category, PublicCategories, MobileRole, RetentionStats
+  Category, PublicCategories, MobileRole, RetentionStats,
+  LoginLogEntry, LoginLogStats, ApiCallOverview, ApiEndpointStat, ApiModelStat, ApiUserStat, ApiTrendPoint,
+  ScheduledTask, TaskExecutionLog, MenuNode
 } from "@/app/types/admin";
 
 // ============================================================
@@ -816,4 +818,106 @@ export async function saveRolePermissions(
 export async function getRetentionStats(): Promise<RetentionStats> {
   const { data } = await apiClient.get<ApiResponse<RetentionStats>>('/admin/mobile-users/retention')
   return data.data!
+}
+
+// ============================================================
+// 登录日志
+// ============================================================
+
+export async function getLoginLogs(params?: {
+  page?: number;
+  page_size?: number;
+  user_type?: string;
+}): Promise<PaginatedResponse<LoginLogEntry>> {
+  const { data } = await apiClient.get<ApiResponse<PaginatedResponse<LoginLogEntry>>>(
+    "/admin/login-logs",
+    { params }
+  );
+  return data.data!;
+}
+
+export async function getLoginLogStats(): Promise<LoginLogStats> {
+  const { data } = await apiClient.get<ApiResponse<LoginLogStats>>("/admin/login-logs/stats");
+  return data.data!;
+}
+
+// ============================================================
+// API 调用统计
+// ============================================================
+
+export async function getApiStatsOverview(): Promise<ApiCallOverview> {
+  const { data } = await apiClient.get<ApiResponse<ApiCallOverview>>("/admin/api-stats/overview");
+  return data.data!;
+}
+
+export async function getApiEndpointStats(): Promise<ApiEndpointStat[]> {
+  const { data } = await apiClient.get<ApiResponse<ApiEndpointStat[]>>("/admin/api-stats/endpoints");
+  return data.data!;
+}
+
+export async function getApiModelStats(): Promise<ApiModelStat[]> {
+  const { data } = await apiClient.get<ApiResponse<ApiModelStat[]>>("/admin/api-stats/models");
+  return data.data!;
+}
+
+export async function getApiUserStats(): Promise<ApiUserStat[]> {
+  const { data } = await apiClient.get<ApiResponse<ApiUserStat[]>>("/admin/api-stats/users");
+  return data.data!;
+}
+
+export async function getApiTrend(days: number = 7): Promise<ApiTrendPoint[]> {
+  const { data } = await apiClient.get<ApiResponse<ApiTrendPoint[]>>("/admin/api-stats/trend", {
+    params: { days }
+  });
+  return data.data!;
+}
+
+// ============================================================
+// 定时任务管理
+// ============================================================
+
+export async function getScheduledTasks(): Promise<ScheduledTask[]> {
+  const { data } = await apiClient.get<ApiResponse<ScheduledTask[]>>("/admin/scheduled-tasks");
+  return data.data!;
+}
+
+export async function triggerTask(taskName: string): Promise<void> {
+  await apiClient.post("/admin/scheduled-tasks/trigger", { task_name: taskName });
+}
+
+export async function getTaskLogs(taskId: number): Promise<TaskExecutionLog[]> {
+  const { data } = await apiClient.get<ApiResponse<TaskExecutionLog[]>>("/admin/scheduled-tasks/logs", {
+    params: { task_id: taskId }
+  });
+  return data.data!;
+}
+
+export async function toggleTask(taskName: string): Promise<string> {
+  const { data } = await apiClient.post<ApiResponse<{ status: string }>>(
+    "/admin/scheduled-tasks/toggle",
+    { task_name: taskName }
+  );
+  return data.data!.status;
+}
+
+// ============================================================
+// 菜单管理
+// ============================================================
+
+export async function getMenuTree(): Promise<MenuNode[]> {
+  const { data } = await apiClient.get<ApiResponse<MenuNode[]>>("/admin/menus/tree");
+  return data.data!;
+}
+
+export async function createMenu(menu: Partial<MenuNode>): Promise<MenuNode> {
+  const { data } = await apiClient.post<ApiResponse<MenuNode>>("/admin/menus", menu);
+  return data.data!;
+}
+
+export async function updateMenu(id: number, menu: Partial<MenuNode>): Promise<void> {
+  await apiClient.put(`/admin/menus/${id}`, menu);
+}
+
+export async function deleteMenu(id: number): Promise<void> {
+  await apiClient.delete(`/admin/menus/${id}`);
 }

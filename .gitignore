@@ -69,6 +69,7 @@ opencode.json
 *.exe
 *.test
 handler_coverage
+server
 
 # Docker environment files
 .env.production

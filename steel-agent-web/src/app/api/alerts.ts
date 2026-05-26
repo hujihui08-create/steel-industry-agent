@@ -24,12 +24,12 @@ export async function createAlert(params: CreateAlertParams): Promise<PriceAlert
   return data.data;
 }
 
-export async function updateAlert(id: string, params: UpdateAlertParams): Promise<PriceAlert> {
+export async function updateAlert(id: number, params: UpdateAlertParams): Promise<PriceAlert> {
   const { data } = await apiClient.put<ApiResponse<PriceAlert>>(`/alerts/${id}`, params);
   if (!data?.data) throw new Error(data?.message || "更新预警失败");
   return data.data;
 }
 
-export async function deleteAlert(id: string): Promise<void> {
+export async function deleteAlert(id: number): Promise<void> {
   await apiClient.delete(`/alerts/${id}`);
 }

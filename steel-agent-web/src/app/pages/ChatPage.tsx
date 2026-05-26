@@ -369,10 +369,6 @@ export default function ChatPage() {
                   const first = data.prices![0];
                   handleSend(`查看${first.region || ''}${data.title || ''}最近一周走势`);
                 }}
-                onSetAlert={(e?: React.MouseEvent) => {
-                  e?.stopPropagation();
-                  handleSend(`设置${data.title || ''}价格预警`);
-                }}
               />
             </div>
           );
@@ -496,6 +492,7 @@ export default function ChatPage() {
                     return;
                   }
                   createQuotation({
+                    title: data.title || `${data.category || ''} ${data.spec || ''}`.trim() || '报价单',
                     category: data.category,
                     spec: data.spec,
                     quantity: data.quantity || 0,
@@ -548,7 +545,7 @@ export default function ChatPage() {
         case 'alert': {
           const raw = att.data as Record<string, unknown>;
           const data: AlertCardProps = {
-            id: raw.id as string | undefined,
+            id: raw.id as number | undefined,
             category: (raw.category as string) || '',
             spec: (raw.spec as string) || '',
             region: (raw.region as string) || '',
@@ -1195,7 +1192,7 @@ export default function ChatPage() {
     if (selectedCard.type === 'alert') {
       const raw = selectedCard.data as Record<string, unknown>;
       const data: AlertCardProps = {
-        id: raw.id as string | undefined,
+        id: raw.id as number | undefined,
         category: (raw.category as string) || '',
         spec: (raw.spec as string) || '',
         region: (raw.region as string) || '',

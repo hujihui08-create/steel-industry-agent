@@ -5,7 +5,7 @@
 
 /** 价格预警 */
 export interface PriceAlert {
-  id: string;
+  id: number;
   category: string;
   spec: string;
   region: string;

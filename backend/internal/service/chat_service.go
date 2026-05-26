@@ -358,6 +358,7 @@ type ChatService struct {
 	categoryRepo     *repository.CategoryRepository
 	badCaseService   *BadCaseService
 	intentRepo       *repository.IntentRepository
+	tokenUsageRepo   *repository.TokenUsageRepository
 
 	activeCancels map[uint]context.CancelFunc
 	mu            sync.Mutex
@@ -378,6 +379,7 @@ func NewChatService(
 	categoryRepo *repository.CategoryRepository,
 	badCaseService *BadCaseService,
 	intentRepo *repository.IntentRepository,
+	tokenUsageRepo *repository.TokenUsageRepository,
 ) *ChatService {
 	return &ChatService{
 		chatRepo:         chatRepo,
@@ -392,6 +394,7 @@ func NewChatService(
 		categoryRepo:     categoryRepo,
 		badCaseService:   badCaseService,
 		intentRepo:       intentRepo,
+		tokenUsageRepo:   tokenUsageRepo,
 		activeCancels:    make(map[uint]context.CancelFunc),
 	}
 }
@@ -615,7 +618,7 @@ func extractEntitiesFromText(text string) map[string]string {
 // ---------------------------------------------------------------------------
 
 // ExecuteTool executes a function-calling tool and returns the JSON result.
-func (s *ChatService) ExecuteTool(ctx context.Context, toolCall openai.ToolCall) (string, error) {
+func (s *ChatService) ExecuteTool(ctx context.Context, userID uint, toolCall openai.ToolCall) (string, error) {
 	switch toolCall.Function.Name {
 	case "query_steel_price":
 		return s.executeQuerySteelPrice(ctx, toolCall.Function.Arguments)
@@ -628,7 +631,7 @@ func (s *ChatService) ExecuteTool(ctx context.Context, toolCall openai.ToolCall)
 	case "get_price_trend":
 		return s.executeGetPriceTrend(ctx, toolCall.Function.Arguments)
 	case "set_price_alert":
-		return s.executeSetPriceAlert(ctx, toolCall.Function.Arguments)
+		return s.executeSetPriceAlert(ctx, userID, toolCall.Function.Arguments)
 	case "convert_unit":
 		return s.executeConvertUnit(ctx, toolCall.Function.Arguments)
 	case "calculate_weight":
@@ -925,13 +928,14 @@ func (s *ChatService) executeGetPriceTrend(ctx context.Context, argsJSON string)
 	return string(data), nil
 }
 
-func (s *ChatService) executeSetPriceAlert(ctx context.Context, argsJSON string) (string, error) {
+func (s *ChatService) executeSetPriceAlert(ctx context.Context, userID uint, argsJSON string) (string, error) {
 	var args setPriceAlertArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("set_price_alert: invalid arguments: %w", err)
 	}
 
 	alert := &model.PriceAlert{
+		UserID:      userID,
 		Category:    args.Category,
 		TargetPrice: args.TargetPrice,
 		Condition:   args.Condition,
@@ -1172,6 +1176,8 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 
 	ch := make(chan string, 100)
 
+	startTime := time.Now()
+
 	go func() {
 		defer close(ch)
 		defer func() {
@@ -1264,7 +1270,7 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 					wg.Add(1)
 					go func(tc openai.ToolCall) {
 						defer wg.Done()
-						res, execErr := s.ExecuteTool(ctx, tc)
+						res, execErr := s.ExecuteTool(ctx, userID, tc)
 						if execErr != nil {
 							resultCh <- toolResult{toolCallID: tc.ID, name: tc.Function.Name, result: "", err: execErr}
 							return
@@ -1370,6 +1376,20 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 			if err == nil {
 				sess.MessageCount += 2
 				_ = s.chatRepo.UpdateSession(ctx, sess)
+			}
+
+			// Record token usage with extended API call fields.
+			if s.tokenUsageRepo != nil {
+				sessIDStr := fmt.Sprintf("%d", sessionID)
+				usage := &model.TokenUsage{
+					UserID:     userID,
+					SessionID:  sessIDStr,
+					Model:      "gpt-4o-mini",
+					APIPath:    "/api/v1/chat/completions",
+					StatusCode: 200,
+					DurationMs: int(time.Since(startTime).Milliseconds()),
+				}
+				_ = s.tokenUsageRepo.Create(context.Background(), usage)
 			}
 
 			// Task 4.3: Persist context.
@@ -1484,6 +1504,28 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 								"news":       newsResult.News,
 								"source":     newsResult.Source,
 								"sourceTime": newsResult.Date,
+							},
+						})
+						ch <- fmt.Sprintf("data: %s\n\n", cardPayload)
+					}
+				case "set_price_alert":
+					var alertResult struct {
+						AlertID     uint    `json:"alert_id"`
+						Category    string  `json:"category"`
+						TargetPrice float64 `json:"target_price"`
+						Condition   string  `json:"condition"`
+						Source      string  `json:"source"`
+					}
+					if json.Unmarshal([]byte(tr.result), &alertResult) == nil && alertResult.AlertID > 0 {
+						cardPayload, _ := json.Marshal(map[string]interface{}{
+							"type":      "card",
+							"card_type": "alert",
+							"data": map[string]interface{}{
+								"id":           alertResult.AlertID,
+								"category":     alertResult.Category,
+								"target_price": alertResult.TargetPrice,
+								"condition":    alertResult.Condition,
+								"is_active":    true,
 							},
 						})
 						ch <- fmt.Sprintf("data: %s\n\n", cardPayload)

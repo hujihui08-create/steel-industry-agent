@@ -80,7 +80,7 @@ export interface QuickSelectData {
 
 /** 价格预警卡片数据 */
 export interface AlertCardData {
-  id?: string;
+  id?: number;
   category: string;
   spec: string;
   region: string;

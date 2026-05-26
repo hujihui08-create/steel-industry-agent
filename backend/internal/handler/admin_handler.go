@@ -8,6 +8,7 @@ import (
 	"steel-agent-backend/internal/model"
 	"steel-agent-backend/internal/service"
 	"steel-agent-backend/pkg/errors"
+	"steel-agent-backend/pkg/jwt"
 	"steel-agent-backend/pkg/response"
 	"steel-agent-backend/pkg/validate"
 
@@ -20,6 +21,7 @@ type adminService interface {
 	GetInfo(ctx context.Context, adminID uint) (*model.Admin, error)
 	UpdatePassword(ctx context.Context, adminID uint, oldPassword, newPassword string) error
 	Dashboard(ctx context.Context) (map[string]int64, error)
+	DashboardTrend(ctx context.Context, days int) ([]service.TrendDataPoint, error)
 	ListAdmins(ctx context.Context) ([]model.Admin, error)
 	CreateAdmin(ctx context.Context, username, nickname, password, role string) (*model.Admin, error)
 	UpdateAdmin(ctx context.Context, id uint, nickname, role string) error
@@ -33,12 +35,14 @@ type adminService interface {
 
 // AdminHandler handles admin management HTTP requests.
 type AdminHandler struct {
-	adminService adminService
+	adminService     adminService
+	menuService      *service.MenuService
+	loginLogRecorder loginLogRecorder
 }
 
-// NewAdminHandler creates a new AdminHandler with the given admin service.
-func NewAdminHandler(adminService *service.AdminService) *AdminHandler {
-	return &AdminHandler{adminService: adminService}
+// NewAdminHandler creates a new AdminHandler with the given admin service, menu service, and login log recorder.
+func NewAdminHandler(adminService *service.AdminService, menuService *service.MenuService, loginLogRecorder loginLogRecorder) *AdminHandler {
+	return &AdminHandler{adminService: adminService, menuService: menuService, loginLogRecorder: loginLogRecorder}
 }
 
 // Dashboard returns aggregated admin dashboard statistics.
@@ -58,11 +62,15 @@ func (h *AdminHandler) Login(c *gin.Context) {
 		Password string `json:"password" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		h.loginLogRecorder.RecordLoginFailure(c.Request.Context(), "admin", nil, nil,
+			c.ClientIP(), c.GetHeader("User-Agent"), "参数错误")
 		response.Error(c, errors.CodeParamError, "参数错误")
 		return
 	}
 
 	if req.Username == "" || req.Password == "" {
+		h.loginLogRecorder.RecordLoginFailure(c.Request.Context(), "admin", nil, nil,
+			c.ClientIP(), c.GetHeader("User-Agent"), "用户名和密码不能为空")
 		response.Error(c, errors.CodeParamError, "用户名和密码不能为空")
 		return
 	}
@@ -70,6 +78,8 @@ func (h *AdminHandler) Login(c *gin.Context) {
 	token, err := h.adminService.Login(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		errMsg := err.Error()
+		h.loginLogRecorder.RecordLoginFailure(c.Request.Context(), "admin", nil, nil,
+			c.ClientIP(), c.GetHeader("User-Agent"), errMsg)
 		if strings.Contains(errMsg, "锁定") || strings.Contains(errMsg, "还剩") {
 			response.Error(c, errors.CodeForbidden, errMsg)
 			return
@@ -77,6 +87,15 @@ func (h *AdminHandler) Login(c *gin.Context) {
 		response.Error(c, errors.CodeAuthFailed, errMsg)
 		return
 	}
+
+	// Parse the token to extract the admin ID for logging.
+	var adminID *uint
+	if claims, parseErr := jwt.ParseToken(token); parseErr == nil {
+		uid := claims.UserID
+		adminID = &uid
+	}
+	h.loginLogRecorder.RecordLoginSuccess(c.Request.Context(), "admin", adminID, nil,
+		c.ClientIP(), c.GetHeader("User-Agent"))
 
 	response.Success(c, gin.H{"token": token})
 }
@@ -87,7 +106,7 @@ func (h *AdminHandler) Logout(c *gin.Context) {
 	response.Success(c, nil)
 }
 
-// GetInfo returns the authenticated admin's information.
+// GetInfo returns the authenticated admin's information and menu tree.
 func (h *AdminHandler) GetInfo(c *gin.Context) {
 	adminID, exists := c.Get("user_id")
 	if !exists {
@@ -107,7 +126,20 @@ func (h *AdminHandler) GetInfo(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, admin)
+	var menus interface{}
+	if h.menuService != nil {
+		menuTree, err := h.menuService.GetMenuTreeForRole(c.Request.Context(), admin.Role)
+		if err != nil {
+			response.Error(c, errors.CodeInternalError, err.Error())
+			return
+		}
+		menus = menuTree
+	}
+
+	response.Success(c, gin.H{
+		"admin": admin,
+		"menus": menus,
+	})
 }
 
 // UpdatePassword changes the authenticated admin's password.
@@ -347,5 +379,24 @@ func (h *AdminHandler) ExportMobileUsers(c *gin.Context) {
 
 // DashboardTrend returns trend data for dashboard.
 func (h *AdminHandler) DashboardTrend(c *gin.Context) {
-	response.Success(c, []map[string]interface{}{})
+	period := c.DefaultQuery("period", "7days")
+
+	var days int
+	switch period {
+	case "today":
+		days = 1
+	case "7days":
+		days = 7
+	case "30days":
+		days = 30
+	default:
+		days = 7
+	}
+
+	trend, err := h.adminService.DashboardTrend(c.Request.Context(), days)
+	if err != nil {
+		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
+	response.Success(c, trend)
 }
