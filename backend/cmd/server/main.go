@@ -2,14 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"sort"
-	"strings"
 	"syscall"
 	"time"
 
@@ -21,146 +17,90 @@ import (
 	"steel-agent-backend/pkg/ai"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
+
+const version = "1.0.0"
 
 func main() {
 	config.Load()
+	cfg := config.AppConfig
 
-	// Validate critical configuration and warn about missing keys.
-	validateCriticalConfig()
-
-	redisClient := config.InitRedis()
+	if cfg.APPEnv == "production" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	db := config.InitDB()
-	sqlDB, err := db.DB()
-	if err != nil {
-		log.Fatalf("Failed to get database instance: %v", err)
-	}
-	defer sqlDB.Close()
+	redisClient := config.InitRedis()
 
-	if err := runMigrations(db); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
-	}
-
+	// --- Repositories ---
 	userRepo := repository.NewUserRepository(db)
-	steelPriceRepo := repository.NewSteelPriceRepository(db)
-	quotationRepo := repository.NewQuotationRepository(db)
-	tenderRepo := repository.NewTenderRepository(db)
-	knowledgeRepo := repository.NewKnowledgeRepository(db)
-	alertRepo := repository.NewPriceAlertRepository(db)
-	newsRepo := repository.NewNewsRepository(db)
-	notificationRepo := repository.NewNotificationRepository(db)
-	settingsRepo := repository.NewSettingsRepository(db)
-	userFavoriteRepo := repository.NewUserFavoriteRepository(db)
-	chatRepo := repository.NewChatRepository(db)
-	intentRepo := repository.NewIntentRepository(db)
 	adminRepo := repository.NewAdminRepository(db)
-	mobileRoleRepo := repository.NewMobileRoleRepository(db)
-	crawlerSourceRepo := repository.NewCrawlerSourceRepository(db)
-	crawlerLogRepo := repository.NewCrawlerLogRepository(db)
-	categoryRepo := repository.NewCategoryRepository(db)
-	badCaseRepo := repository.NewBadCaseRepository(db)
-	tokenUsageRepo := repository.NewTokenUsageRepository(db)
-	apiCallLogRepo := repository.NewApiCallLogRepository(db)
-	menuRepo := repository.NewMenuRepository(db)
-	taskRepo := repository.NewScheduledTaskRepository(db)
-	taskLogRepo := repository.NewTaskExecutionLogRepository(db)
-
-	cacheService := service.NewCacheService(db, redisClient)
-
-	authService := service.NewAuthService(userRepo, redisClient)
-	userService := service.NewUserService(userRepo)
-	priceService := service.NewPriceService(steelPriceRepo, newsRepo, cacheService)
-	quotationService := service.NewQuotationService(quotationRepo, steelPriceRepo)
-
-	aiClient := ai.NewAdapter()
-
-	knowledgeService := service.NewKnowledgeService(knowledgeRepo, aiClient, db)
-	tenderService := service.NewTenderService(tenderRepo, userFavoriteRepo)
-	alertService := service.NewAlertService(alertRepo)
-	notificationService := service.NewNotificationService(notificationRepo)
-	settingsService := service.NewSettingsService(settingsRepo)
-
-	// Create BadCaseService first without ChatService (circular dep resolution).
-	// ChatService will be wired in afterwards via SetChatService.
-	badCaseService := service.NewBadCaseService(badCaseRepo, nil)
-
-	chatService := service.NewChatService(
-		chatRepo,
-		aiClient,
-		steelPriceRepo,
-		quotationRepo,
-		knowledgeRepo,
-		knowledgeService,
-		tenderRepo,
-		alertRepo,
-		newsRepo,
-		categoryRepo,
-		badCaseService,
-		intentRepo,
-		tokenUsageRepo,
-	)
-
-	// Complete the circular dependency: BadCaseService needs ChatService for Verify.
-	badCaseService.SetChatService(chatService)
-
-	adminService := service.NewAdminService(adminRepo, userRepo)
-	menuService := service.NewMenuService(menuRepo)
-	mobileRoleService := service.NewMobileRoleService(mobileRoleRepo, userRepo)
-
-	agentConfigRepo := repository.NewAgentConfigRepository(db)
-	agentConfigService := service.NewAgentConfigService(agentConfigRepo, categoryRepo)
-
-	initModelConfigs(aiClient, agentConfigService)
-	initEmbeddingConfig(aiClient, knowledgeService)
-
 	adminLogRepo := repository.NewAdminLogRepository(db)
 	adminNotifRepo := repository.NewAdminNotificationRepository(db)
-	adminNotifService := service.NewAdminNotificationService(adminNotifRepo)
-	adminNotifHandler := handler.NewAdminNotificationHandler(adminNotifService)
-
+	agentConfigRepo := repository.NewAgentConfigRepository(db)
+	apiCallLogRepo := repository.NewApiCallLogRepository(db)
+	badCaseRepo := repository.NewBadCaseRepository(db)
+	categoryRepo := repository.NewCategoryRepository(db)
+	chatRepo := repository.NewChatRepository(db)
+	crawlerLogRepo := repository.NewCrawlerLogRepository(db)
+	crawlerSourceRepo := repository.NewCrawlerSourceRepository(db)
+	intentRepo := repository.NewIntentRepository(db)
+	knowledgeRepo := repository.NewKnowledgeRepository(db)
 	loginLogRepo := repository.NewLoginLogRepository(db)
-	loginLogService := service.NewLoginLogService(loginLogRepo)
-	loginLogHandler := handler.NewLoginLogHandler(loginLogService)
+	menuRepo := repository.NewMenuRepository(db)
+	mobileRoleRepo := repository.NewMobileRoleRepository(db)
+	newsRepo := repository.NewNewsRepository(db)
+	notificationRepo := repository.NewNotificationRepository(db)
+	priceAlertRepo := repository.NewPriceAlertRepository(db)
+	quotationRepo := repository.NewQuotationRepository(db)
+	scheduledTaskRepo := repository.NewScheduledTaskRepository(db)
+	settingsRepo := repository.NewSettingsRepository(db)
+	steelPriceRepo := repository.NewSteelPriceRepository(db)
+	taskExecLogRepo := repository.NewTaskExecutionLogRepository(db)
+	tenderRepo := repository.NewTenderRepository(db)
+	tokenUsageRepo := repository.NewTokenUsageRepository(db)
+	userFavoriteRepo := repository.NewUserFavoriteRepository(db)
 
-	crawlerService := service.NewCrawlerService(
-		db,
-		crawlerSourceRepo,
-		crawlerLogRepo,
-		steelPriceRepo,
-		newsRepo,
-		tenderRepo,
-		categoryRepo,
-		cacheService,
-	)
+	// --- AI Adapter ---
+	llmAdapter := ai.NewAdapter()
 
-	crawlerService.CleanupZombieLogs()
-	crawlerService.StartScheduler()
-
+	// --- Core Services ---
+	cacheService := service.NewCacheService(db, redisClient)
 	cleanupService := service.NewCleanupService(db)
-	// 启动后台清理调度器
-	go func() {
-		cleanupService.StartScheduler(make(chan struct{}))
-	}()
+	backupService := service.NewBackupService("/app/backups")
 
-	// 启动数据库每日备份调度器
-	backupDir := getEnvOrDefault("BACKUP_DIR", "./backups")
-	backupService := service.NewBackupService(backupDir)
-	go func() {
-		backupService.StartScheduler(make(chan struct{}))
-	}()
+	// --- Business Services ---
+	authService := service.NewAuthService(userRepo, redisClient)
+	userService := service.NewUserService(userRepo)
+	loginLogService := service.NewLoginLogService(loginLogRepo)
+	priceService := service.NewPriceService(steelPriceRepo, newsRepo, cacheService)
+	quotationService := service.NewQuotationService(quotationRepo, steelPriceRepo)
+	knowledgeService := service.NewKnowledgeService(knowledgeRepo, llmAdapter, db)
+	tenderService := service.NewTenderService(tenderRepo, userFavoriteRepo)
+	alertService := service.NewAlertService(priceAlertRepo)
+	notificationService := service.NewNotificationService(notificationRepo)
+	settingsService := service.NewSettingsService(settingsRepo)
+	adminService := service.NewAdminService(adminRepo, userRepo)
+	adminLogService := service.NewAdminLogService(adminLogRepo)
+	adminNotifService := service.NewAdminNotificationService(adminNotifRepo)
+	crawlerService := service.NewCrawlerService(db, crawlerSourceRepo, crawlerLogRepo, steelPriceRepo, newsRepo, tenderRepo, categoryRepo, cacheService)
+	agentConfigService := service.NewAgentConfigService(agentConfigRepo, categoryRepo)
+	categoryService := service.NewCategoryService(categoryRepo, steelPriceRepo)
+	intentService := service.NewIntentService(intentRepo)
+	tokenUsageService := service.NewTokenUsageService(tokenUsageRepo)
+	menuService := service.NewMenuService(menuRepo)
+	mobileRoleService := service.NewMobileRoleService(mobileRoleRepo, userRepo)
+	apiCallLogService := service.NewApiCallLogService(apiCallLogRepo, tokenUsageRepo)
+	scheduledTaskService := service.NewScheduledTaskService(scheduledTaskRepo, taskExecLogRepo, cleanupService, backupService, crawlerService)
 
-	// 定时任务管理服务
-	scheduledTaskService := service.NewScheduledTaskService(taskRepo, taskLogRepo, cleanupService, backupService, crawlerService)
-	if err := scheduledTaskService.RegisterTasks(); err != nil {
-		log.Printf("WARNING: 注册定时任务失败: %v", err)
-	}
+	badCaseService := service.NewBadCaseService(badCaseRepo, nil)
+	chatService := service.NewChatService(chatRepo, llmAdapter, steelPriceRepo, quotationRepo, knowledgeRepo, knowledgeService, tenderRepo, priceAlertRepo, newsRepo, categoryRepo, badCaseService, intentRepo, tokenUsageRepo)
+	badCaseService.SetChatService(chatService)
 
-	// 版本号从环境变量读取，默认 "1.0.0"
-	version := getEnvOrDefault("APP_VERSION", "1.0.0")
+	debugService := service.NewDebugService(chatService, intentRepo, agentConfigService, chatRepo, redisClient)
+
+	// --- Handlers ---
 	healthHandler := handler.NewHealthHandler(db, redisClient, version)
-
 	authHandler := handler.NewAuthHandler(authService, loginLogService)
 	userHandler := handler.NewUserHandler(userService)
 	priceHandler := handler.NewPriceHandler(priceService)
@@ -170,41 +110,27 @@ func main() {
 	alertHandler := handler.NewAlertHandler(alertService)
 	chatHandler := handler.NewChatHandler(chatService)
 	adminHandler := handler.NewAdminHandler(adminService, menuService, loginLogService)
-	mobileRoleHandler := handler.NewMobileRoleHandler(mobileRoleService)
-	agentConfigHandler := handler.NewAgentConfigHandler(agentConfigService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
 	settingsHandler := handler.NewSettingsHandler(settingsService)
 	adminKnowledgeHandler := handler.NewAdminKnowledgeHandler(knowledgeService)
 	crawlerHandler := handler.NewCrawlerHandler(crawlerService, crawlerSourceRepo, crawlerLogRepo)
-
-	debugService := service.NewDebugService(chatService, intentRepo, agentConfigService, chatRepo, redisClient)
-	debugHandler := handler.NewDebugHandler(debugService)
-
-	intentService := service.NewIntentService(intentRepo)
-	intentHandler := handler.NewIntentHandler(intentService)
-
-	badCaseHandler := handler.NewBadCaseHandler(badCaseService)
-
-	adminLogService := service.NewAdminLogService(adminLogRepo)
-	adminLogHandler := handler.NewAdminLogHandler(adminLogService)
-
-	backupHandler := handler.NewBackupHandler(backupService)
-
-	tokenUsageService := service.NewTokenUsageService(tokenUsageRepo)
-	tokenUsageHandler := handler.NewTokenUsageHandler(tokenUsageService)
-
-	apiStatsService := service.NewApiCallLogService(apiCallLogRepo, tokenUsageRepo)
-	apiStatsHandler := handler.NewApiStatsHandler(apiStatsService)
-
-	categoryService := service.NewCategoryService(categoryRepo, steelPriceRepo)
+	agentConfigHandler := handler.NewAgentConfigHandler(agentConfigService)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
-
+	adminNotifHandler := handler.NewAdminNotificationHandler(adminNotifService)
+	debugHandler := handler.NewDebugHandler(debugService)
+	intentHandler := handler.NewIntentHandler(intentService)
+	badCaseHandler := handler.NewBadCaseHandler(badCaseService)
+	backupHandler := handler.NewBackupHandler(backupService)
+	adminLogHandler := handler.NewAdminLogHandler(adminLogService)
+	tokenUsageHandler := handler.NewTokenUsageHandler(tokenUsageService)
+	mobileRoleHandler := handler.NewMobileRoleHandler(mobileRoleService)
 	scheduledTaskHandler := handler.NewScheduledTaskHandler(scheduledTaskService)
-
+	apiStatsHandler := handler.NewApiStatsHandler(apiCallLogService)
+	loginLogHandler := handler.NewLoginLogHandler(loginLogService)
 	menuHandler := handler.NewMenuHandler(menuService)
 
-	r := gin.Default()
-
+	// --- Router ---
+	r := gin.New()
 	router.Setup(
 		r,
 		healthHandler,
@@ -240,231 +166,36 @@ func main() {
 		apiCallLogRepo,
 	)
 
+	// --- Register scheduled tasks ---
+	if err := scheduledTaskService.RegisterTasks(); err != nil {
+		log.Printf("WARNING: Failed to register scheduled tasks: %v", err)
+	}
+
+	// --- HTTP Server ---
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: r,
 	}
 
-	// 启动服务器（非阻塞）
 	go func() {
-		log.Println("Server starting on :8080")
+		log.Printf("Server starting on :8080 (env=%s)", cfg.APPEnv)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
+			log.Fatalf("Server failed: %v", err)
 		}
 	}()
 
-	// 等待中断信号
+	// --- Graceful Shutdown ---
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Shutting down server...")
 
-	crawlerService.Stop()
-
-	// 30s 超时优雅关闭
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("Server forced to shutdown: %v", err)
+		log.Fatalf("Server forced to shutdown: %v", err)
 	}
 
-	// 关闭 Redis
-	if redisClient != nil {
-		redisClient.Close()
-	}
-
-	// 关闭数据库
-	sqlDB.Close()
-
-	log.Println("Server exited")
-}
-
-func runMigrations(db *gorm.DB) error {
-	migrationsDir := "migrations"
-
-	if err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
-		version VARCHAR(255) PRIMARY KEY,
-		applied_at TIMESTAMP DEFAULT NOW()
-	)`).Error; err != nil {
-		return fmt.Errorf("init schema_migrations: %w", err)
-	}
-
-	entries, err := os.ReadDir(migrationsDir)
-	if err != nil {
-		return fmt.Errorf("read migrations dir: %w", err)
-	}
-
-	var upFiles []string
-	for _, e := range entries {
-		if strings.HasSuffix(e.Name(), ".up.sql") {
-			upFiles = append(upFiles, e.Name())
-		}
-	}
-	sort.Strings(upFiles)
-
-	for _, name := range upFiles {
-		version := strings.TrimSuffix(name, ".up.sql")
-
-		var count int64
-		if err := db.Raw("SELECT COUNT(*) FROM schema_migrations WHERE version = ?", version).Scan(&count).Error; err != nil {
-			log.Printf("WARNING: check migration version %s: %v", version, err)
-		}
-		if count > 0 {
-			log.Printf("Migration already applied, skipping: %s", name)
-			continue
-		}
-
-		path := filepath.Join(migrationsDir, name)
-		sql, err := os.ReadFile(path)
-		if err != nil {
-			log.Printf("WARNING: read migration file %s: %v", name, err)
-			continue
-		}
-
-		if err := db.Exec(string(sql)).Error; err != nil {
-			log.Printf("WARNING: execute migration %s: %v (service will continue)", name, err)
-			continue
-		}
-
-		if err := db.Exec("INSERT INTO schema_migrations (version) VALUES (?)", version).Error; err != nil {
-			log.Printf("WARNING: record migration %s: %v", version, err)
-		}
-
-		log.Printf("Migration applied: %s", name)
-	}
-	return nil
-}
-
-// getEnvOrDefault returns the value of the environment variable named by key,
-// or fallback if the variable is not set or empty.
-func getEnvOrDefault(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-
-// initModelConfigs loads AI model configurations from the agent config database
-// and applies them to the LLM adapter. Falls back to environment variables if
-// no agent config exists.
-func initModelConfigs(adapter *ai.LLMAdapter, cfgSvc *service.AgentConfigService) {
-	ctx := context.Background()
-	cfg, err := cfgSvc.GetAgentConfig(ctx)
-	if err != nil || len(cfg.Models) == 0 {
-		primary, fallbacks := ai.ModelConfigFromEnv()
-		adapter.ConfigureModels(primary, fallbacks)
-		return
-	}
-
-	// Configure primary model.
-	primaryMC := resolveModelConfig(cfg.PrimaryModel, cfg.Models)
-
-	// Collect fallback model configs.
-	var fallbackMCs []ai.ModelConfig
-	if cfg.BackupModel != "" {
-		for _, m := range cfg.Models {
-			if m.ID == cfg.BackupModel {
-				fallbackMCs = append(fallbackMCs, ai.ModelConfig{
-					Name:    m.ID,
-					APIKey:  resolveAPIKey(m.APIKey),
-					BaseURL: m.BaseURL,
-					Model:   m.Name,
-				})
-				break
-			}
-		}
-	}
-
-	adapter.ConfigureModels(primaryMC, fallbackMCs)
-}
-
-// resolveModelConfig finds the primary model config by ID, falling back to the
-// first entry or environment variables.
-func resolveModelConfig(modelID string, models []service.ModelConfigDO) ai.ModelConfig {
-	for _, m := range models {
-		if m.ID == modelID {
-			return ai.ModelConfig{
-				Name:    m.ID,
-				APIKey:  resolveAPIKey(m.APIKey),
-				BaseURL: m.BaseURL,
-				Model:   m.Name,
-			}
-		}
-	}
-	if len(models) > 0 {
-		m := models[0]
-		return ai.ModelConfig{
-			Name:    m.ID,
-			APIKey:  resolveAPIKey(m.APIKey),
-			BaseURL: m.BaseURL,
-			Model:   m.Name,
-		}
-	}
-	primary, _ := ai.ModelConfigFromEnv()
-	return primary
-}
-
-// resolveAPIKey returns the provided key if non-empty, otherwise falls back to
-// the OPENAI_API_KEY environment variable.
-func resolveAPIKey(key string) string {
-	if key != "" {
-		return key
-	}
-	return os.Getenv("OPENAI_API_KEY")
-}
-
-// initEmbeddingConfig sets up the embedding model configuration on the adapter.
-// Priority: RAG config DB > env vars > fallback to primary LLM model config.
-func initEmbeddingConfig(adapter *ai.LLMAdapter, knowledgeSvc *service.KnowledgeService) {
-	ctx := context.Background()
-
-	ragCfg := knowledgeSvc.GetRAGConfig(ctx)
-	if ragCfg != nil && ragCfg.EmbeddingAPIKey != "" {
-		baseURL := ragCfg.EmbeddingBaseURL
-		if baseURL == "" {
-			baseURL = "https://api.openai.com/v1"
-		}
-		adapter.SetEmbeddingConfig(&ai.ModelConfig{
-			Name:    ragCfg.EmbeddingModel,
-			APIKey:  ragCfg.EmbeddingAPIKey,
-			BaseURL: baseURL,
-		})
-		return
-	}
-
-	envCfg := config.AppConfig
-	if envCfg.EmbeddingAPIKey == "" {
-		return
-	}
-
-	baseURL := envCfg.EmbeddingBaseURL
-	if baseURL == "" {
-		baseURL = "https://api.openai.com/v1"
-	}
-
-	adapter.SetEmbeddingConfig(&ai.ModelConfig{
-		Name:    "embedding",
-		APIKey:  envCfg.EmbeddingAPIKey,
-		BaseURL: baseURL,
-	})
-}
-
-// validateCriticalConfig checks for missing critical API keys and logs
-// clear warnings to help operators detect misconfiguration early.
-func validateCriticalConfig() {
-	cfg := config.AppConfig
-
-	if cfg.OpenAIAPIKey == "" && cfg.QwenAPIKey == "" && cfg.DeepSeekAPIKey == "" {
-		log.Println("⚠️  WARNING: No AI model API key configured (OPENAI_API_KEY / QWEN_API_KEY / DEEPSEEK_API_KEY). AI chat and tool calling will not work.")
-	}
-	if cfg.EmbeddingAPIKey == "" {
-		log.Println("⚠️  WARNING: EMBEDDING_API_KEY is not set. RAG knowledge base vector search will be unavailable.")
-	}
-	if cfg.JWTSecret == "" || cfg.JWTSecret == "default-secret" || cfg.JWTSecret == "dev-secret-key-not-for-production" {
-		log.Println("⚠️  WARNING: JWT_SECRET is using a weak or default value. Set a strong secret in production.")
-	}
-	if cfg.APPEnv == "production" && cfg.DBPassword == "postgres" {
-		log.Println("⚠️  WARNING: Production database is using the default password. Please change DB_PASSWORD.")
-	}
+	log.Println("Server stopped")
 }
