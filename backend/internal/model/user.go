@@ -12,6 +12,7 @@ type User struct {
 	Role         string    `gorm:"column:role" json:"role"`
 	Region       string    `gorm:"column:region" json:"region"`
 	Status       int       `gorm:"column:status;default:1" json:"status"`
+	IsVerified   bool      `gorm:"column:is_verified;default:false" json:"is_verified"`
 	CreatedAt    time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"column:updated_at" json:"updated_at"`
 }

@@ -106,4 +106,31 @@ describe("TrendCard", () => {
     const chartArea = container.querySelector('[class*="h-\\[200px\\]"]');
     expect(chartArea).toBeInTheDocument();
   });
+
+  // =========================================================================
+  // 加载骨架屏状态
+  // =========================================================================
+
+  it("should show loading skeleton when isLoading=true", () => {
+    const { container } = renderCard({ isLoading: true });
+
+    // 应该展示骨架屏动画块
+    const skeletonBlocks = container.querySelectorAll(".animate-pulse");
+    expect(skeletonBlocks.length).toBeGreaterThanOrEqual(3);
+
+    // 不应展示实际的标题文字
+    expect(screen.queryByText("螺纹钢价格走势")).not.toBeInTheDocument();
+
+    // 不应展示价格数值
+    expect(screen.queryByText("¥3,850")).not.toBeInTheDocument();
+
+    // 不应展示空数据状态
+    expect(screen.queryByText("暂无走势数据")).not.toBeInTheDocument();
+
+    // 图表区域应为骨架块（包含 h-[200px] 类名）
+    const chartSkeleton = container.querySelector(
+      '[class*="animate-pulse"][class*="h-\\[200px\\]"]'
+    );
+    expect(chartSkeleton).toBeInTheDocument();
+  });
 });

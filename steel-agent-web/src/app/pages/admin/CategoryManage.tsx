@@ -31,13 +31,26 @@ interface CategoryFormData {
   name: string;
   type: "spot" | "futures";
   sort_order: number;
+  parent_id?: number | null;
 }
 
 const EMPTY_FORM: CategoryFormData = {
   name: "",
   type: "spot",
   sort_order: 0,
+  parent_id: null,
 };
+
+// ============================================================
+// 辅助函数：将树形结构展平为带深度的列表
+// ============================================================
+
+function flattenTree(items: Category[], depth = 0): Array<Category & { _depth: number }> {
+  return items.flatMap((item) => [
+    { ...item, _depth: depth },
+    ...flattenTree(item.children || [], depth + 1),
+  ]);
+}
 
 // ============================================================
 // CategoryManage
@@ -63,6 +76,7 @@ export default function CategoryManage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deletingName, setDeletingName] = useState("");
+  const [deletingHasChildren, setDeletingHasChildren] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   // ---------- 切换状态 ----------
@@ -103,6 +117,7 @@ export default function CategoryManage() {
       name: cat.name,
       type: cat.type,
       sort_order: cat.sort_order,
+      parent_id: cat.parent_id ?? null,
     });
     setFormOpen(true);
   }, []);
@@ -123,6 +138,7 @@ export default function CategoryManage() {
           type: formData.type,
           status: existing?.status ?? "enabled",
           sort_order: formData.sort_order,
+          parent_id: formData.parent_id ?? undefined,
         });
         showSuccessToast("更新成功");
       } else {
@@ -130,6 +146,7 @@ export default function CategoryManage() {
           name: formData.name.trim(),
           type: formData.type,
           sort_order: formData.sort_order,
+          parent_id: formData.parent_id ?? undefined,
         });
         showSuccessToast("创建成功");
       }
@@ -146,6 +163,7 @@ export default function CategoryManage() {
   const handleOpenDelete = useCallback((cat: Category) => {
     setDeletingId(cat.id);
     setDeletingName(cat.name);
+    setDeletingHasChildren((cat.children?.length || 0) > 0);
     setDeleteModalOpen(true);
   }, []);
 
@@ -266,20 +284,20 @@ export default function CategoryManage() {
           筛选：
         </span>
         <Select value={filterType} onValueChange={setFilterType}>
-          <SelectTrigger className="w-[120px] h-8 text-[13px] rounded-md border-[#E5E5E5]">
+          <SelectTrigger variant="filter" className="w-[120px] h-8 text-[13px]">
             <SelectValue placeholder="全部类型" />
           </SelectTrigger>
-          <SelectContent className="border-[#E5E5E5] rounded-[8px]">
+          <SelectContent variant="filter">
             <SelectItem value="all" className="text-[13px]">全部类型</SelectItem>
             <SelectItem value="spot" className="text-[13px]">现货</SelectItem>
             <SelectItem value="futures" className="text-[13px]">期货</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[120px] h-8 text-[13px] rounded-md border-[#E5E5E5]">
+          <SelectTrigger variant="filter" className="w-[120px] h-8 text-[13px]">
             <SelectValue placeholder="全部状态" />
           </SelectTrigger>
-          <SelectContent className="border-[#E5E5E5] rounded-[8px]">
+          <SelectContent variant="filter">
             <SelectItem value="all" className="text-[13px]">全部状态</SelectItem>
             <SelectItem value="enabled" className="text-[13px]">启用</SelectItem>
             <SelectItem value="disabled" className="text-[13px]">禁用</SelectItem>
@@ -312,6 +330,9 @@ export default function CategoryManage() {
                   品种名称
                 </th>
                 <th className="text-left px-5 py-3 text-[11px] leading-[1.5] tracking-[0.18em] uppercase text-[#737373] font-medium">
+                  所属品类
+                </th>
+                <th className="text-left px-5 py-3 text-[11px] leading-[1.5] tracking-[0.18em] uppercase text-[#737373] font-medium">
                   类型
                 </th>
                 <th className="text-left px-5 py-3 text-[11px] leading-[1.5] tracking-[0.18em] uppercase text-[#737373] font-medium">
@@ -326,8 +347,14 @@ export default function CategoryManage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E5E5]">
-              {categories.map((cat, idx) => {
+              {flattenTree(categories).map((cat, idx) => {
                 const isToggling = togglingIds.has(cat.id);
+                const parentName = cat.parent_id
+                  ? categories.find((c) => c.id === cat.parent_id)?.name ?? "-"
+                  : "-";
+                const depthPrefix = cat._depth > 0
+                  ? "\u251C\u2500 ".repeat(cat._depth)
+                  : "";
                 return (
                   <tr
                     key={cat.id}
@@ -340,7 +367,11 @@ export default function CategoryManage() {
                       {idx + 1}
                     </td>
                     <td className="px-5 py-3 text-[15px] leading-[1.6] text-[#404040]">
+                      <span className="text-[#A3A3A3]">{depthPrefix}</span>
                       {cat.name}
+                    </td>
+                    <td className="px-5 py-3 text-[13px] leading-[1.5] text-[#737373]">
+                      {parentName}
                     </td>
                     <td className="px-5 py-3">
                       {renderTypeBadge(cat.type)}
@@ -446,21 +477,50 @@ export default function CategoryManage() {
               <Select
                 value={formData.type}
                 onValueChange={(v) =>
-                  setFormData((prev) => ({ ...prev, type: v as "spot" | "futures" }))
+                  setFormData((prev) => ({ ...prev, type: v as "spot" | "futures", parent_id: null }))
                 }
               >
-                <SelectTrigger
-                  className={cn(
-                    "w-full h-10 rounded-[10px] border-[#E5E5E5]",
-                    "text-[14px] text-[#404040]",
-                    "focus:border-[#0A0A0A] focus:ring-1 focus:ring-[#0A0A0A]/10",
-                  )}
-                >
+                <SelectTrigger variant="filter" className="w-full">
                   <SelectValue placeholder="选择类型" />
                 </SelectTrigger>
-                <SelectContent className="border-[#E5E5E5] rounded-[8px]">
+                <SelectContent variant="filter">
                   <SelectItem value="spot" className="text-[13px]">现货</SelectItem>
                   <SelectItem value="futures" className="text-[13px]">期货</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 父品类选择 */}
+            <div className="space-y-1.5">
+              <label className="block text-[13px] leading-[1.5] text-[#404040] font-medium">
+                父品类
+              </label>
+              <Select
+                value={formData.parent_id != null ? String(formData.parent_id) : ""}
+                onValueChange={(v) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    parent_id: v ? Number(v) : null,
+                  }))
+                }
+              >
+                <SelectTrigger variant="filter" className="w-full">
+                  <SelectValue placeholder="无（顶级品类）" />
+                </SelectTrigger>
+                <SelectContent variant="filter">
+                  <SelectItem value="" className="text-[13px]">无（顶级品类）</SelectItem>
+                  {categories
+                    .filter(
+                      (c) =>
+                        c.parent_id == null &&
+                        c.type === formData.type &&
+                        c.id !== editingId,
+                    )
+                    .map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)} className="text-[13px]">
+                        {c.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -529,7 +589,11 @@ export default function CategoryManage() {
         open={deleteModalOpen}
         onOpenChange={setDeleteModalOpen}
         title="确认删除"
-        description={`确认删除品种「${deletingName}」？删除后移动端将不再显示此品种，已关联的数据不受影响。`}
+        description={
+          deletingHasChildren
+            ? `「${deletingName}」下有子品种，请先删除子品种后再删除该品类`
+            : `确认删除品种「${deletingName}」？删除后移动端将不再显示此品种，已关联的数据不受影响。`
+        }
         confirmLabel={deleteLoading ? "删除中..." : "确认删除"}
         cancelLabel="取消"
         variant="destructive"

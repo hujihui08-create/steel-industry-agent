@@ -27,19 +27,31 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 检查 Docker 是否安装
+# 检查 Docker 是否安装并运行
 check_docker() {
+    # 1. 检查 Docker CLI 是否安装
     if ! command -v docker &> /dev/null; then
-        log_error "Docker 未安装，请先安装 Docker"
+        log_error "Docker CLI 未安装，请先安装 Docker"
         exit 1
     fi
-    
-    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-        log_error "Docker Compose 未安装，请先安装 Docker Compose"
+
+    # 2. 检查 Docker 守护进程是否运行
+    if ! docker info &> /dev/null; then
+        log_error "Docker 守护进程未运行，请启动 Docker Desktop"
+        log_warn "如果 Docker Desktop 已显示 Running，请尝试:"
+        log_warn "  1. 等待 Docker 引擎就绪（Engine 变为绿色 Running）"
+        log_warn "  2. 重新打开当前终端（Shell 需重启以加载 Docker 环境）"
+        log_warn "  3. 重启 Docker Desktop"
         exit 1
     fi
-    
-    log_info "Docker 环境检查通过"
+
+    # 3. 检查 Docker Compose
+    if ! docker compose version &> /dev/null && ! command -v docker-compose &> /dev/null; then
+        log_error "Docker Compose 未安装，请更新 Docker Desktop 到最新版本"
+        exit 1
+    fi
+
+    log_info "Docker 环境检查通过（CLI + 守护进程均已就绪）"
 }
 
 # 检查环境变量配置

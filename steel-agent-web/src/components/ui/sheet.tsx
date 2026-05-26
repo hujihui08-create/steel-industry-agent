@@ -6,9 +6,9 @@ import { XIcon } from "lucide-react";
 
 import { cn } from "./utils";
 
-const Sheet = ({ ...props }: React.ComponentPropsWithoutRef<typeof SheetPrimitive.Root>) => {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />;
-};
+const Sheet = ({ ...props }: React.ComponentPropsWithoutRef<typeof SheetPrimitive.Root>) => (
+  <SheetPrimitive.Root data-slot="sheet" {...props} />
+);
 Sheet.displayName = SheetPrimitive.Root.displayName;
 
 const SheetTrigger = React.forwardRef<
@@ -27,9 +27,9 @@ const SheetClose = React.forwardRef<
 });
 SheetClose.displayName = SheetPrimitive.Close.displayName;
 
-const SheetPortal = ({ ...props }: React.ComponentPropsWithoutRef<typeof SheetPrimitive.Portal>) => {
-  return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />;
-};
+const SheetPortal = ({ ...props }: React.ComponentPropsWithoutRef<typeof SheetPrimitive.Portal>) => (
+  <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />
+);
 SheetPortal.displayName = SheetPrimitive.Portal.displayName;
 
 const SheetOverlay = React.forwardRef<
@@ -90,25 +90,31 @@ const SheetContent = React.forwardRef<
 });
 SheetContent.displayName = SheetPrimitive.Content.displayName;
 
-function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="sheet-header"
-      className={cn("flex flex-col gap-1.5 p-4", className)}
-      {...props}
-    />
-  );
-}
+const SheetHeader = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentPropsWithoutRef<"div">
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    data-slot="sheet-header"
+    className={cn("flex flex-col gap-1.5 p-4", className)}
+    {...props}
+  />
+));
+SheetHeader.displayName = "SheetHeader";
 
-function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="sheet-footer"
-      className={cn("mt-auto flex flex-col gap-2 p-4", className)}
-      {...props}
-    />
-  );
-}
+const SheetFooter = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentPropsWithoutRef<"div">
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    data-slot="sheet-footer"
+    className={cn("mt-auto flex flex-col gap-2 p-4", className)}
+    {...props}
+  />
+));
+SheetFooter.displayName = "SheetFooter";
 
 const SheetTitle = React.forwardRef<
   React.ComponentRef<typeof SheetPrimitive.Title>,

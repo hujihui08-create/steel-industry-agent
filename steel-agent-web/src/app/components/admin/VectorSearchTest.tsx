@@ -160,10 +160,10 @@ export default function VectorSearchTest() {
               <div className="flex items-center gap-2">
                 <label htmlFor="search-type" className="text-[12px] text-[#737373] whitespace-nowrap">类型</label>
                 <Select value={typeFilter || "all"} onValueChange={(v) => setTypeFilter(v === "all" ? "" : v)}>
-                  <SelectTrigger id="search-type" className="h-8 w-[100px] rounded-[10px] border-[#E5E5E5] bg-white text-[13px] text-[#404040] focus:border-[#0A0A0A] focus:ring-1 focus:ring-[#0A0A0A]/10">
+                  <SelectTrigger id="search-type" variant="filter" className="h-8 w-[100px] text-[13px]">
                     <SelectValue placeholder="类型" />
                   </SelectTrigger>
-                  <SelectContent className="border-[#E5E5E5] rounded-[10px]">
+                  <SelectContent variant="filter">
                     <SelectItem value="all" className="text-[13px]">全部</SelectItem>
                     <SelectItem value="standard" className="text-[13px]">标准</SelectItem>
                     <SelectItem value="grade" className="text-[13px]">牌号</SelectItem>

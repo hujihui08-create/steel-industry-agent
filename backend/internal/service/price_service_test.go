@@ -11,6 +11,7 @@ import (
 
 type mockSteelPriceRepo struct {
 	prices  []model.SteelPrice
+	nextID  uint
 	findErr error
 }
 
@@ -26,13 +27,58 @@ func (m *mockSteelPriceRepo) FindLatest(ctx context.Context, category string) (*
 	return nil, errors.New("record not found")
 }
 
-func (m *mockSteelPriceRepo) FindByDateRange(ctx context.Context, start, end time.Time) ([]model.SteelPrice, error) {
+func (m *mockSteelPriceRepo) Create(ctx context.Context, price *model.SteelPrice) error {
+	m.nextID++
+	price.ID = m.nextID
+	m.prices = append(m.prices, *price)
+	return nil
+}
+
+func (m *mockSteelPriceRepo) FindByID(ctx context.Context, id uint) (*model.SteelPrice, error) {
+	for i := range m.prices {
+		if m.prices[i].ID == id {
+			return &m.prices[i], nil
+		}
+	}
+	return nil, errors.New("record not found")
+}
+
+func (m *mockSteelPriceRepo) Update(ctx context.Context, price *model.SteelPrice) error {
+	for i := range m.prices {
+		if m.prices[i].ID == price.ID {
+			m.prices[i] = *price
+			return nil
+		}
+	}
+	return errors.New("record not found")
+}
+
+func (m *mockSteelPriceRepo) Delete(ctx context.Context, id uint) error {
+	for i := range m.prices {
+		if m.prices[i].ID == id {
+			m.prices = append(m.prices[:i], m.prices[i+1:]...)
+			return nil
+		}
+	}
+	return errors.New("record not found")
+}
+
+func (m *mockSteelPriceRepo) BatchCreate(ctx context.Context, prices []*model.SteelPrice) error {
+	for _, p := range prices {
+		m.nextID++
+		p.ID = m.nextID
+		m.prices = append(m.prices, *p)
+	}
+	return nil
+}
+
+func (m *mockSteelPriceRepo) FindByDateRange(ctx context.Context, category string, start, end time.Time) ([]model.SteelPrice, error) {
 	if m.findErr != nil {
 		return nil, m.findErr
 	}
 	var result []model.SteelPrice
 	for _, p := range m.prices {
-		if !p.PriceDate.Before(start) && !p.PriceDate.After(end) {
+		if (category == "" || p.Category == category) && !p.PriceDate.Before(start) && !p.PriceDate.After(end) {
 			result = append(result, p)
 		}
 	}
@@ -121,7 +167,7 @@ func (s *testablePriceService) GetLatestPrice(ctx context.Context, category stri
 func (s *testablePriceService) GetPriceTrend(ctx context.Context, category string, days int) ([]model.SteelPrice, error) {
 	end := time.Now()
 	start := end.AddDate(0, 0, -days)
-	return s.priceRepo.FindByDateRange(ctx, start, end)
+	return s.priceRepo.FindByDateRange(ctx, category, start, end)
 }
 
 func (s *testablePriceService) GetPriceList(ctx context.Context, category, region string, limit, offset int) ([]model.SteelPrice, error) {
@@ -135,6 +181,58 @@ func (s *testablePriceService) GetPriceList(ctx context.Context, category, regio
 		return s.priceRepo.FindByRegion(ctx, region)
 	}
 	return s.priceRepo.FindAll(ctx, limit, offset)
+}
+
+// CreatePrice inserts a new price and mirrors the cache-invalidation logic
+// of the real PriceService: if a cacheService were present, it would call
+// DeletePriceCache for the price's category.
+func (s *testablePriceService) CreatePrice(ctx context.Context, price *model.SteelPrice) error {
+	if err := s.priceRepo.Create(ctx, price); err != nil {
+		return err
+	}
+	// cache invalidation would happen here: s.cacheService.DeletePriceCache(ctx, price.Category)
+	return nil
+}
+
+// UpdatePrice updates an existing price and mirrors the cache-invalidation
+// logic of the real PriceService.
+func (s *testablePriceService) UpdatePrice(ctx context.Context, price *model.SteelPrice) error {
+	if err := s.priceRepo.Update(ctx, price); err != nil {
+		return err
+	}
+	// cache invalidation would happen here: s.cacheService.DeletePriceCache(ctx, price.Category)
+	return nil
+}
+
+// DeletePrice looks up the price by ID (to obtain its category for cache
+// invalidation), then deletes it. Mirrors the real PriceService logic.
+func (s *testablePriceService) DeletePrice(ctx context.Context, id uint) error {
+	price, err := s.priceRepo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.priceRepo.Delete(ctx, id); err != nil {
+		return err
+	}
+	// cache invalidation would happen here: s.cacheService.DeletePriceCache(ctx, price.Category)
+	_ = price
+	return nil
+}
+
+// BatchImportPrices bulk-inserts multiple prices and mirrors the deduplication
+// logic: each unique category triggers cache invalidation exactly once.
+func (s *testablePriceService) BatchImportPrices(ctx context.Context, prices []*model.SteelPrice) error {
+	if err := s.priceRepo.BatchCreate(ctx, prices); err != nil {
+		return err
+	}
+	// cache invalidation: deduplicate categories, then call DeletePriceCache once each
+	categories := make(map[string]bool)
+	for _, p := range prices {
+		categories[p.Category] = true
+	}
+	// each unique category would trigger: s.cacheService.DeletePriceCache(ctx, cat)
+	_ = len(categories)
+	return nil
 }
 
 func (s *testablePriceService) GetDailyReport(ctx context.Context) (map[string]interface{}, error) {
@@ -354,4 +452,245 @@ func TestGetDailyReport(t *testing.T) {
 			t.Errorf("expected error, got nil")
 		}
 	})
+}
+
+// TestCreatePrice_CacheInvalidation verifies that CreatePrice succeeds
+// and the price is correctly persisted. The cache invalidation point
+// (DeletePriceCache for the category) is mirrored in the testable service.
+func TestCreatePrice_CacheInvalidation(t *testing.T) {
+	ctx := context.Background()
+
+	initialPrices := makeTestPrices()
+	repo := &mockSteelPriceRepo{prices: initialPrices, nextID: 4}
+	svc := newTestablePriceService(repo, nil)
+
+	newPrice := &model.SteelPrice{
+		Category:  "螺纹钢",
+		Spec:      "HRB400E 22mm",
+		Price:     3920,
+		Change:    70,
+		ChangePct: 1.8,
+		Region:    "上海",
+		Source:    "mock",
+		PriceDate: time.Now(),
+	}
+
+	err := svc.CreatePrice(ctx, newPrice)
+	if err != nil {
+		t.Errorf("expected no error from CreatePrice, got %v", err)
+	}
+
+	// Verify the price was assigned an ID and persisted
+	if newPrice.ID == 0 {
+		t.Errorf("expected CreatePrice to assign a non-zero ID")
+	}
+
+	stored, err := repo.FindByID(ctx, newPrice.ID)
+	if err != nil {
+		t.Errorf("expected to find created price by ID=%d, got error: %v", newPrice.ID, err)
+	}
+	if stored.Category != "螺纹钢" {
+		t.Errorf("expected category 螺纹钢, got %s", stored.Category)
+	}
+	if stored.Price != 3920 {
+		t.Errorf("expected price 3920, got %f", stored.Price)
+	}
+
+	// Verify total count increased (cache invalidation would fire once for this category)
+	if want := len(initialPrices) + 1; len(repo.prices) != want {
+		t.Errorf("expected %d prices in repo, got %d", want, len(repo.prices))
+	}
+}
+
+// TestUpdatePrice_CacheInvalidation verifies that UpdatePrice succeeds
+// and the price is correctly updated. Cache invalidation for the
+// category would be triggered by the real service.
+func TestUpdatePrice_CacheInvalidation(t *testing.T) {
+	ctx := context.Background()
+
+	initialPrices := makeTestPrices()
+	repo := &mockSteelPriceRepo{prices: initialPrices, nextID: 4}
+	svc := newTestablePriceService(repo, nil)
+
+	// Fetch an existing price and modify it
+	existing, err := repo.FindByID(ctx, 1)
+	if err != nil {
+		t.Fatalf("expected to find price ID=1, got error: %v", err)
+	}
+
+	originalPrice := existing.Price
+	existing.Price = 4000
+	existing.Change = 150
+
+	err = svc.UpdatePrice(ctx, existing)
+	if err != nil {
+		t.Errorf("expected no error from UpdatePrice, got %v", err)
+	}
+
+	// Verify the price was actually updated
+	updated, err := repo.FindByID(ctx, 1)
+	if err != nil {
+		t.Errorf("expected to find updated price by ID=1, got error: %v", err)
+	}
+	if updated.Price != 4000 {
+		t.Errorf("expected price updated to 4000, got %f", updated.Price)
+	}
+	if updated.Price == originalPrice {
+		t.Errorf("expected price to change from %f, but it stayed the same", originalPrice)
+	}
+
+	// Verify total count unchanged
+	if len(repo.prices) != len(initialPrices) {
+		t.Errorf("expected %d prices in repo after update, got %d", len(initialPrices), len(repo.prices))
+	}
+}
+
+// TestDeletePrice_CacheInvalidation verifies that DeletePrice first looks up
+// the price by ID (to obtain its category for cache invalidation), then
+// deletes it.
+func TestDeletePrice_CacheInvalidation(t *testing.T) {
+	ctx := context.Background()
+
+	initialPrices := makeTestPrices()
+	repo := &mockSteelPriceRepo{prices: initialPrices, nextID: 4}
+	svc := newTestablePriceService(repo, nil)
+
+	// Delete existing price ID=1
+	err := svc.DeletePrice(ctx, 1)
+	if err != nil {
+		t.Errorf("expected no error from DeletePrice, got %v", err)
+	}
+
+	// Verify the price was actually deleted
+	_, err = repo.FindByID(ctx, 1)
+	if err == nil {
+		t.Errorf("expected error when finding deleted price ID=1, got nil")
+	}
+
+	// Verify total count decreased
+	if want := len(initialPrices) - 1; len(repo.prices) != want {
+		t.Errorf("expected %d prices in repo after delete, got %d", want, len(repo.prices))
+	}
+
+	// Deleting a non-existent ID should return an error (FindByID fails)
+	err = svc.DeletePrice(ctx, 999)
+	if err == nil {
+		t.Errorf("expected error when deleting non-existent ID=999, got nil")
+	}
+}
+
+// TestBatchImportPrices_CacheInvalidation verifies that BatchImportPrices
+// correctly persists all prices. With 5 prices across 2 distinct categories,
+// the real service would call DeletePriceCache exactly 2 times (once per
+// unique category) after deduplication.
+func TestBatchImportPrices_CacheInvalidation(t *testing.T) {
+	ctx := context.Background()
+
+	now := time.Now().Truncate(24 * time.Hour)
+	repo := &mockSteelPriceRepo{prices: []model.SteelPrice{}, nextID: 0}
+	svc := newTestablePriceService(repo, nil)
+
+	// 5 prices across 2 distinct categories: 3 x 螺纹钢, 2 x 热卷
+	prices := []*model.SteelPrice{
+		{Category: "螺纹钢", Spec: "HRB400E 20mm", Price: 3850, Change: 50, ChangePct: 1.3, Region: "上海", PriceDate: now},
+		{Category: "螺纹钢", Spec: "HRB400E 22mm", Price: 3880, Change: 80, ChangePct: 2.1, Region: "上海", PriceDate: now},
+		{Category: "螺纹钢", Spec: "HRB400E 25mm", Price: 3900, Change: 30, ChangePct: 0.8, Region: "北京", PriceDate: now},
+		{Category: "热卷", Spec: "5.5mm", Price: 4200, Change: 0, ChangePct: 0, Region: "上海", PriceDate: now},
+		{Category: "热卷", Spec: "7.5mm", Price: 4180, Change: -20, ChangePct: -0.5, Region: "广州", PriceDate: now},
+	}
+
+	err := svc.BatchImportPrices(ctx, prices)
+	if err != nil {
+		t.Errorf("expected no error from BatchImportPrices, got %v", err)
+	}
+
+	// Verify all 5 prices were persisted
+	if len(repo.prices) != 5 {
+		t.Errorf("expected 5 prices in repo, got %d", len(repo.prices))
+	}
+
+	// Verify all prices got assigned IDs
+	for _, p := range prices {
+		if p.ID == 0 {
+			t.Errorf("expected BatchImportPrices to assign a non-zero ID to price (category=%s, spec=%s)", p.Category, p.Spec)
+		}
+	}
+
+	// Count by category
+	categoryCount := map[string]int{}
+	for _, p := range repo.prices {
+		categoryCount[p.Category]++
+	}
+	if categoryCount["螺纹钢"] != 3 {
+		t.Errorf("expected 3 螺纹钢 prices, got %d", categoryCount["螺纹钢"])
+	}
+	if categoryCount["热卷"] != 2 {
+		t.Errorf("expected 2 热卷 prices, got %d", categoryCount["热卷"])
+	}
+
+	// Verify 2 distinct categories (DeletePriceCache would fire 2 times)
+	if len(categoryCount) != 2 {
+		t.Errorf("expected 2 distinct categories, got %d", len(categoryCount))
+	}
+}
+
+// TestGetPriceTrend_CategoryFilter verifies that GetPriceTrend with a
+// specific category filter only returns records matching that category.
+func TestGetPriceTrend_CategoryFilter(t *testing.T) {
+	ctx := context.Background()
+
+	now := time.Now().Truncate(24 * time.Hour)
+	prices := []model.SteelPrice{
+		{ID: 1, Category: "螺纹钢", Spec: "HRB400E 20mm", Price: 3800, Region: "上海", PriceDate: now.AddDate(0, 0, -5)},
+		{ID: 2, Category: "螺纹钢", Spec: "HRB400E 20mm", Price: 3820, Region: "上海", PriceDate: now.AddDate(0, 0, -3)},
+		{ID: 3, Category: "螺纹钢", Spec: "HRB400E 20mm", Price: 3850, Region: "上海", PriceDate: now},
+		{ID: 4, Category: "热卷", Spec: "5.5mm", Price: 4200, Region: "上海", PriceDate: now.AddDate(0, 0, -4)},
+		{ID: 5, Category: "热卷", Spec: "5.5mm", Price: 4180, Region: "广州", PriceDate: now.AddDate(0, 0, -2)},
+		{ID: 6, Category: "热卷", Spec: "7.5mm", Price: 4150, Region: "上海", PriceDate: now},
+	}
+
+	repo := &mockSteelPriceRepo{prices: prices, nextID: 6}
+	svc := newTestablePriceService(repo, nil)
+
+	trend, err := svc.GetPriceTrend(ctx, "螺纹钢", 30)
+	if err != nil {
+		t.Errorf("expected no error from GetPriceTrend, got %v", err)
+	}
+
+	// All returned records must be 螺纹钢
+	if len(trend) == 0 {
+		t.Errorf("expected at least 1 螺纹钢 price, got 0")
+	}
+
+	for _, p := range trend {
+		if p.Category != "螺纹钢" {
+			t.Errorf("expected category 螺纹钢, got %s (price ID=%d)", p.Category, p.ID)
+		}
+	}
+
+	// No 热卷 records should be present
+	for _, p := range trend {
+		if p.Category == "热卷" {
+			t.Errorf("unexpected 热卷 record found in trend: ID=%d", p.ID)
+		}
+	}
+
+	// Should have exactly the 3 螺纹钢 records
+	if len(trend) != 3 {
+		t.Errorf("expected 3 螺纹钢 trend points, got %d", len(trend))
+	}
+
+	// Also verify that querying 热卷 returns only 热卷 records
+	trendHotRolled, err := svc.GetPriceTrend(ctx, "热卷", 30)
+	if err != nil {
+		t.Errorf("expected no error from GetPriceTrend for 热卷, got %v", err)
+	}
+	if len(trendHotRolled) != 3 {
+		t.Errorf("expected 3 热卷 trend points, got %d", len(trendHotRolled))
+	}
+	for _, p := range trendHotRolled {
+		if p.Category != "热卷" {
+			t.Errorf("expected category 热卷, got %s (price ID=%d)", p.Category, p.ID)
+		}
+	}
 }

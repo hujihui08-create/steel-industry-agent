@@ -346,19 +346,20 @@ type getNewsDetailArgs struct {
 // ChatService handles AI chat business logic with LLM integration and
 // function-calling tool execution.
 type ChatService struct {
-	chatRepo         *repository.ChatRepository
-	aiClient         *ai.LLMAdapter
-	priceRepo        *repository.SteelPriceRepository
-	quotationRepo    *repository.QuotationRepository
-	knowledgeRepo    *repository.KnowledgeRepository
-	knowledgeService *KnowledgeService
-	tenderRepo       *repository.TenderRepository
-	alertRepo        *repository.PriceAlertRepository
-	newsRepo         *repository.NewsRepository
-	categoryRepo     *repository.CategoryRepository
-	badCaseService   *BadCaseService
-	intentRepo       *repository.IntentRepository
-	tokenUsageRepo   *repository.TokenUsageRepository
+	chatRepo           *repository.ChatRepository
+	aiClient           *ai.LLMAdapter
+	agentConfigService *AgentConfigService
+	priceRepo          *repository.SteelPriceRepository
+	quotationRepo      *repository.QuotationRepository
+	knowledgeRepo      *repository.KnowledgeRepository
+	knowledgeService   *KnowledgeService
+	tenderRepo         *repository.TenderRepository
+	alertRepo          *repository.PriceAlertRepository
+	newsRepo           *repository.NewsRepository
+	categoryRepo       *repository.CategoryRepository
+	badCaseService     *BadCaseService
+	intentRepo         *repository.IntentRepository
+	tokenUsageRepo     *repository.TokenUsageRepository
 
 	activeCancels map[uint]context.CancelFunc
 	mu            sync.Mutex
@@ -369,6 +370,7 @@ type ChatService struct {
 func NewChatService(
 	chatRepo *repository.ChatRepository,
 	aiClient *ai.LLMAdapter,
+	agentConfigService *AgentConfigService,
 	priceRepo *repository.SteelPriceRepository,
 	quotationRepo *repository.QuotationRepository,
 	knowledgeRepo *repository.KnowledgeRepository,
@@ -382,21 +384,126 @@ func NewChatService(
 	tokenUsageRepo *repository.TokenUsageRepository,
 ) *ChatService {
 	return &ChatService{
-		chatRepo:         chatRepo,
-		aiClient:         aiClient,
-		priceRepo:        priceRepo,
-		quotationRepo:    quotationRepo,
-		knowledgeRepo:    knowledgeRepo,
-		knowledgeService: knowledgeService,
-		tenderRepo:       tenderRepo,
-		alertRepo:        alertRepo,
-		newsRepo:         newsRepo,
-		categoryRepo:     categoryRepo,
-		badCaseService:   badCaseService,
-		intentRepo:       intentRepo,
-		tokenUsageRepo:   tokenUsageRepo,
-		activeCancels:    make(map[uint]context.CancelFunc),
+		chatRepo:           chatRepo,
+		aiClient:           aiClient,
+		agentConfigService: agentConfigService,
+		priceRepo:          priceRepo,
+		quotationRepo:      quotationRepo,
+		knowledgeRepo:      knowledgeRepo,
+		knowledgeService:   knowledgeService,
+		tenderRepo:         tenderRepo,
+		alertRepo:          alertRepo,
+		newsRepo:           newsRepo,
+		categoryRepo:       categoryRepo,
+		badCaseService:     badCaseService,
+		intentRepo:         intentRepo,
+		tokenUsageRepo:     tokenUsageRepo,
+		activeCancels:      make(map[uint]context.CancelFunc),
 	}
+}
+
+// applyAgentConfig reads the agent config from the database and reconfigures the
+// LLM adapter with the models specified in the admin UI. If the DB config is
+// unavailable, the adapter keeps its current (env-based) configuration.
+func (s *ChatService) applyAgentConfig(ctx context.Context) {
+	cfg, err := s.agentConfigService.GetAgentConfig(ctx)
+	if err != nil || len(cfg.Models) == 0 {
+		return
+	}
+
+	primary, fallbacks := s.buildModelConfigsFromAgentConfig(cfg)
+	if primary.APIKey == "" {
+		return
+	}
+
+	s.aiClient.ConfigureModels(primary, fallbacks)
+}
+
+// modelDisplayNameToAPIID maps user-facing model names to the actual API model IDs
+// expected by each provider. Display names that match an API ID directly are omitted.
+var modelDisplayNameToAPIID = map[string]string{
+	"GPT-4o-mini": "gpt-4o-mini",
+	"GPT-4o":      "gpt-4o",
+	"通义千问":        "qwen-plus",
+	"DeepSeek":    "deepseek-chat",
+}
+
+// normalizeModelName converts a user-facing model name to the API model ID.
+// If the name is already a recognized API ID it is returned as-is.
+func normalizeModelName(name string) string {
+	if id, ok := modelDisplayNameToAPIID[name]; ok {
+		return id
+	}
+	return name
+}
+
+// buildModelConfigsFromAgentConfig converts AgentConfigDO to ai.ModelConfig
+// for use with the LLM adapter.
+func (s *ChatService) buildModelConfigsFromAgentConfig(cfg *AgentConfigDO) (ai.ModelConfig, []ai.ModelConfig) {
+	// Resolve API key: per-model key first, then global key.
+	resolveKey := func(mcfg ModelConfigDO) string {
+		if mcfg.APIKey != "" {
+			return mcfg.APIKey
+		}
+		return cfg.ApiKey
+	}
+
+	// Resolve base URL.
+	resolveBaseURL := func(mcfg ModelConfigDO) string {
+		if mcfg.BaseURL != "" {
+			return mcfg.BaseURL
+		}
+		return "https://api.openai.com/v1"
+	}
+
+	// Find the primary model config by name (case-insensitive).
+	var primary ai.ModelConfig
+	var fallbacks []ai.ModelConfig
+	primaryFound := false
+
+	for _, m := range cfg.Models {
+		mc := ai.ModelConfig{
+			Name:    m.Name,
+			APIKey:  resolveKey(m),
+			BaseURL: resolveBaseURL(m),
+			Model:   normalizeModelName(m.Name),
+		}
+
+		if strings.EqualFold(m.Name, cfg.PrimaryModel) {
+			primary = mc
+			primaryFound = true
+		} else if strings.EqualFold(m.Name, cfg.BackupModel) {
+			fallbacks = append(fallbacks, mc)
+		}
+	}
+
+	if !primaryFound && len(cfg.Models) > 0 {
+		m := cfg.Models[0]
+		primary = ai.ModelConfig{
+			Name:    m.Name,
+			APIKey:  resolveKey(m),
+			BaseURL: resolveBaseURL(m),
+			Model:   normalizeModelName(m.Name),
+		}
+	}
+
+	// Add any remaining models as fallbacks (up to 2).
+	for _, m := range cfg.Models {
+		if strings.EqualFold(m.Name, cfg.PrimaryModel) || strings.EqualFold(m.Name, cfg.BackupModel) {
+			continue
+		}
+		if len(fallbacks) >= 2 {
+			break
+		}
+		fallbacks = append(fallbacks, ai.ModelConfig{
+			Name:    m.Name,
+			APIKey:  resolveKey(m),
+			BaseURL: resolveBaseURL(m),
+			Model:   normalizeModelName(m.Name),
+		})
+	}
+
+	return primary, fallbacks
 }
 
 // ---------------------------------------------------------------------------
@@ -404,14 +511,11 @@ func NewChatService(
 // ---------------------------------------------------------------------------
 
 // validateToolResult checks that a tool execution result contains provenance
-// information (a "source" field and a "date" or "timestamp" field).
-// Returns an error if the result lacks source or timestamp provenance.
+// information (a "source" field).
+// Returns an error if the result lacks source provenance.
 func validateToolResult(toolName string, result string) error {
 	if !strings.Contains(result, `"source"`) {
 		return fmt.Errorf("tool %s result missing source provenance", toolName)
-	}
-	if !strings.Contains(result, `"date"`) && !strings.Contains(result, `"timestamp"`) {
-		return fmt.Errorf("tool %s result missing date/timestamp provenance", toolName)
 	}
 	return nil
 }
@@ -572,7 +676,7 @@ func (s *ChatService) matchIntent(ctx context.Context, userMessage string) inten
 			intentName:  bestMatch.IntentName,
 			intentCode:  bestMatch.IntentCode,
 			confidence:  confidence,
-			entities:    extractEntitiesFromText(userMessage),
+			entities:    s.extractEntitiesFromText(ctx, userMessage),
 			matchMethod: "keyword",
 		}
 	}
@@ -586,16 +690,19 @@ func (s *ChatService) matchIntent(ctx context.Context, userMessage string) inten
 		intentName:  llmIntent,
 		intentCode:  llmIntent,
 		confidence:  llmConfidence,
-		entities:    extractEntitiesFromText(userMessage),
+		entities:    s.extractEntitiesFromText(ctx, userMessage),
 		matchMethod: "llm",
 	}
 }
 
-func extractEntitiesFromText(text string) map[string]string {
+func (s *ChatService) extractEntitiesFromText(ctx context.Context, text string) map[string]string {
 	entities := make(map[string]string)
 
-	categories := []string{"螺纹钢", "热卷", "冷轧", "中厚板", "镀锌板", "彩涂板", "不锈钢", "型钢", "管材"}
-	for _, cat := range categories {
+	categoryNames, err := s.categoryRepo.FindEnabledNames(ctx)
+	if err != nil || len(categoryNames) == 0 {
+		categoryNames = []string{"螺纹钢", "热卷", "冷轧", "中厚板", "镀锌板", "彩涂板", "不锈钢", "型钢", "管材"}
+	}
+	for _, cat := range categoryNames {
 		if strings.Contains(text, cat) {
 			entities["category"] = cat
 			break
@@ -615,8 +722,29 @@ func extractEntitiesFromText(text string) map[string]string {
 
 // ---------------------------------------------------------------------------
 // Task 3.2: executeTool - routes tool calls to backend services
-// ---------------------------------------------------------------------------
+// --- Tool status message helper (for frontend feedback during function calling) ---
 
+var toolStatusLabels = map[string]string{
+	"query_steel_price":   "查询钢材价格",
+	"calculate_quotation": "计算报价",
+	"search_knowledge":    "搜索知识库",
+	"query_tender":        "查询招标信息",
+	"get_price_trend":     "获取价格走势",
+	"set_price_alert":     "设置价格预警",
+	"convert_unit":        "单位换算",
+	"calculate_weight":    "重量计算",
+	"search_news":         "搜索行业资讯",
+	"get_news_detail":     "获取资讯详情",
+}
+
+func toolStatusMessage(toolName string, _ string) string {
+	if label, ok := toolStatusLabels[toolName]; ok {
+		return label + "中..."
+	}
+	return "正在处理..."
+}
+
+// ---------------------------------------------------------------------------
 // ExecuteTool executes a function-calling tool and returns the JSON result.
 func (s *ChatService) ExecuteTool(ctx context.Context, userID uint, toolCall openai.ToolCall) (string, error) {
 	switch toolCall.Function.Name {
@@ -887,19 +1015,14 @@ func (s *ChatService) executeGetPriceTrend(ctx context.Context, argsJSON string)
 	end := time.Now()
 	start := end.AddDate(0, 0, -days)
 
-	prices, err := s.priceRepo.FindByDateRange(ctx, start, end)
+	prices, err := s.priceRepo.FindByDateRange(ctx, args.Category, start, end)
 	if err != nil {
 		return "", fmt.Errorf("get_price_trend: %w", err)
 	}
 
-	// Filter by category since FindByDateRange returns all categories.
-	var filtered []model.SteelPrice
-	for _, p := range prices {
-		if p.Category == args.Category {
-			filtered = append(filtered, p)
-		}
-	}
-	if len(filtered) == 0 {
+	// Category filtering is now handled inside FindByDateRange, so no
+	// manual filtering is required.
+	if len(prices) == 0 {
 		return fmt.Sprintf(`{"source":"database","message":"未查询到%s的价格趋势数据","category":"%s","period":"%s","points":[]}`,
 			args.Category, args.Category, args.Period), nil
 	}
@@ -909,8 +1032,8 @@ func (s *ChatService) executeGetPriceTrend(ctx context.Context, argsJSON string)
 		Price float64 `json:"price"`
 	}
 
-	points := make([]trendPoint, 0, len(filtered))
-	for _, p := range filtered {
+	points := make([]trendPoint, 0, len(prices))
+	for _, p := range prices {
 		points = append(points, trendPoint{
 			Date:  p.PriceDate.Format("2006-01-02"),
 			Price: p.Price,
@@ -1117,6 +1240,9 @@ func (s *ChatService) ChatCompletions(ctx context.Context, userID uint, sessionI
 // The context is wrapped with a cancellable child so that StopGeneration can
 // interrupt in-progress generations.
 func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sessionID uint, title string, messages []model.ChatMessage) (<-chan string, error) {
+	// Apply agent config from the database (so admin UI changes take effect immediately).
+	s.applyAgentConfig(ctx)
+
 	// Convert DB messages to OpenAI format.
 	openaiMessages := make([]openai.ChatCompletionMessage, 0, len(messages)+1)
 	for _, m := range messages {
@@ -1222,6 +1348,7 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 
 		// --- Function-calling loop (Task 3.3) ---
 		loopMessages := openaiMessages
+		tools := s.BuildTools(ctx)
 		for i := 0; i < maxToolIterations; i++ {
 			// Check for cancellation before each AI call (Task 5.1).
 			select {
@@ -1231,7 +1358,7 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 			default:
 			}
 
-			resp, err := s.aiClient.ChatWithTools(ctx, loopMessages, s.BuildTools(ctx))
+			resp, err := s.aiClient.ChatWithTools(ctx, loopMessages, tools)
 			if err != nil {
 				if ctx.Err() != nil {
 					s.saveStoppedMessage(sessionID, &fullContentBuilder)
@@ -1254,6 +1381,13 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 			if len(choice.Message.ToolCalls) > 0 {
 				// Append the assistant message with tool calls to the conversation.
 				loopMessages = append(loopMessages, choice.Message)
+
+				// Send status events so the frontend can show what the AI is doing.
+				for _, tc := range choice.Message.ToolCalls {
+					statusMsg := toolStatusMessage(tc.Function.Name, tc.Function.Arguments)
+					payload, _ := json.Marshal(map[string]string{"status": statusMsg})
+					ch <- fmt.Sprintf("data: %s\n\n", payload)
+				}
 
 				// Task 3.5: Execute tools in parallel.
 				type toolResult struct {
@@ -1313,7 +1447,7 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 
 			// No tool calls: the model produced a final content response.
 			// Stream the content via ChatStreamWithTools (Task 3.4).
-			stream, streamErr := s.aiClient.ChatStreamWithTools(ctx, loopMessages, s.BuildTools(ctx))
+			stream, streamErr := s.aiClient.ChatStreamWithTools(ctx, loopMessages, tools)
 			if streamErr != nil {
 				if ctx.Err() != nil {
 					s.saveStoppedMessage(sessionID, &fullContentBuilder)

@@ -1,11 +1,22 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Plus, Upload, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdminPageShell } from "./AdminPageShell";
 import { AdminLoading } from "./AdminLoading";
 import { AdminEmpty } from "./AdminEmpty";
-import { getAdminPrices, getAdminNews, getAdminTenders } from "@/app/api/admin";
+import {
+  getAdminPrices,
+  getAdminNews,
+  getAdminTenders,
+  createAdminPrice,
+  updateAdminPrice,
+  deleteAdminPrice,
+  batchImportPrices,
+} from "@/app/api/admin";
+import PriceFormDialog, { type PriceFormData } from "./PriceFormDialog";
+import PriceImportDialog, { type PriceImportRow } from "./PriceImportDialog";
+import { AdminModal } from "./AdminModal";
 
 type DataType = "price" | "news" | "tender";
 
@@ -67,6 +78,14 @@ export default function SteelDataList() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // CRUD dialog state
+  const [formOpen, setFormOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [editingRow, setEditingRow] = useState<any>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletingRow, setDeletingRow] = useState<any>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const loadData = useCallback(
     async (reset = false) => {
       if (reset) {
@@ -114,7 +133,8 @@ export default function SteelDataList() {
 
   useEffect(() => {
     loadData(true);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveType, sourceName]);
 
   const loadMore = () => {
     const newOffset = offset + PAGE_SIZE;
@@ -126,6 +146,62 @@ export default function SteelDataList() {
       loadData(false);
     }
   }, [offset]);
+
+  // ---- CRUD Handlers ----
+
+  const handleCreate = async (data: PriceFormData) => {
+    await createAdminPrice(data);
+    await loadData(true);
+  };
+
+  const handleUpdate = async (data: PriceFormData) => {
+    if (!editingRow?.id) return;
+    await updateAdminPrice(editingRow.id, data);
+    await loadData(true);
+  };
+
+  const handleSave = async (data: PriceFormData) => {
+    if (editingRow) {
+      await handleUpdate(data);
+    } else {
+      await handleCreate(data);
+    }
+  };
+
+  const handleOpenCreate = () => {
+    setEditingRow(null);
+    setFormOpen(true);
+  };
+
+  const handleOpenEdit = (row: any) => {
+    setEditingRow(row);
+    setFormOpen(true);
+  };
+
+  const handleDeleteClick = (row: any) => {
+    setDeletingRow(row);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingRow?.id) return;
+    setDeleteLoading(true);
+    try {
+      await deleteAdminPrice(deletingRow.id);
+      setDeleteConfirmOpen(false);
+      setDeletingRow(null);
+      await loadData(true);
+    } catch {
+      // error handled by AdminModal closing
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleImport = async (prices: PriceImportRow[]) => {
+    await batchImportPrices(prices);
+    await loadData(true);
+  };
 
   const title = sourceName
     ? `${config.title} - ${sourceName}`
@@ -177,8 +253,36 @@ export default function SteelDataList() {
     >
       {/* 操作栏 */}
       <div className="flex items-center justify-between mb-4">
-        <div className="text-[12px] text-[#737373]">
-          共 {rows.length} 条{hasMore ? "+" : ""}
+        <div className="flex items-center gap-3">
+          <div className="text-[12px] text-[#737373]">
+            共 {rows.length} 条{hasMore ? "+" : ""}
+          </div>
+          {effectiveType === "price" && (
+            <>
+              <button
+                onClick={handleOpenCreate}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 h-8 rounded-full",
+                  "border border-[#E5E5E5] text-[#0A0A0A] text-[12px]",
+                  "hover:bg-[#FAFAFA] hover:border-[#0A0A0A] transition-colors duration-150",
+                )}
+              >
+                <Plus size={14} strokeWidth={1.75} />
+                新增
+              </button>
+              <button
+                onClick={() => setImportOpen(true)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 h-8 rounded-full",
+                  "border border-[#E5E5E5] text-[#0A0A0A] text-[12px]",
+                  "hover:bg-[#FAFAFA] hover:border-[#0A0A0A] transition-colors duration-150",
+                )}
+              >
+                <Upload size={14} strokeWidth={1.75} />
+                批量导入
+              </button>
+            </>
+          )}
         </div>
         <button
           onClick={() => loadData(true)}
@@ -212,6 +316,11 @@ export default function SteelDataList() {
                       {col.label}
                     </th>
                   ))}
+                  {effectiveType === "price" && (
+                    <th className="px-4 py-3 text-left text-[11px] leading-[1.5] text-[#737373] font-normal whitespace-nowrap">
+                      操作
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E5E5]">
@@ -227,6 +336,34 @@ export default function SteelDataList() {
                           : row[col.key] ?? "-"}
                       </td>
                     ))}
+                    {effectiveType === "price" && (
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleOpenEdit(row)}
+                            className={cn(
+                              "flex items-center justify-center w-7 h-7 rounded-full",
+                              "text-[#737373] hover:text-[#0A0A0A] hover:bg-[#FAFAFA]",
+                              "transition-colors duration-150",
+                            )}
+                            aria-label="编辑"
+                          >
+                            <Pencil size={14} strokeWidth={1.75} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(row)}
+                            className={cn(
+                              "flex items-center justify-center w-7 h-7 rounded-full",
+                              "text-[#737373] hover:text-[#B42318] hover:bg-[#B42318]/5",
+                              "transition-colors duration-150",
+                            )}
+                            aria-label="删除"
+                          >
+                            <Trash2 size={14} strokeWidth={1.75} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -251,6 +388,56 @@ export default function SteelDataList() {
           )}
         </div>
       )}
+
+      {/* Price Form Dialog */}
+      <PriceFormDialog
+        open={formOpen}
+        onClose={() => {
+          setFormOpen(false);
+          setEditingRow(null);
+        }}
+        onSave={handleSave}
+        initialData={
+          editingRow
+            ? {
+                category: editingRow.category ?? "",
+                spec: editingRow.spec ?? "",
+                region: editingRow.region ?? "",
+                price: editingRow.price ?? 0,
+                change: editingRow.change ?? 0,
+                change_pct: editingRow.change_pct ?? 0,
+                source: editingRow.source ?? "",
+                price_date: editingRow.price_date
+                  ? new Date(editingRow.price_date).toISOString().slice(0, 10)
+                  : new Date().toISOString().slice(0, 10),
+              }
+            : undefined
+        }
+      />
+
+      {/* Price Import Dialog */}
+      <PriceImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImport={handleImport}
+      />
+
+      {/* Delete Confirmation */}
+      <AdminModal
+        open={deleteConfirmOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDeleteConfirmOpen(false);
+            setDeletingRow(null);
+          }
+        }}
+        title="确认删除"
+        description={`确定要删除「${deletingRow?.category ?? ""} ${deletingRow?.spec ?? ""}」这条价格记录吗？此操作不可撤销。`}
+        confirmLabel="删除"
+        variant="destructive"
+        loading={deleteLoading}
+        onConfirm={handleDeleteConfirm}
+      />
     </AdminPageShell>
   );
 }

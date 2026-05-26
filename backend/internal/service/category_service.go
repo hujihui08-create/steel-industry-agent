@@ -11,9 +11,10 @@ import (
 )
 
 type CreateCategoryRequest struct {
-	Name      string `json:"name"`
-	Type      string `json:"type"`
+	Name      string `json:"name" binding:"required"`
+	Type      string `json:"type" binding:"required"`
 	SortOrder int    `json:"sort_order"`
+	ParentID  *uint  `json:"parent_id"`
 }
 
 type UpdateCategoryRequest struct {
@@ -21,6 +22,7 @@ type UpdateCategoryRequest struct {
 	Type      string `json:"type"`
 	Status    string `json:"status"`
 	SortOrder int    `json:"sort_order"`
+	ParentID  *uint  `json:"parent_id"`
 }
 
 type PublicCategoriesResponse struct {
@@ -41,11 +43,29 @@ func NewCategoryService(categoryRepo *repository.CategoryRepository, priceRepo *
 }
 
 func (s *CategoryService) ListCategories(ctx context.Context, typeFilter, statusFilter string) ([]model.Category, error) {
-	return s.categoryRepo.FindAll(ctx, typeFilter, statusFilter)
+	return s.categoryRepo.FindAll(ctx, typeFilter, statusFilter, nil)
 }
 
 func (s *CategoryService) CreateCategory(ctx context.Context, req CreateCategoryRequest) (*model.Category, error) {
-	existing, err := s.categoryRepo.FindByNameAndType(ctx, req.Name, req.Type)
+	// Treat 0 as no parent
+	if req.ParentID != nil && *req.ParentID == 0 {
+		req.ParentID = nil
+	}
+	// If ParentID provided, verify parent exists with matching type
+	if req.ParentID != nil {
+		parent, err := s.categoryRepo.FindByID(ctx, *req.ParentID)
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return nil, fmt.Errorf("父品种不存在")
+			}
+			return nil, fmt.Errorf("查询父品种失败: %w", err)
+		}
+		if parent.Type != req.Type {
+			return nil, fmt.Errorf("子品种类型必须与父品种一致")
+		}
+	}
+
+	existing, err := s.categoryRepo.FindByNameAndType(ctx, req.Name, req.Type, req.ParentID)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, fmt.Errorf("查询品种失败: %w", err)
 	}
@@ -58,6 +78,7 @@ func (s *CategoryService) CreateCategory(ctx context.Context, req CreateCategory
 		Type:      req.Type,
 		Status:    "enabled",
 		SortOrder: req.SortOrder,
+		ParentID:  req.ParentID,
 	}
 
 	if err := s.categoryRepo.Create(ctx, category); err != nil {
@@ -86,6 +107,40 @@ func (s *CategoryService) UpdateCategory(ctx context.Context, id uint, req Updat
 	}
 	category.SortOrder = req.SortOrder
 
+	// Treat 0 as no parent
+	if req.ParentID != nil && *req.ParentID == 0 {
+		req.ParentID = nil
+	}
+
+	// If ParentID provided, verify parent exists with matching type
+	finalType := category.Type
+	if req.ParentID != nil {
+		parent, err := s.categoryRepo.FindByID(ctx, *req.ParentID)
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return nil, fmt.Errorf("父品种不存在")
+			}
+			return nil, fmt.Errorf("查询父品种失败: %w", err)
+		}
+		if parent.Type != finalType {
+			return nil, fmt.Errorf("子品种类型必须与父品种一致")
+		}
+		if parent.ID == id {
+			return nil, fmt.Errorf("不能将自己设为父品类")
+		}
+	}
+
+	category.ParentID = req.ParentID
+
+	// Check for duplicate name (exclude current category)
+	existing, err := s.categoryRepo.FindByNameAndType(ctx, category.Name, category.Type, category.ParentID)
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, fmt.Errorf("查询品种失败: %w", err)
+	}
+	if existing != nil && existing.ID != id {
+		return nil, fmt.Errorf("品种名称已存在")
+	}
+
 	if err := s.categoryRepo.Update(ctx, category); err != nil {
 		return nil, fmt.Errorf("更新品种失败: %w", err)
 	}
@@ -99,6 +154,14 @@ func (s *CategoryService) DeleteCategory(ctx context.Context, id uint) error {
 			return fmt.Errorf("品种不存在")
 		}
 		return fmt.Errorf("查询品种失败: %w", err)
+	}
+
+	hasChildren, err := s.categoryRepo.HasChildren(ctx, id)
+	if err != nil {
+		return fmt.Errorf("查询子品种失败: %w", err)
+	}
+	if hasChildren {
+		return fmt.Errorf("该品类下有子品种，请先删除子品种")
 	}
 
 	prices, err := s.priceRepo.FindByCategory(ctx, category.Name)
@@ -117,26 +180,17 @@ func (s *CategoryService) ToggleCategory(ctx context.Context, id uint) (*model.C
 }
 
 func (s *CategoryService) GetEnabledCategories(ctx context.Context) (*PublicCategoriesResponse, error) {
-	categories, err := s.categoryRepo.FindEnabled(ctx)
+	// Get root categories (parent_id IS NULL) with children preloaded
+	spots, err := s.categoryRepo.FindRoots(ctx, "spot")
 	if err != nil {
-		return nil, fmt.Errorf("查询启用的品种失败: %w", err)
+		return nil, fmt.Errorf("查询启用品种失败: %w", err)
+	}
+	futures, err := s.categoryRepo.FindRoots(ctx, "futures")
+	if err != nil {
+		return nil, fmt.Errorf("查询启用品种失败: %w", err)
 	}
 
-	resp := &PublicCategoriesResponse{
-		Spot:    []model.Category{},
-		Futures: []model.Category{},
-	}
-
-	for _, c := range categories {
-		switch c.Type {
-		case "spot":
-			resp.Spot = append(resp.Spot, c)
-		case "futures":
-			resp.Futures = append(resp.Futures, c)
-		}
-	}
-
-	return resp, nil
+	return &PublicCategoriesResponse{Spot: spots, Futures: futures}, nil
 }
 
 func (s *CategoryService) GetEnabledCategoryNames(ctx context.Context) ([]string, error) {

@@ -753,20 +753,17 @@ export function AdminUserManagement() {
                 <SelectTrigger
                   id="field-role"
                   data-field-id="role"
+                  variant="filter"
                   className={cn(
-                    "h-10 px-3 rounded-[10px]",
-                    "border text-[14px] leading-[1.5]",
-                    formErrors.role
-                      ? "border-[#B42318] focus:ring-[#B42318]/10"
-                      : "border-[#E5E5E5] focus:ring-[#0A0A0A]/10 focus:border-[#0A0A0A]",
-                    "transition-colors duration-200",
+                    "px-3 leading-[1.5] transition-colors duration-200",
+                    formErrors.role && "border-[#B42318]",
                   )}
                   aria-invalid={!!formErrors.role}
                   aria-describedby={formErrors.role ? "err-role" : undefined}
                 >
                   <SelectValue placeholder="请选择角色" />
                 </SelectTrigger>
-                <SelectContent className="border border-[#E5E5E5] rounded-md">
+                <SelectContent variant="filter">
                   {/* 超级管理员仅编辑时显示 */}
                   {isEditing && formData.role === "super_admin" ? (
                     <SelectItem value="super_admin">

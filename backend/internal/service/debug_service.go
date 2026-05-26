@@ -146,6 +146,7 @@ type DebugService struct {
 	intentRepo         *repository.IntentRepository
 	agentConfigService *AgentConfigService
 	chatRepo           *repository.ChatRepository
+	categoryRepo       *repository.CategoryRepository
 	redisClient        redis.UniversalClient
 }
 
@@ -154,6 +155,7 @@ func NewDebugService(
 	intentRepo *repository.IntentRepository,
 	agentConfigService *AgentConfigService,
 	chatRepo *repository.ChatRepository,
+	categoryRepo *repository.CategoryRepository,
 	redisClient redis.UniversalClient,
 ) *DebugService {
 	return &DebugService{
@@ -161,6 +163,7 @@ func NewDebugService(
 		intentRepo:         intentRepo,
 		agentConfigService: agentConfigService,
 		chatRepo:           chatRepo,
+		categoryRepo:       categoryRepo,
 		redisClient:        redisClient,
 	}
 }
@@ -212,7 +215,7 @@ func (s *DebugService) TestIntent(ctx context.Context, text string) (*IntentTest
 		result.Intent.Confidence = float64(bestScore) / float64(len(bestMatch.Keywords)+1)
 		result.MatchedKeywords = matchedKeywords
 
-		entities := extractEntities(text)
+		entities := s.extractEntities(ctx, text)
 		result.Entities = entities
 	} else {
 		result.Intent.Code = "unknown"
@@ -224,11 +227,14 @@ func (s *DebugService) TestIntent(ctx context.Context, text string) (*IntentTest
 	return result, nil
 }
 
-func extractEntities(text string) []IntentEntity {
+func (s *DebugService) extractEntities(ctx context.Context, text string) []IntentEntity {
 	var entities []IntentEntity
 
-	categories := []string{"螺纹钢", "热卷", "冷轧", "中厚板", "镀锌板", "彩涂板", "不锈钢", "型钢", "管材"}
-	for _, cat := range categories {
+	categoryNames, err := s.categoryRepo.FindEnabledNames(ctx)
+	if err != nil || len(categoryNames) == 0 {
+		categoryNames = []string{"螺纹钢", "热卷", "冷轧", "中厚板", "镀锌板", "彩涂板", "不锈钢", "型钢", "管材"}
+	}
+	for _, cat := range categoryNames {
 		if strings.Contains(text, cat) {
 			entities = append(entities, IntentEntity{Key: "category", Value: cat})
 			break
@@ -386,13 +392,16 @@ func (s *DebugService) CheckToolHealth(ctx context.Context) (*ToolHealthResult, 
 
 	for _, schema := range toolSchemas {
 		go func(name string, displayName string) {
+			toolCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			defer cancel()
+
 			params, ok := testParams[name]
 			if !ok {
 				params = map[string]interface{}{}
 			}
 
 			start := time.Now()
-			_, execErr := s.ExecuteTool(ctx, name, params, false)
+			_, execErr := s.ExecuteTool(toolCtx, name, params, false)
 			responseTime := time.Since(start).Milliseconds()
 
 			item := ToolHealthItem{

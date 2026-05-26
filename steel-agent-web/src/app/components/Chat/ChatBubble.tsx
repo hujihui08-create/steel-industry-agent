@@ -6,6 +6,8 @@ import type { ChatMessage } from "@/app/types/chat";
 import { Sparkles, User, Copy, RefreshCw, ThumbsUp, ThumbsDown, Pencil, Trash2 } from "lucide-react";
 import { MarkdownContent } from "./MarkdownContent";
 
+const MemoMarkdownContent = React.memo(MarkdownContent, (prev, next) => prev.content === next.content);
+
 type EmptyStateType = "no-results" | "out-of-scope" | "need-more-info" | "ai-uncertain";
 
 interface EmptyStateTemplateProps {
@@ -199,7 +201,7 @@ export interface ChatBubbleProps {
   onSwipeQuote?: () => void;
 }
 
-export function ChatBubble({
+export const ChatBubble = React.memo(function ChatBubble({
   message,
   isStreaming = false,
   hideAvatar = false,
@@ -284,7 +286,7 @@ export function ChatBubble({
       onContextMenu={handleContextMenu}
     >
       <AIBubble hideAvatar={hideAvatar} isError={isError} ariaLive={isStreaming ? "polite" : undefined}>
-        <MarkdownContent content={mainContent} />
+        <MemoMarkdownContent content={mainContent} />
         {sourceCitation && (
           <div className="mt-1.5 text-[12px] leading-[1.5] text-steel-muted">
             来源：{sourceCitation}
@@ -356,6 +358,6 @@ export function ChatBubble({
       )}
     </div>
   );
-}
+});
 
 export default ChatBubble;

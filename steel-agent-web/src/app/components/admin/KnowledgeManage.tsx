@@ -202,19 +202,19 @@ export default function KnowledgeManage() {
               className={cn("w-[200px] h-8 pl-8 pr-3 rounded-[10px] border border-[#E5E5E5] bg-white text-[13px] leading-[1.5] text-[#404040] placeholder:text-[#A3A3A3] outline-none focus:border-[#0A0A0A] focus:ring-2 focus:ring-[#0A0A0A]/10 transition-colors duration-150")} />
           </div>
           <Select value={filterType || "all"} onValueChange={(v) => handleFilterChange(setFilterType, v === "all" ? "" : v)}>
-            <SelectTrigger className="h-8 w-[110px] rounded-[10px] border-[#E5E5E5] bg-white text-[13px] text-[#404040] focus:border-[#0A0A0A] focus:ring-1 focus:ring-[#0A0A0A]/10">
+            <SelectTrigger variant="filter" className="h-8 w-[110px] text-[13px]">
               <SelectValue placeholder="类型" />
             </SelectTrigger>
-            <SelectContent className="border-[#E5E5E5] rounded-[10px]">
+            <SelectContent variant="filter">
               <SelectItem value="all" className="text-[13px]">全部类型</SelectItem>
               {TYPE_OPTIONS.filter(o => o.value !== "").map(o => <SelectItem key={o.value} value={o.value} className="text-[13px]">{o.label}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={filterStatus || "all"} onValueChange={(v) => handleFilterChange(setFilterStatus, v === "all" ? "" : v)}>
-            <SelectTrigger className="h-8 w-[110px] rounded-[10px] border-[#E5E5E5] bg-white text-[13px] text-[#404040] focus:border-[#0A0A0A] focus:ring-1 focus:ring-[#0A0A0A]/10">
+            <SelectTrigger variant="filter" className="h-8 w-[110px] text-[13px]">
               <SelectValue placeholder="状态" />
             </SelectTrigger>
-            <SelectContent className="border-[#E5E5E5] rounded-[10px]">
+            <SelectContent variant="filter">
               <SelectItem value="all" className="text-[13px]">全部状态</SelectItem>
               {STATUS_OPTIONS.filter(o => o.value !== "").map(o => <SelectItem key={o.value} value={o.value} className="text-[13px]">{o.label}</SelectItem>)}
             </SelectContent>
@@ -274,10 +274,10 @@ export default function KnowledgeManage() {
             <div className="flex flex-col gap-1.5">
               <label className="text-[12px] text-[#737373]">文档类型</label>
               <Select value={formData.type} onValueChange={(v) => setFormData(p => ({ ...p, type: v }))}>
-                <SelectTrigger className="h-9 rounded-[10px] border-[#E5E5E5] bg-white text-[13px] text-[#404040] focus:border-[#0A0A0A] focus:ring-1 focus:ring-[#0A0A0A]/10">
+                <SelectTrigger variant="filter" className="h-9 text-[13px]">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="border-[#E5E5E5] rounded-[10px]">
+                <SelectContent variant="filter">
                   {TYPE_OPTIONS.filter(o => o.value !== "").map(o => <SelectItem key={o.value} value={o.value} className="text-[13px]">{o.label}</SelectItem>)}
                 </SelectContent>
               </Select>

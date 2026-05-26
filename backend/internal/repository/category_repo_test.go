@@ -42,7 +42,7 @@ func TestCategoryRepo_FindAll(t *testing.T) {
 		{Name: "螺纹钢期货", Type: "futures", Status: "disabled", SortOrder: 3},
 	})
 
-	categories, err := repo.FindAll(ctx, "", "")
+	categories, err := repo.FindAll(ctx, "", "", nil)
 	if err != nil {
 		t.Fatalf("FindAll failed: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestCategoryRepo_FindAll_TypeFilter(t *testing.T) {
 		{Name: "螺纹钢期货", Type: "futures", Status: "enabled", SortOrder: 2},
 	})
 
-	spotCategories, err := repo.FindAll(ctx, "spot", "")
+	spotCategories, err := repo.FindAll(ctx, "spot", "", nil)
 	if err != nil {
 		t.Fatalf("FindAll with spot filter failed: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestCategoryRepo_FindAll_TypeFilter(t *testing.T) {
 		t.Errorf("expected type 'spot', got '%s'", spotCategories[0].Type)
 	}
 
-	futuresCategories, err := repo.FindAll(ctx, "futures", "")
+	futuresCategories, err := repo.FindAll(ctx, "futures", "", nil)
 	if err != nil {
 		t.Fatalf("FindAll with futures filter failed: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestCategoryRepo_FindAll_StatusFilter(t *testing.T) {
 		{Name: "热卷", Type: "spot", Status: "disabled", SortOrder: 2},
 	})
 
-	enabled, err := repo.FindAll(ctx, "", "enabled")
+	enabled, err := repo.FindAll(ctx, "", "enabled", nil)
 	if err != nil {
 		t.Fatalf("FindAll with enabled filter failed: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestCategoryRepo_FindAll_StatusFilter(t *testing.T) {
 		t.Errorf("expected 1 enabled category, got %d", len(enabled))
 	}
 
-	disabled, err := repo.FindAll(ctx, "", "disabled")
+	disabled, err := repo.FindAll(ctx, "", "disabled", nil)
 	if err != nil {
 		t.Fatalf("FindAll with disabled filter failed: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestCategoryRepo_FindByNameAndType(t *testing.T) {
 		{Name: "螺纹钢", Type: "futures", Status: "enabled", SortOrder: 2},
 	})
 
-	found, err := repo.FindByNameAndType(ctx, "螺纹钢", "spot")
+	found, err := repo.FindByNameAndType(ctx, "螺纹钢", "spot", nil)
 	if err != nil {
 		t.Fatalf("FindByNameAndType failed: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestCategoryRepo_FindByNameAndType(t *testing.T) {
 		t.Errorf("expected type 'spot', got '%s'", found.Type)
 	}
 
-	futuresFound, err := repo.FindByNameAndType(ctx, "螺纹钢", "futures")
+	futuresFound, err := repo.FindByNameAndType(ctx, "螺纹钢", "futures", nil)
 	if err != nil {
 		t.Fatalf("FindByNameAndType for futures failed: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestCategoryRepo_FindByNameAndType(t *testing.T) {
 		t.Errorf("expected type 'futures', got '%s'", futuresFound.Type)
 	}
 
-	_, err = repo.FindByNameAndType(ctx, "不存在的品种", "spot")
+	_, err = repo.FindByNameAndType(ctx, "不存在的品种", "spot", nil)
 	if err == nil {
 		t.Error("expected error for non-existent category")
 	}
@@ -330,7 +330,7 @@ func TestCategoryRepo_EmptyTable(t *testing.T) {
 	repo := NewCategoryRepository(db)
 	ctx := context.Background()
 
-	all, err := repo.FindAll(ctx, "", "")
+	all, err := repo.FindAll(ctx, "", "", nil)
 	if err != nil {
 		t.Fatalf("FindAll on empty table failed: %v", err)
 	}

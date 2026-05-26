@@ -8,13 +8,14 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Bookmark, Bell, ExternalLink } from "lucide-react";
+import { Bookmark, BookmarkCheck, Bell, ExternalLink } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { getTenderDetail } from "@/app/api/tenders";
 import type { TenderDetail } from "@/app/types/tender";
 import { PageHeader } from "@/app/components/shared/PageHeader";
 import { ErrorState } from "@/app/components/shared/ErrorState";
 import { LoadingSkeleton } from "@/app/components/shared/LoadingSkeleton";
+import { useTenderFavorite } from "@/app/hooks/useTenderFavorite";
 
 // -----------------------------------------------------------
 // Status config
@@ -127,6 +128,8 @@ function ActionPill({
 export default function TenderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  const { isFavorited, toggleFavorite } = useTenderFavorite();
 
   const {
     data: tender,
@@ -244,11 +247,14 @@ export default function TenderDetailPage() {
             ========================================================== */}
         <div className="mt-6 flex gap-3 flex-wrap">
           <ActionPill
-            icon={Bookmark}
-            label="收藏"
-            onClick={() => toast("功能开发中", {
-              description: "招标收藏功能即将上线",
-            })}
+            icon={isFavorited(Number(id)) ? BookmarkCheck : Bookmark}
+            label={isFavorited(Number(id)) ? "已收藏" : "收藏"}
+            onClick={() => {
+              if (!id) return;
+              const tenderId = Number(id);
+              if (isNaN(tenderId)) return;
+              toggleFavorite(tenderId);
+            }}
           />
 
           <ActionPill

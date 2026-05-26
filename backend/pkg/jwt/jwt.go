@@ -41,16 +41,24 @@ func GenerateToken(userID uint) (string, error) {
 }
 
 // GenerateAccessToken creates a signed JWT access token with configurable expiry.
-func GenerateAccessToken(userID uint) (string, error) {
-	expireHours := config.AppConfig.JWTAccessExpireHours
-	if expireHours <= 0 {
-		expireHours = 2
+// sessionTimeoutMinutes overrides the environment default when greater than 0.
+// Pass 0 to use the JWTAccessExpireHours environment variable.
+func GenerateAccessToken(userID uint, sessionTimeoutMinutes int) (string, error) {
+	var expiresAt time.Time
+	if sessionTimeoutMinutes > 0 {
+		expiresAt = time.Now().Add(time.Duration(sessionTimeoutMinutes) * time.Minute)
+	} else {
+		expireHours := config.AppConfig.JWTAccessExpireHours
+		if expireHours <= 0 {
+			expireHours = 2
+		}
+		expiresAt = time.Now().Add(time.Duration(expireHours) * time.Hour)
 	}
 	claims := Claims{
 		UserID:    userID,
 		TokenType: "access",
 		RegisteredClaims: jwtlib.RegisteredClaims{
-			ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(time.Duration(expireHours) * time.Hour)),
+			ExpiresAt: jwtlib.NewNumericDate(expiresAt),
 			IssuedAt:  jwtlib.NewNumericDate(time.Now()),
 		},
 	}

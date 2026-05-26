@@ -18,20 +18,20 @@ import (
 // AgentConfigDO represents the full agent configuration stored as JSON in the
 // agent_configs table under config_key="agent_config".
 type AgentConfigDO struct {
-	PrimaryModel       string               `json:"primaryModel"`
-	BackupModel        string               `json:"backupModel"`
-	Temperature        float64              `json:"temperature"`
-	MaxTokens          int                  `json:"maxTokens"`
-	ApiKey             string               `json:"apiKey"`
-	Timeout            int                  `json:"timeout"`
-	SystemPrompt       string               `json:"systemPrompt"`
-	WelcomeMessage     string               `json:"welcomeMessage"`
-	QuickCommands      []QuickCommandDO     `json:"quickCommands"`
+	PrimaryModel       string                `json:"primaryModel"`
+	BackupModel        string                `json:"backupModel"`
+	Temperature        float64               `json:"temperature"`
+	MaxTokens          int                   `json:"maxTokens"`
+	ApiKey             string                `json:"apiKey"`
+	Timeout            int                   `json:"timeout"`
+	SystemPrompt       string                `json:"systemPrompt"`
+	WelcomeMessage     string                `json:"welcomeMessage"`
+	QuickCommands      []QuickCommandDO      `json:"quickCommands"`
 	HallucinationRules []HallucinationRuleDO `json:"hallucinationRules"`
-	Disclaimer         string               `json:"disclaimer"`
-	ForceToolForData   bool                 `json:"forceToolForData"`
-	UseTemplateForChat bool                 `json:"useTemplateForChat"`
-	Models             []ModelConfigDO      `json:"models"`
+	Disclaimer         string                `json:"disclaimer"`
+	ForceToolForData   bool                  `json:"forceToolForData"`
+	UseTemplateForChat bool                  `json:"useTemplateForChat"`
+	Models             []ModelConfigDO       `json:"models"`
 }
 
 // QuickCommandDO represents a single quick-command entry in the agent config.
@@ -323,6 +323,11 @@ func (s *AgentConfigService) defaultConfig(ctx context.Context) *AgentConfigDO {
 			{ID: "hr-2", Category: "热卷", MinPrice: 3200, MaxPrice: 5200},
 			{ID: "hr-3", Category: "冷轧", MinPrice: 3800, MaxPrice: 6000},
 			{ID: "hr-4", Category: "中厚板", MinPrice: 3500, MaxPrice: 5500},
+			{ID: "hr-5", Category: "镀锌板", MinPrice: 4000, MaxPrice: 6500},
+			{ID: "hr-6", Category: "彩涂板", MinPrice: 4500, MaxPrice: 7000},
+			{ID: "hr-7", Category: "不锈钢", MinPrice: 8000, MaxPrice: 20000},
+			{ID: "hr-8", Category: "型钢", MinPrice: 3500, MaxPrice: 5500},
+			{ID: "hr-9", Category: "管材", MinPrice: 3800, MaxPrice: 6000},
 		}
 	} else {
 		rules = make([]HallucinationRuleDO, 0, len(categories))
@@ -337,13 +342,13 @@ func (s *AgentConfigService) defaultConfig(ctx context.Context) *AgentConfigDO {
 	}
 
 	return &AgentConfigDO{
-		PrimaryModel: "gpt-4o-mini",
-		BackupModel:  "qwen-turbo",
-		Temperature:  0.1,
-		MaxTokens:    2048,
-		ApiKey:       "sk-\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
-		Timeout:      30,
-		SystemPrompt: "你是一个钢铁行业智能助手。重要规则：\n1. 所有价格数据必须通过工具调用获取，禁止编造\n2. 如果不确定，明确告知用户\"我需要查询一下\"\n3. 涉及交易决策时，必须附加免责声明\n4. 结论先行，数据优先，来源可追溯\n5. 数字格式：价格用千分位+单位（¥3,850/吨），涨跌用符号+百分比（+12 +0.31%）",
+		PrimaryModel:   "gpt-4o-mini",
+		BackupModel:    "通义千问",
+		Temperature:    0.1,
+		MaxTokens:      2048,
+		ApiKey:         "",
+		Timeout:        30,
+		SystemPrompt:   "你是一个钢铁行业智能助手。重要规则：\n1. 所有价格数据必须通过工具调用获取，禁止编造\n2. 如果不确定，明确告知用户\"我需要查询一下\"\n3. 涉及交易决策时，必须附加免责声明\n4. 结论先行，数据优先，来源可追溯\n5. 数字格式：价格用千分位+单位（¥3,850/吨），涨跌用符号+百分比（+12 +0.31%）",
 		WelcomeMessage: "您好，我是钢铁行业智能助手。可以帮您查价格、算报价、看招标、搜知识。请告诉我您需要什么帮助？",
 		QuickCommands: []QuickCommandDO{
 			{ID: "qc-1", Icon: "Search", Label: "查价格", Prompt: "帮我查询螺纹钢最新价格", Order: 1},

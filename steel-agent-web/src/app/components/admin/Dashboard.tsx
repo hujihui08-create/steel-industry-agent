@@ -31,6 +31,7 @@ import {
   getBadCaseStats,
   getToolHealth,
   getRecentLogs,
+  getDefaultToolHealthItems,
 } from "@/app/api/admin";
 
 import type {
@@ -226,7 +227,7 @@ export function Dashboard() {
   const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>("7days");
   const [trendData, setTrendData] = useState<TrendDataPoint[]>([]);
   const [badCaseStats, setBadCaseStats] = useState<BadCaseStats | null>(null);
-  const [toolHealth, setToolHealth] = useState<ToolHealth[]>([]);
+  const [toolHealth, setToolHealth] = useState<ToolHealth[]>(getDefaultToolHealthItems);
   const [recentLogs, setRecentLogs] = useState<OperationLog[]>([]);
 
   // ---- 数据获取 ----
@@ -243,7 +244,6 @@ export function Dashboard() {
         getDashboardStats(),
         getTrendData(period),
         getBadCaseStats(),
-        getToolHealth(),
         getRecentLogs(),
       ]);
 
@@ -251,7 +251,6 @@ export function Dashboard() {
         statsResult,
         trendResult,
         badCaseResult,
-        toolResult,
         logsResult,
       ] = results;
 
@@ -272,12 +271,6 @@ export function Dashboard() {
         setBadCaseStats(badCaseResult.value);
       } else {
         setBadCaseStats(null);
-      }
-
-      if (toolResult.status === "fulfilled") {
-        setToolHealth(toolResult.value);
-      } else {
-        setToolHealth([]);
       }
 
       if (logsResult.status === "fulfilled") {
@@ -309,6 +302,26 @@ export function Dashboard() {
     }, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
+  }, []);
+
+  // ---- 工具健康状态：异步加载，不阻塞首页渲染 ----
+  useEffect(() => {
+    let cancelled = false;
+    const fetchHealth = async () => {
+      const result = await Promise.race([
+        getToolHealth(),
+        new Promise<ToolHealth[]>((resolve) =>
+          setTimeout(() => resolve(getDefaultToolHealthItems()), 5000),
+        ),
+      ]);
+      if (!cancelled) {
+        setToolHealth(result);
+      }
+    };
+    fetchHealth();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // ---- 周期切换时重新获取趋势数据 ----

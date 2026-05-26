@@ -169,7 +169,7 @@ func TestAuth_InvalidToken(t *testing.T) {
 func TestAuth_ValidToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	token, err := jwt.GenerateAccessToken(42)
+	token, err := jwt.GenerateAccessToken(42, 0)
 	if err != nil {
 		t.Fatalf("failed to generate token: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestAuth_ValidToken(t *testing.T) {
 func TestAuth_ValidToken_DifferentUser(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	token, err := jwt.GenerateAccessToken(7)
+	token, err := jwt.GenerateAccessToken(7, 0)
 	if err != nil {
 		t.Fatalf("failed to generate token: %v", err)
 	}

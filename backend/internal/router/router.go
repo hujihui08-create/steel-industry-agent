@@ -39,6 +39,10 @@ func Setup(
 	apiStatsHandler *handler.ApiStatsHandler,
 	loginLogHandler *handler.LoginLogHandler,
 	menuHandler *handler.MenuHandler,
+	adminSettingsHandler *handler.AdminSettingsHandler,
+	certificationHandler *handler.CertificationHandler,
+	adminCertificationHandler *handler.AdminCertificationHandler,
+	feedbackHandler *handler.FeedbackHandler,
 	adminRepo *repository.AdminRepository,
 	adminLogRepo *repository.AdminLogRepository,
 	apiCallLogRepo *repository.ApiCallLogRepository,
@@ -49,13 +53,14 @@ func Setup(
 	r.GET("/ready", healthHandler.Readiness)
 	r.GET("/health", healthHandler.Health)
 
-	r.GET("/api/v1/categories", categoryHandler.GetPublicCategories)
-
-	r.Use(middleware.CORS())
+	r.Use(middleware.CORS(config.AppConfig.CORSAllowedOrigins))
 	r.Use(middleware.SecurityHeaders())
 	r.Use(middleware.RequestID())
 	r.Use(middleware.Logger())
 	r.Use(middleware.RateLimit(100, 200))
+
+	r.GET("/api/v1/categories", categoryHandler.GetPublicCategories)
+	r.GET("/api/v1/public/config", adminSettingsHandler.GetPublicConfig)
 
 	api := r.Group("/api/v1")
 	api.Use(middleware.ApiCallLog(apiCallLogRepo))
@@ -84,6 +89,8 @@ func Setup(
 		users.PUT("/profile", userHandler.UpdateProfile)
 		users.PUT("/password", userHandler.UpdatePassword)
 		users.GET("/token-usage", tokenUsageHandler.GetDailyUsage)
+		users.POST("/certification", certificationHandler.SubmitCertification)
+		users.GET("/certification", certificationHandler.GetMyCertification)
 	}
 
 	prices := api.Group("/prices")
@@ -176,6 +183,8 @@ func Setup(
 		settings.PUT("", settingsHandler.UpdateSettings)
 	}
 
+	api.POST("/feedback", feedbackHandler.SubmitFeedback)
+
 	api.GET("/news", priceHandler.GetNewsList)
 	api.GET("/news/:id", priceHandler.GetNewsDetail)
 
@@ -254,6 +263,10 @@ func Setup(
 	adminPrices.Use(middleware.RequireRole(adminRepo, "super_admin", "operator", "data_admin"))
 	{
 		adminPrices.GET("", priceHandler.GetPriceList)
+		adminPrices.POST("", priceHandler.CreatePrice)
+		adminPrices.PUT("/:id", priceHandler.UpdatePrice)
+		adminPrices.DELETE("/:id", priceHandler.DeletePrice)
+		adminPrices.POST("/batch-import", priceHandler.BatchImportPrices)
 	}
 
 	adminNews := api.Group("/admin/news")
@@ -372,10 +385,10 @@ func Setup(
 	adminSettings := api.Group("/admin/settings")
 	adminSettings.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
 	{
-		adminSettings.GET("", backupHandler.GetSettings)
-		adminSettings.PUT("", backupHandler.UpdateSettings)
-		adminSettings.POST("/upload-logo", backupHandler.UpdateSettings)
-		adminSettings.POST("/test-email", backupHandler.UpdateSettings)
+		adminSettings.GET("", adminSettingsHandler.GetSettings)
+		adminSettings.PUT("", adminSettingsHandler.UpdateSettings)
+		adminSettings.POST("/upload-logo", adminSettingsHandler.UploadLogo)
+		adminSettings.POST("/test-email", adminSettingsHandler.TestEmail)
 	}
 
 	adminCategories := api.Group("/admin/categories")
@@ -386,6 +399,21 @@ func Setup(
 		adminCategories.PUT("/:id", categoryHandler.UpdateCategory)
 		adminCategories.DELETE("/:id", categoryHandler.DeleteCategory)
 		adminCategories.PATCH("/:id/toggle", categoryHandler.ToggleCategory)
+	}
+
+	adminCertifications := api.Group("/admin/certifications")
+	adminCertifications.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
+	{
+		adminCertifications.GET("", adminCertificationHandler.ListCertifications)
+		adminCertifications.PUT("/:id/approve", adminCertificationHandler.ApproveCertification)
+		adminCertifications.PUT("/:id/reject", adminCertificationHandler.RejectCertification)
+	}
+
+	adminFeedbacks := api.Group("/admin/feedbacks")
+	adminFeedbacks.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
+	{
+		adminFeedbacks.GET("", feedbackHandler.ListFeedbacks)
+		adminFeedbacks.GET("/:id", feedbackHandler.GetFeedbackDetail)
 	}
 
 	adminAgentConfig := api.Group("/admin/agent-config")

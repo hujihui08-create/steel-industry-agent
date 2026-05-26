@@ -43,18 +43,27 @@ export function useChat() {
       { session_id: sessionId, content: content.trim() },
       (chunk) => {
         fullContent.push(chunk);
+        store.setStatusMessage(null);
         store.appendToLastMessage(chunk);
       },
       (error) => {
+        store.setStatusMessage(null);
         store.setError(error);
         store.setStreaming(false);
       },
       async () => {
+        store.setStatusMessage(null);
         store.setStreaming(false);
         if (store.currentSessionId !== null) {
           try {
-            const sessions = await chatApi.getSessions();
+            const [sessions, messages] = await Promise.all([
+              chatApi.getSessions(),
+              chatApi.getSessionMessages(store.currentSessionId),
+            ]);
             store.setSessions(sessions);
+            if (messages.length > 0) {
+              store.setMessages(messages);
+            }
           } catch {
             // 静默失败
           }
@@ -85,6 +94,9 @@ export function useChat() {
           },
           ...useChatStore.getState().sessions,
         ]);
+      },
+      (status) => {
+        store.setStatusMessage(status);
       },
     );
 
@@ -137,13 +149,16 @@ export function useChat() {
     const controller = chatApi.continueGeneration(
       { session_id: store.currentSessionId, content: '' },
       (chunk) => {
+        store.setStatusMessage(null);
         store.appendToLastMessage(chunk);
       },
       (error) => {
+        store.setStatusMessage(null);
         store.setError(error);
         store.setStreaming(false);
       },
       () => {
+        store.setStatusMessage(null);
         store.setStreaming(false);
       },
       (card) => {

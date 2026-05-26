@@ -70,7 +70,8 @@ func (s *AuthService) Login(ctx context.Context, phone, code string) (string, st
 		return "", "", err
 	}
 
-	accessToken, err := jwt.GenerateAccessToken(user.ID)
+	// sessionTimeout can be passed from admin_settings; 0 falls back to env var
+	accessToken, err := jwt.GenerateAccessToken(user.ID, 0)
 	if err != nil {
 		return "", "", err
 	}
@@ -97,7 +98,8 @@ func (s *AuthService) LoginPassword(ctx context.Context, phone, password string)
 		return "", "", errors.New("用户不存在或密码错误")
 	}
 
-	accessToken, err := jwt.GenerateAccessToken(user.ID)
+	// sessionTimeout can be passed from admin_settings; 0 falls back to env var
+	accessToken, err := jwt.GenerateAccessToken(user.ID, 0)
 	if err != nil {
 		return "", "", err
 	}
@@ -148,7 +150,8 @@ func (s *AuthService) Register(ctx context.Context, phone, password, code, nickn
 		return "", "", err
 	}
 
-	accessToken, err := jwt.GenerateAccessToken(user.ID)
+	// sessionTimeout can be passed from admin_settings; 0 falls back to env var
+	accessToken, err := jwt.GenerateAccessToken(user.ID, 0)
 	if err != nil {
 		return "", "", err
 	}
@@ -181,7 +184,8 @@ func (s *AuthService) RefreshToken(ctx context.Context, oldToken string) (string
 		return "", errors.New("令牌无效或已过期")
 	}
 
-	accessToken, err := jwt.GenerateAccessToken(claims.UserID)
+	// sessionTimeout can be passed from admin_settings; 0 falls back to env var
+	accessToken, err := jwt.GenerateAccessToken(claims.UserID, 0)
 	if err != nil {
 		return "", err
 	}

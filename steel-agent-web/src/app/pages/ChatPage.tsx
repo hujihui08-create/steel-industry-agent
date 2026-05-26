@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useChatStore } from '@/app/stores/chatStore';
 import { useAuthStore } from '@/app/stores/authStore';
 import { useLoginDialogStore } from '@/app/stores/loginDialogStore';
+import { useSettingsStore } from '@/app/stores/settingsStore';
 import { useChat } from '@/app/hooks/useChat';
 import { ChatSidebar } from '@/app/components/Chat/ChatSidebar';
 import { ChatBubble, TypingIndicator } from '@/app/components/Chat/ChatBubble';
@@ -60,6 +61,9 @@ export default function ChatPage() {
     deleteSession,
   } = useChat();
   const { isFavorited, toggleFavorite, favoriteSet } = useTenderFavorite();
+
+  // ---- site config (public branding) --------------------------
+  const { siteConfig, loadSiteConfig } = useSettingsStore();
 
   const scrollRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -201,6 +205,11 @@ export default function ChatPage() {
       loadSessions();
     }
   }, [loadSessions, isAuthenticated]);
+
+  // ---- Load site config on mount -----------------------------
+  useEffect(() => {
+    loadSiteConfig();
+  }, [loadSiteConfig]);
 
   // ---- Auto scroll to bottom on new messages ---------------
   useEffect(() => {
@@ -673,7 +682,7 @@ export default function ChatPage() {
           <Sparkles className="w-8 h-8 text-steel-ink" strokeWidth={1.75} aria-hidden="true" />
         </div>
         <h2 className="text-[22px] leading-[1.2] md:text-[24px] md:leading-[1.3] font-medium text-steel-ink mb-2">
-          钢小秘
+          {siteConfig?.siteName || "钢小秘"}
         </h2>
         <p className="text-[15px] leading-[1.6] text-steel-muted text-center max-w-[360px]">
           查价格、算报价、看走势、搜知识、查招标、看资讯、算重量、设预警
@@ -793,7 +802,7 @@ export default function ChatPage() {
                     spec: '',
                     region: first.region || '',
                   });
-                  navigate(`/chart?${params.toString()}`);
+                  navigate(`/price-board?${params.toString()}`);
                 }}
                 className="rounded-full border border-steel-line text-[13px] text-steel-ink hover:border-steel-ink transition-colors duration-150 px-4 py-2 inline-flex items-center gap-1.5"
               >
@@ -1455,7 +1464,7 @@ export default function ChatPage() {
             />
           </button>
           <h1 className="text-[18px] leading-[1.4] font-medium text-steel-ink">
-            钢小秘
+            {siteConfig?.siteName || "钢小秘"}
           </h1>
           <div className="w-8" />
         </div>
@@ -1463,7 +1472,7 @@ export default function ChatPage() {
         {/* ---- Desktop Header ---- */}
         <div className="hidden md:flex items-center justify-between px-6 py-[11px] border-b border-steel-line shrink-0">
           <h1 className="text-[15px] leading-[1.5] font-medium text-steel-ink truncate min-w-0">
-            {currentSessionTitle || "钢铁助手"}
+            {currentSessionTitle || siteConfig?.siteName || "钢铁助手"}
           </h1>
           <button
             onClick={() => setDetailPanelOpen((v) => !v)}
@@ -1537,11 +1546,22 @@ export default function ChatPage() {
                 {/* Typing indicator — shown when AI is generating but hasn't started output yet */}
                 {store.isStreaming && store.messages.length > 0 && (() => {
                   const lastMsg = store.messages[store.messages.length - 1];
-                  // 只有当最后一条消息是用户消息时才显示TypingIndicator
-                  // 如果最后一条已经是AI消息，说明已经开始输出了，就不需要显示TypingIndicator了
                   return lastMsg.role === 'user';
                 })() && (
                   <TypingIndicator />
+                )}
+                {/* Tool status message — shown during function calling */}
+                {store.isStreaming && store.statusMessage && store.messages.length > 0 && (() => {
+                  const lastMsg = store.messages[store.messages.length - 1];
+                  return lastMsg.role === 'user';
+                })() && (
+                  <div className="flex gap-3 max-w-[85%] animate-splash-in">
+                    <div className="size-7 shrink-0" aria-hidden="true" />
+                    <div className="rounded-2xl rounded-tl-sm bg-steel-surface border border-steel-line px-4 py-2.5 text-[13px] leading-[1.5] text-steel-muted flex items-center gap-2">
+                      <span className="inline-block size-[1.5px] rounded-full bg-steel-placeholder animate-pulse" />
+                      {store.statusMessage}
+                    </div>
+                  </div>
                 )}
 
                 {/* Auto-scroll anchor */}

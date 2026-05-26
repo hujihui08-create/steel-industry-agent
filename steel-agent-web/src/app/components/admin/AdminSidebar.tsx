@@ -20,6 +20,8 @@ import {
   BarChart3,
   Clock,
   Menu,
+  MessageSquare,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -163,6 +165,18 @@ export const SIDEBAR_MENU_MAP: Record<string, SidebarMenuItem[]> = {
       label: "菜单管理",
       icon: Menu,
       path: "/admin/menu-management",
+    },
+    {
+      id: "certification-manage",
+      label: "企业认证审核",
+      icon: ShieldCheck,
+      path: "/admin/certifications",
+    },
+    {
+      id: "feedback-manage",
+      label: "用户反馈",
+      icon: MessageSquare,
+      path: "/admin/feedbacks",
     },
   ],
 };

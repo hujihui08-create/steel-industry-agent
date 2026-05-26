@@ -857,10 +857,10 @@ export default function BadCaseManagement() {
             类型
           </label>
           <Select value={filterErrorType} onValueChange={(v) => { setFilterErrorType(v); setPage(1); }}>
-            <SelectTrigger id="filter-type" className="h-8 w-[120px] rounded-[10px] border-[#E5E5E5] bg-white text-[13px] text-[#404040] focus:border-[#0A0A0A] focus:ring-1 focus:ring-[#0A0A0A]/10">
+            <SelectTrigger id="filter-type" variant="filter" className="h-8 w-[120px] text-[13px]">
               <SelectValue placeholder="类型" />
             </SelectTrigger>
-            <SelectContent className="border-[#E5E5E5] rounded-[10px]">
+            <SelectContent variant="filter">
               {ERROR_TYPE_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value} className="text-[13px]">{opt.label}</SelectItem>
               ))}
@@ -877,10 +877,10 @@ export default function BadCaseManagement() {
             状态
           </label>
           <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(1); }}>
-            <SelectTrigger id="filter-status" className="h-8 w-[120px] rounded-[10px] border-[#E5E5E5] bg-white text-[13px] text-[#404040] focus:border-[#0A0A0A] focus:ring-1 focus:ring-[#0A0A0A]/10">
+            <SelectTrigger id="filter-status" variant="filter" className="h-8 w-[120px] text-[13px]">
               <SelectValue placeholder="状态" />
             </SelectTrigger>
-            <SelectContent className="border-[#E5E5E5] rounded-[10px]">
+            <SelectContent variant="filter">
               {STATUS_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value} className="text-[13px]">{opt.label}</SelectItem>
               ))}
@@ -1496,17 +1496,15 @@ export default function BadCaseManagement() {
                 >
                   <SelectTrigger
                     id="add-error-type"
+                    variant="filter"
                     className={cn(
-                      "h-9 w-full rounded-[10px]",
-                      "border",
-                      addErrors.error_type ? "border-[#B42318]" : "border-[#E5E5E5]",
-                      "bg-white text-[13px] text-[#404040]",
-                      "focus:border-[#0A0A0A] focus:ring-1 focus:ring-[#0A0A0A]/10",
+                      "h-9 w-full text-[13px]",
+                      addErrors.error_type && "border-[#B42318]",
                     )}
                   >
                     <SelectValue placeholder="选择问题类型" />
                   </SelectTrigger>
-                  <SelectContent className="border-[#E5E5E5] rounded-[10px]">
+                  <SelectContent variant="filter">
                     {ERROR_TYPE_OPTIONS.filter((opt) => opt.value !== "all").map((opt) => (
                       <SelectItem key={opt.value} value={opt.value} className="text-[13px]">
                         {opt.label}

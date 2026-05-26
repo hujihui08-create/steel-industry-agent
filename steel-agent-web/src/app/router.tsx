@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, useRouteError } from "react-router-dom";
+import { createBrowserRouter, Navigate, useLocation, useRouteError } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import AuthGuard from "@/app/components/Auth/AuthGuard";
 import AdminAuthGuard from "@/app/components/Auth/AdminAuthGuard";
@@ -30,6 +30,7 @@ import ChatPage from "@/app/pages/ChatPage";
 // Lazy-loaded pages
 const SplashPage = lazy(() => import("@/app/pages/SplashPage"));
 const RegisterPage = lazy(() => import("@/app/pages/RegisterPage"));
+const PriceBoardPage = lazy(() => import("@/app/pages/PriceBoard"));
 const ChartPage = lazy(() => import("@/app/pages/ChartPage"));
 const NewsDetailPage = lazy(() => import("@/app/pages/NewsDetailPage"));
 const QuotationListPage = lazy(() => import("@/app/pages/QuotationListPage"));
@@ -46,12 +47,25 @@ const SettingsPage = lazy(() => import("@/app/pages/SettingsPage"));
 const AdminPage = lazy(() => import("@/app/pages/admin/AdminPage"));
 const KnowledgePage = lazy(() => import("@/app/pages/KnowledgePage"));
 
+// New pages
+const TenderCalendarPage = lazy(() => import("@/app/pages/TenderCalendarPage"));
+const FavoritesPage = lazy(() => import("@/app/pages/FavoritesPage"));
+const HelpFeedbackPage = lazy(() => import("@/app/pages/HelpFeedbackPage"));
+const CertificationPage = lazy(() => import("@/app/pages/CertificationPage"));
+const OnboardingPage = lazy(() => import("@/app/pages/OnboardingPage"));
+const KnowledgeDetailPage = lazy(() => import("@/app/pages/KnowledgeDetailPage"));
+
 function LazyFallback() {
   return (
     <div className="flex items-center justify-center h-full min-h-[200px]">
       <div className="w-6 h-6 border-2 border-[#E5E5E5] border-t-[#0A0A0A] rounded-full animate-spin" />
     </div>
   );
+}
+
+function ChartRedirect() {
+  const location = useLocation();
+  return <Navigate to={ROUTE.PRICE_BOARD + location.search} replace />;
 }
 
 function withSuspense(children: React.ReactNode) {
@@ -85,12 +99,17 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorBoundary />,
   },
   {
-    path: ROUTE.CHART,
+    path: ROUTE.PRICE_BOARD,
     element: withSuspense(
       <AuthGuard>
-        <ChartPage />
+        <PriceBoardPage />
       </AuthGuard>
     ),
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: ROUTE.CHART,
+    element: <ChartRedirect />,
     errorElement: <RouteErrorBoundary />,
   },
   {
@@ -143,6 +162,15 @@ export const router = createBrowserRouter([
     element: withSuspense(
       <AuthGuard>
         <AlertListPage />
+      </AuthGuard>
+    ),
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: ROUTE.KNOWLEDGE_DETAIL,
+    element: withSuspense(
+      <AuthGuard>
+        <KnowledgeDetailPage />
       </AuthGuard>
     ),
     errorElement: <RouteErrorBoundary />,
@@ -204,6 +232,47 @@ export const router = createBrowserRouter([
         <AdminPage />
       </AdminAuthGuard>
     ),
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: ROUTE.CALENDAR,
+    element: withSuspense(
+      <AuthGuard>
+        <TenderCalendarPage />
+      </AuthGuard>
+    ),
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: ROUTE.FAVORITES,
+    element: withSuspense(
+      <AuthGuard>
+        <FavoritesPage />
+      </AuthGuard>
+    ),
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: ROUTE.HELP,
+    element: withSuspense(
+      <AuthGuard>
+        <HelpFeedbackPage />
+      </AuthGuard>
+    ),
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: ROUTE.CERTIFICATION,
+    element: withSuspense(
+      <AuthGuard>
+        <CertificationPage />
+      </AuthGuard>
+    ),
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: ROUTE.ONBOARDING,
+    element: withSuspense(<OnboardingPage />),
     errorElement: <RouteErrorBoundary />,
   },
 ]);

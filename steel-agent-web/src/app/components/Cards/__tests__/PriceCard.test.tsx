@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { PriceCard, type PriceCardProps } from "@/app/components/Cards/PriceCard";
@@ -166,5 +166,52 @@ describe("PriceCard", () => {
   it("should NOT render set alert button when prices is empty", () => {
     renderCard({ prices: [] });
     expect(screen.queryByText("设置预警")).not.toBeInTheDocument();
+  });
+
+  // =========================================================================
+  // 新 Props 测试：spec / isLoading / isError / priceDate
+  // =========================================================================
+
+  it("should render spec text below title when provided", () => {
+    renderCard({ spec: "HRB400E 20mm" });
+    expect(screen.getByText("HRB400E 20mm")).toBeInTheDocument();
+  });
+
+  it("should show skeleton loading when isLoading=true", () => {
+    const { container } = renderCard({ isLoading: true });
+
+    // Should not show price data (¥ prefix is only in normal price rendering)
+    expect(screen.queryByText(/¥/)).not.toBeInTheDocument();
+
+    // The skeleton blocks should exist (divs with animate-pulse)
+    const skeletons = container.querySelectorAll(".animate-pulse");
+    expect(skeletons.length).toBeGreaterThan(0);
+  });
+
+  it("should show error message and retry button when isError=true", () => {
+    const onRetry = vi.fn();
+    renderCard({
+      isError: true,
+      errorMessage: "加载失败",
+      onRetry,
+    });
+
+    expect(screen.getByText("加载失败")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /重试/i }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("should show priceDate in header when provided", () => {
+    renderCard({ priceDate: "2026-05-26" });
+    expect(screen.getByText("2026-05-26")).toBeInTheDocument();
+  });
+
+  it("should not show priceDate when not provided", () => {
+    renderCard({});
+
+    // priceDate section should not exist when neither priceDate nor sourceTime is set
+    // A specific date string should not be present
+    expect(screen.queryByText("2026-05-26")).not.toBeInTheDocument();
   });
 });

@@ -16,6 +16,7 @@ interface ChatState {
   activeQuickCommand: string | null;
   selectedCard: CardAttachment | null;
   focusInputTrigger: number;
+  statusMessage: string | null;
 
   setCurrentSessionId: (id: number | null) => void;
   triggerFocusInput: () => void;
@@ -28,6 +29,7 @@ interface ChatState {
   setStreaming: (streaming: boolean) => void;
   setInputValue: (value: string) => void;
   setError: (error: string | null) => void;
+  setStatusMessage: (message: string | null) => void;
   setActiveQuickCommand: (commandId: string | null) => void;
   setSelectedCard: (card: CardAttachment | null) => void;
   clearSelectedCard: () => void;
@@ -49,6 +51,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   activeQuickCommand: null,
   selectedCard: null,
   focusInputTrigger: 0,
+  statusMessage: null,
 
   setCurrentSessionId: (id) => set({ currentSessionId: id }),
 
@@ -113,6 +116,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setInputValue: (inputValue) => set({ inputValue }),
 
   setError: (error) => set({ error }),
+
+  setStatusMessage: (statusMessage) => set({ statusMessage }),
 
   setActiveQuickCommand: (activeQuickCommand) => set({ activeQuickCommand }),
 
@@ -180,5 +185,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       activeQuickCommand: null,
       selectedCard: null,
       focusInputTrigger: 0,
+      statusMessage: null,
     }),
 }));

@@ -6,9 +6,9 @@ import { XIcon } from "lucide-react";
 
 import { cn } from "./utils";
 
-const Dialog = ({ ...props }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Root>) => {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
-};
+const Dialog = ({ ...props }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Root>) => (
+  <DialogPrimitive.Root data-slot="dialog" {...props} />
+);
 Dialog.displayName = DialogPrimitive.Root.displayName;
 
 const DialogTrigger = React.forwardRef<
@@ -19,9 +19,9 @@ const DialogTrigger = React.forwardRef<
 });
 DialogTrigger.displayName = DialogPrimitive.Trigger.displayName;
 
-const DialogPortal = ({ ...props }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Portal>) => {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
-};
+const DialogPortal = ({ ...props }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Portal>) => (
+  <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+);
 DialogPortal.displayName = DialogPrimitive.Portal.displayName;
 
 const DialogClose = React.forwardRef<
@@ -77,28 +77,34 @@ const DialogContent = React.forwardRef<
 });
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
-function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="dialog-header"
-      className={cn("flex flex-col gap-2 text-center sm:text-left", className)}
-      {...props}
-    />
-  );
-}
+const DialogHeader = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentPropsWithoutRef<"div">
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    data-slot="dialog-header"
+    className={cn("flex flex-col gap-2 text-center sm:text-left", className)}
+    {...props}
+  />
+));
+DialogHeader.displayName = "DialogHeader";
 
-function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="dialog-footer"
-      className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
+const DialogFooter = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentPropsWithoutRef<"div">
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    data-slot="dialog-footer"
+    className={cn(
+      "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+      className,
+    )}
+    {...props}
+  />
+));
+DialogFooter.displayName = "DialogFooter";
 
 const DialogTitle = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Title>,

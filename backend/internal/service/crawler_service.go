@@ -430,7 +430,7 @@ func (s *CrawlerService) parsePriceHTML(source model.CrawlerSource, c *colly.Col
 		}
 
 		// Skip items whose category is explicitly disabled.
-		if cat, err := s.categoryRepo.FindByNameAndType(ctx, price.Category, "spot"); err == nil && cat.Status == "disabled" {
+		if cat, err := s.categoryRepo.FindByNameAndType(ctx, price.Category, "spot", nil); err == nil && cat.Status == "disabled" {
 			log.Printf("[crawler] category '%s' is disabled, skipping", price.Category)
 			return
 		}

@@ -37,6 +37,7 @@ func main() {
 	adminRepo := repository.NewAdminRepository(db)
 	adminLogRepo := repository.NewAdminLogRepository(db)
 	adminNotifRepo := repository.NewAdminNotificationRepository(db)
+	adminSettingsRepo := repository.NewAdminSettingsRepository(db)
 	agentConfigRepo := repository.NewAgentConfigRepository(db)
 	apiCallLogRepo := repository.NewApiCallLogRepository(db)
 	badCaseRepo := repository.NewBadCaseRepository(db)
@@ -60,9 +61,21 @@ func main() {
 	tenderRepo := repository.NewTenderRepository(db)
 	tokenUsageRepo := repository.NewTokenUsageRepository(db)
 	userFavoriteRepo := repository.NewUserFavoriteRepository(db)
+	certificationRepo := repository.NewUserCertificationRepository(db)
+	feedbackRepo := repository.NewUserFeedbackRepository(db)
 
 	// --- AI Adapter ---
 	llmAdapter := ai.NewAdapter()
+	primary, fallbacks := ai.ModelConfigFromEnv()
+	llmAdapter.ConfigureModels(primary, fallbacks)
+	if cfg.EmbeddingAPIKey != "" {
+		llmAdapter.SetEmbeddingConfig(&ai.ModelConfig{
+			Name:    "embedding",
+			APIKey:  cfg.EmbeddingAPIKey,
+			BaseURL: cfg.EmbeddingBaseURL,
+			Model:   "text-embedding-3-small",
+		})
+	}
 
 	// --- Core Services ---
 	cacheService := service.NewCacheService(db, redisClient)
@@ -83,6 +96,7 @@ func main() {
 	adminService := service.NewAdminService(adminRepo, userRepo)
 	adminLogService := service.NewAdminLogService(adminLogRepo)
 	adminNotifService := service.NewAdminNotificationService(adminNotifRepo)
+	adminSettingsService := service.NewAdminSettingsService(adminSettingsRepo)
 	crawlerService := service.NewCrawlerService(db, crawlerSourceRepo, crawlerLogRepo, steelPriceRepo, newsRepo, tenderRepo, categoryRepo, cacheService)
 	agentConfigService := service.NewAgentConfigService(agentConfigRepo, categoryRepo)
 	categoryService := service.NewCategoryService(categoryRepo, steelPriceRepo)
@@ -92,12 +106,14 @@ func main() {
 	mobileRoleService := service.NewMobileRoleService(mobileRoleRepo, userRepo)
 	apiCallLogService := service.NewApiCallLogService(apiCallLogRepo, tokenUsageRepo)
 	scheduledTaskService := service.NewScheduledTaskService(scheduledTaskRepo, taskExecLogRepo, cleanupService, backupService, crawlerService)
+	certificationService := service.NewCertificationService(certificationRepo, userRepo)
+	feedbackService := service.NewFeedbackService(feedbackRepo)
 
 	badCaseService := service.NewBadCaseService(badCaseRepo, nil)
-	chatService := service.NewChatService(chatRepo, llmAdapter, steelPriceRepo, quotationRepo, knowledgeRepo, knowledgeService, tenderRepo, priceAlertRepo, newsRepo, categoryRepo, badCaseService, intentRepo, tokenUsageRepo)
+	chatService := service.NewChatService(chatRepo, llmAdapter, agentConfigService, steelPriceRepo, quotationRepo, knowledgeRepo, knowledgeService, tenderRepo, priceAlertRepo, newsRepo, categoryRepo, badCaseService, intentRepo, tokenUsageRepo)
 	badCaseService.SetChatService(chatService)
 
-	debugService := service.NewDebugService(chatService, intentRepo, agentConfigService, chatRepo, redisClient)
+	debugService := service.NewDebugService(chatService, intentRepo, agentConfigService, chatRepo, categoryRepo, redisClient)
 
 	// --- Handlers ---
 	healthHandler := handler.NewHealthHandler(db, redisClient, version)
@@ -128,9 +144,14 @@ func main() {
 	apiStatsHandler := handler.NewApiStatsHandler(apiCallLogService)
 	loginLogHandler := handler.NewLoginLogHandler(loginLogService)
 	menuHandler := handler.NewMenuHandler(menuService)
+	adminSettingsHandler := handler.NewAdminSettingsHandler(adminSettingsService)
+	certificationHandler := handler.NewCertificationHandler(certificationService)
+	adminCertificationHandler := handler.NewAdminCertificationHandler(certificationService)
+	feedbackHandler := handler.NewFeedbackHandler(feedbackService)
 
 	// --- Router ---
 	r := gin.New()
+	r.Static("/uploads", "./uploads")
 	router.Setup(
 		r,
 		healthHandler,
@@ -161,6 +182,10 @@ func main() {
 		apiStatsHandler,
 		loginLogHandler,
 		menuHandler,
+		adminSettingsHandler,
+		certificationHandler,
+		adminCertificationHandler,
+		feedbackHandler,
 		adminRepo,
 		adminLogRepo,
 		apiCallLogRepo,

@@ -636,10 +636,10 @@ export function DebugDialogueTab() {
             value={String(contextTurns)}
             onValueChange={(v) => setContextTurns(Number(v))}
           >
-            <SelectTrigger className="w-[80px] h-8 text-[13px] rounded-[10px] border-[#E5E5E5]">
+            <SelectTrigger variant="filter" className="w-[80px] h-8 text-[13px]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent variant="filter">
               {CONTEXT_TURN_OPTIONS.map((n) => (
                 <SelectItem key={n} value={String(n)}>
                   {n}
@@ -654,10 +654,10 @@ export function DebugDialogueTab() {
             摘要模式
           </span>
           <Select value={summaryMode} onValueChange={setSummaryMode}>
-            <SelectTrigger className="w-[110px] h-8 text-[13px] rounded-[10px] border-[#E5E5E5]">
+            <SelectTrigger variant="filter" className="w-[110px] h-8 text-[13px]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent variant="filter">
               {SUMMARY_MODE_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}
@@ -672,10 +672,10 @@ export function DebugDialogueTab() {
             模型
           </span>
           <Select value={model} onValueChange={setModel}>
-            <SelectTrigger className="w-[150px] h-8 text-[13px] rounded-[10px] border-[#E5E5E5]">
+            <SelectTrigger variant="filter" className="w-[150px] h-8 text-[13px]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent variant="filter">
               {modelOptions.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}

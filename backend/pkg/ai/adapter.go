@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"os"
 	"sync"
 	"time"
 
@@ -47,11 +49,24 @@ const circuitBreakDuration = 30 * time.Second
 
 // NewAdapter creates a new LLMAdapter with an empty model list.
 // Call ConfigureModels() before use to set up the primary and fallback models.
+// Proxy: set HTTPS_PROXY env var (e.g. http://127.0.0.1:7890) to route API calls
+// through a proxy. This is required when accessing api.openai.com from China.
 func NewAdapter() *LLMAdapter {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+	}
+
+	if proxyURL := os.Getenv("OPENAI_PROXY_URL"); proxyURL != "" {
+		if u, err := url.Parse(proxyURL); err == nil {
+			transport.Proxy = http.ProxyURL(u)
+		}
+	}
+
 	return &LLMAdapter{
 		circuitBreakers: make(map[string]*circuitState),
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   30 * time.Second,
+			Transport: transport,
 		},
 	}
 }
@@ -86,13 +101,20 @@ func (a *LLMAdapter) getEmbeddingConfig() ModelConfig {
 
 // ModelConfigFromEnv returns a ModelConfig built from environment variables.
 // This is used as a fallback when no agent config exists in the database.
+// Set OPENAI_BASE_URL to use a relay/proxy (e.g. https://api.openai-proxy.com/v1)
+// instead of the official api.openai.com endpoint.
 func ModelConfigFromEnv() (ModelConfig, []ModelConfig) {
 	cfg := config.AppConfig
+
+	openaiBaseURL := os.Getenv("OPENAI_BASE_URL")
+	if openaiBaseURL == "" {
+		openaiBaseURL = "https://api.openai.com/v1"
+	}
 
 	primary := ModelConfig{
 		Name:    "openai",
 		APIKey:  cfg.OpenAIAPIKey,
-		BaseURL: "https://api.openai.com/v1",
+		BaseURL: openaiBaseURL,
 		Model:   "gpt-4o-mini",
 	}
 

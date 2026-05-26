@@ -75,7 +75,7 @@ func (s *PriceService) GetPriceTrend(ctx context.Context, category string, days 
 	// 2. Cache miss — query database
 	end := time.Now()
 	start := end.AddDate(0, 0, -days)
-	prices, err := s.priceRepo.FindByDateRange(ctx, start, end)
+	prices, err := s.priceRepo.FindByDateRange(ctx, category, start, end)
 	if err != nil {
 		return nil, err
 	}
@@ -173,6 +173,68 @@ func (s *PriceService) GetDailyReport(ctx context.Context) (map[string]interface
 		"down_count": downCount,
 		"flat_count": flatCount,
 	}, nil
+}
+
+// CreatePrice inserts a new steel price record and invalidates related caches.
+func (s *PriceService) CreatePrice(ctx context.Context, price *model.SteelPrice) error {
+	if err := s.priceRepo.Create(ctx, price); err != nil {
+		return err
+	}
+	if s.cacheService != nil {
+		s.cacheService.DeletePriceCache(ctx, price.Category)
+	}
+	return nil
+}
+
+// UpdatePrice updates an existing steel price record and invalidates related caches.
+func (s *PriceService) UpdatePrice(ctx context.Context, price *model.SteelPrice) error {
+	if err := s.priceRepo.Update(ctx, price); err != nil {
+		return err
+	}
+	if s.cacheService != nil {
+		s.cacheService.DeletePriceCache(ctx, price.Category)
+	}
+	return nil
+}
+
+// DeletePrice removes a steel price record by its ID after looking up its category,
+// and invalidates related caches.
+func (s *PriceService) DeletePrice(ctx context.Context, id uint) error {
+	price, err := s.priceRepo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.priceRepo.Delete(ctx, id); err != nil {
+		return err
+	}
+	if s.cacheService != nil {
+		s.cacheService.DeletePriceCache(ctx, price.Category)
+	}
+	return nil
+}
+
+// BatchImportPrices bulk-inserts multiple steel price records and invalidates
+// the caches for each affected category.
+func (s *PriceService) BatchImportPrices(ctx context.Context, prices []*model.SteelPrice) error {
+	if err := s.priceRepo.BatchCreate(ctx, prices); err != nil {
+		return err
+	}
+	if s.cacheService != nil {
+		categories := make(map[string]bool)
+		for _, p := range prices {
+			if !categories[p.Category] {
+				categories[p.Category] = true
+				s.cacheService.DeletePriceCache(ctx, p.Category)
+			}
+		}
+	}
+	return nil
+}
+
+// GetPriceListWithCount returns a paginated list of steel prices with optional
+// category, spec, and region filters, along with the total matching count.
+func (s *PriceService) GetPriceListWithCount(ctx context.Context, category, spec, region string, limit, offset int) ([]model.SteelPrice, int64, error) {
+	return s.priceRepo.FindByCategoryWithPagination(ctx, category, spec, region, limit, offset)
 }
 
 // GetWeeklyReport returns a weekly steel price trend summary grouped by category.

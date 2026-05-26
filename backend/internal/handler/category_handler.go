@@ -50,7 +50,7 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 
 	category, err := h.categoryService.CreateCategory(c.Request.Context(), req)
 	if err != nil {
-		response.Error(c, errors.CodeConflict, err.Error())
+		response.Error(c, errors.CodeBusinessError, err.Error())
 		return
 	}
 	response.Success(c, category)
@@ -71,7 +71,7 @@ func (h *CategoryHandler) UpdateCategory(c *gin.Context) {
 
 	category, err := h.categoryService.UpdateCategory(c.Request.Context(), uint(id), req)
 	if err != nil {
-		response.Error(c, errors.CodeNotFound, err.Error())
+		response.Error(c, errors.CodeBusinessError, err.Error())
 		return
 	}
 	response.Success(c, category)

@@ -401,6 +401,10 @@ export interface Category {
   type: 'spot' | 'futures';
   status: 'enabled' | 'disabled';
   sort_order: number;
+  parent_id?: number | null;
+  children?: Category[];
+  contract_code?: string;
+  exchange?: string;
   created_at: string;
   updated_at: string;
 }

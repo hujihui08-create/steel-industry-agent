@@ -17,7 +17,12 @@ type priceService interface {
 	GetLatestPrice(ctx context.Context, category string) (*model.SteelPrice, error)
 	GetPriceTrend(ctx context.Context, category string, days int) ([]model.SteelPrice, error)
 	GetPriceList(ctx context.Context, category, region string, limit, offset int) ([]model.SteelPrice, error)
+	GetPriceListWithCount(ctx context.Context, category, spec, region string, limit, offset int) ([]model.SteelPrice, int64, error)
 	ComparePrices(ctx context.Context, categories []string) (map[string]*model.SteelPrice, error)
+	CreatePrice(ctx context.Context, price *model.SteelPrice) error
+	UpdatePrice(ctx context.Context, price *model.SteelPrice) error
+	DeletePrice(ctx context.Context, id uint) error
+	BatchImportPrices(ctx context.Context, prices []*model.SteelPrice) error
 	GetNewsList(ctx context.Context, limit, offset int) ([]model.News, error)
 	GetNewsDetail(ctx context.Context, id uint) (*model.News, error)
 	GetDailyReport(ctx context.Context) (map[string]interface{}, error)
@@ -74,6 +79,7 @@ func (h *PriceHandler) GetPriceTrend(c *gin.Context) {
 // GetPriceList returns a paginated list of steel prices with optional filters.
 func (h *PriceHandler) GetPriceList(c *gin.Context) {
 	category := c.Query("category")
+	spec := c.Query("spec")
 	region := c.Query("region")
 	limitStr := c.DefaultQuery("limit", "10")
 	offsetStr := c.DefaultQuery("offset", "0")
@@ -81,13 +87,18 @@ func (h *PriceHandler) GetPriceList(c *gin.Context) {
 	limit, _ := strconv.Atoi(limitStr)
 	offset, _ := strconv.Atoi(offsetStr)
 
-	prices, err := h.priceService.GetPriceList(c.Request.Context(), category, region, limit, offset)
+	prices, total, err := h.priceService.GetPriceListWithCount(c.Request.Context(), category, spec, region, limit, offset)
 	if err != nil {
 		response.Error(c, errors.CodeInternalError, err.Error())
 		return
 	}
 
-	response.Success(c, prices)
+	response.Success(c, gin.H{
+		"items":  prices,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
 }
 
 // ComparePrices compares latest prices across multiple categories.
@@ -164,4 +175,101 @@ func (h *PriceHandler) GetWeeklyReport(c *gin.Context) {
 	}
 
 	response.Success(c, report)
+}
+
+// CreatePrice handles POST /admin/prices — creates a new steel price record.
+func (h *PriceHandler) CreatePrice(c *gin.Context) {
+	var price model.SteelPrice
+	if err := c.ShouldBindJSON(&price); err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：请求体格式不正确")
+		return
+	}
+
+	// Validate required fields
+	if price.Category == "" {
+		response.Error(c, errors.CodeParamError, "参数错误：category 不能为空")
+		return
+	}
+	if price.Price == 0 {
+		response.Error(c, errors.CodeParamError, "参数错误：price 不能为空或0")
+		return
+	}
+	if price.Region == "" {
+		response.Error(c, errors.CodeParamError, "参数错误：region 不能为空")
+		return
+	}
+	if price.PriceDate.IsZero() {
+		response.Error(c, errors.CodeParamError, "参数错误：price_date 不能为空")
+		return
+	}
+
+	if err := h.priceService.CreatePrice(c.Request.Context(), &price); err != nil {
+		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
+
+	response.Success(c, price)
+}
+
+// UpdatePrice handles PUT /admin/prices/:id — updates an existing steel price record.
+func (h *PriceHandler) UpdatePrice(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：id格式不正确")
+		return
+	}
+
+	var price model.SteelPrice
+	if err := c.ShouldBindJSON(&price); err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：请求体格式不正确")
+		return
+	}
+
+	price.ID = uint(id)
+
+	if err := h.priceService.UpdatePrice(c.Request.Context(), &price); err != nil {
+		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
+
+	response.Success(c, price)
+}
+
+// DeletePrice handles DELETE /admin/prices/:id — deletes a steel price record.
+func (h *PriceHandler) DeletePrice(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：id格式不正确")
+		return
+	}
+
+	if err := h.priceService.DeletePrice(c.Request.Context(), uint(id)); err != nil {
+		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// BatchImportPrices handles POST /admin/prices/batch-import — bulk imports steel price records.
+func (h *PriceHandler) BatchImportPrices(c *gin.Context) {
+	var prices []*model.SteelPrice
+	if err := c.ShouldBindJSON(&prices); err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：请求体格式不正确，期望数组")
+		return
+	}
+
+	if len(prices) == 0 {
+		response.Error(c, errors.CodeParamError, "参数错误：导入数据不能为空")
+		return
+	}
+
+	if err := h.priceService.BatchImportPrices(c.Request.Context(), prices); err != nil {
+		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"imported": len(prices)})
 }

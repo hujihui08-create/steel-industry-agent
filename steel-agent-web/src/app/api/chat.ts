@@ -79,6 +79,7 @@ function parseSSEStream(
   onDone: () => void,
   onCard?: (card: CardAttachment) => void,
   onSessionId?: (sessionId: number, title?: string) => void,
+  onStatus?: (status: string) => void,
 ): Promise<void> {
   return new Promise<void>(async (resolve) => {
     try {
@@ -114,6 +115,8 @@ function parseSSEStream(
             const parsed = JSON.parse(data);
             if (parsed.error) {
               onError(parsed.error);
+            } else if (parsed.status) {
+              onStatus?.(parsed.status);
             } else if (parsed.session_id !== undefined) {
               onSessionId?.(parsed.session_id, parsed.title);
             } else if (parsed.content !== undefined) {
@@ -149,6 +152,7 @@ export function sendMessage(
   onDone: () => void,
   onCard?: (card: CardAttachment) => void,
   onSessionId?: (sessionId: number, title?: string) => void,
+  onStatus?: (status: string) => void,
 ): AbortController {
   const controller = new AbortController();
   const { access_token } = getStoredTokens();
@@ -166,7 +170,7 @@ export function sendMessage(
       if (!response.ok) {
         throw new Error(`Request failed with status ${response.status}`);
       }
-      await parseSSEStream(response, onChunk, onError, onDone, onCard, onSessionId);
+      await parseSSEStream(response, onChunk, onError, onDone, onCard, onSessionId, onStatus);
     })
     .catch((err: Error) => {
       if (err.name !== "AbortError") {
@@ -198,6 +202,7 @@ export function continueGeneration(
   onDone: () => void,
   onCard?: (card: CardAttachment) => void,
   onSessionId?: (sessionId: number, title?: string) => void,
+  onStatus?: (status: string) => void,
 ): AbortController {
   const controller = new AbortController();
   const { access_token } = getStoredTokens();
@@ -215,7 +220,7 @@ export function continueGeneration(
       if (!response.ok) {
         throw new Error(`Request failed with status ${response.status}`);
       }
-      await parseSSEStream(response, onChunk, onError, onDone, onCard, onSessionId);
+      await parseSSEStream(response, onChunk, onError, onDone, onCard, onSessionId, onStatus);
     })
     .catch((err: Error) => {
       if (err.name !== "AbortError") {

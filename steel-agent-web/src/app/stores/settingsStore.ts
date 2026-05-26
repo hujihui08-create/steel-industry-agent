@@ -1,24 +1,28 @@
 // ============================================================
 // 用户设置 Zustand 状态管理
-// 管理用户偏好设置获取与更新
+// 管理用户偏好设置获取与更新 + 站点公开配置
 // ============================================================
 
 import { create } from "zustand";
 import type { UserSettings, SettingsUpdateData } from "@/app/types/settings";
-import { getSettings, updateSettings } from "@/app/api/settings";
+import type { SiteConfig } from "@/app/api/settings";
+import { getSettings, updateSettings, getPublicConfig } from "@/app/api/settings";
 
 interface SettingsState {
   settings: UserSettings | null;
+  siteConfig: SiteConfig | null;
   isLoading: boolean;
   error: string | null;
 
   loadSettings: () => Promise<void>;
+  loadSiteConfig: () => Promise<void>;
   updateSettings: (data: SettingsUpdateData) => Promise<void>;
   reset: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
   settings: null,
+  siteConfig: null,
   isLoading: false,
   error: null,
 
@@ -31,6 +35,15 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       const message =
         err instanceof Error ? err.message : "获取设置失败";
       set({ error: message, isLoading: false });
+    }
+  },
+
+  loadSiteConfig: async () => {
+    try {
+      const config = await getPublicConfig();
+      set({ siteConfig: config });
+    } catch {
+      // Silent fail — fall back to hardcoded defaults
     }
   },
 
@@ -49,6 +62,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   reset: () =>
     set({
       settings: null,
+      siteConfig: null,
       isLoading: false,
       error: null,
     }),

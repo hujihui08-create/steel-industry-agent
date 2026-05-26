@@ -128,6 +128,56 @@ export async function getAdminPrices(params: {
   return data.data ?? [];
 }
 
+export async function createAdminPrice(data: {
+  category: string;
+  spec: string;
+  price: number;
+  change: number;
+  change_pct: number;
+  region: string;
+  source: string;
+  price_date: string;
+}): Promise<any> {
+  const { data: res } = await apiClient.post<ApiResponse<any>>("/admin/prices", data);
+  if (res.code !== 200) throw new Error(res.message || "创建失败");
+  return res.data;
+}
+
+export async function updateAdminPrice(id: number, data: Partial<{
+  category: string;
+  spec: string;
+  price: number;
+  change: number;
+  change_pct: number;
+  region: string;
+  source: string;
+  price_date: string;
+}>): Promise<any> {
+  const { data: res } = await apiClient.put<ApiResponse<any>>(`/admin/prices/${id}`, data);
+  if (res.code !== 200) throw new Error(res.message || "更新失败");
+  return res.data;
+}
+
+export async function deleteAdminPrice(id: number): Promise<void> {
+  const { data: res } = await apiClient.delete<ApiResponse<null>>(`/admin/prices/${id}`);
+  if (res.code !== 200) throw new Error(res.message || "删除失败");
+}
+
+export async function batchImportPrices(prices: Array<{
+  category: string;
+  spec: string;
+  price: number;
+  change: number;
+  change_pct: number;
+  region: string;
+  source: string;
+  price_date: string;
+}>): Promise<{ imported: number }> {
+  const { data: res } = await apiClient.post<ApiResponse<{ imported: number }>>("/admin/prices/batch-import", prices);
+  if (res.code !== 200) throw new Error(res.message || "导入失败");
+  return res.data!;
+}
+
 export async function getAdminNews(params: {
   limit?: number;
   offset?: number;
@@ -244,19 +294,25 @@ export async function getToolHealth(): Promise<ToolHealth[]> {
   }
 }
 
+const defaultToolHealthItems: ToolHealth[] = [
+  { name: "query_steel_price", displayName: "价格查询", status: "normal" },
+  { name: "calculate_quotation", displayName: "报价计算", status: "normal" },
+  { name: "search_knowledge", displayName: "知识检索", status: "normal" },
+  { name: "query_tender", displayName: "招标查询", status: "normal" },
+  { name: "get_price_trend", displayName: "价格走势", status: "normal" },
+  { name: "set_price_alert", displayName: "价格预警", status: "normal" },
+  { name: "convert_unit", displayName: "单位换算", status: "normal" },
+  { name: "calculate_weight", displayName: "重量计算", status: "normal" },
+  { name: "search_news", displayName: "资讯搜索", status: "normal" },
+  { name: "get_news_detail", displayName: "资讯详情", status: "normal" },
+];
+
+export function getDefaultToolHealthItems(): ToolHealth[] {
+  return defaultToolHealthItems;
+}
+
 function getDefaultToolHealth(): ToolHealth[] {
-  return [
-    { name: "query_steel_price", displayName: "价格查询", status: "normal" },
-    { name: "calculate_quotation", displayName: "报价计算", status: "normal" },
-    { name: "search_knowledge", displayName: "知识检索", status: "normal" },
-    { name: "query_tender", displayName: "招标查询", status: "normal" },
-    { name: "get_price_trend", displayName: "价格走势", status: "normal" },
-    { name: "set_price_alert", displayName: "价格预警", status: "normal" },
-    { name: "convert_unit", displayName: "单位换算", status: "normal" },
-    { name: "calculate_weight", displayName: "重量计算", status: "normal" },
-    { name: "search_news", displayName: "资讯搜索", status: "normal" },
-    { name: "get_news_detail", displayName: "资讯详情", status: "normal" },
-  ];
+  return defaultToolHealthItems;
 }
 
 export async function getRecentLogs(): Promise<OperationLog[]> {
@@ -743,13 +799,13 @@ export async function getCategories(params?: { type?: string; status?: string })
   return res.data.data ?? [];
 }
 
-export async function createCategory(data: { name: string; type: string; sort_order: number }): Promise<Category> {
+export async function createCategory(data: { name: string; type: string; sort_order: number; parent_id?: number }): Promise<Category> {
   const res = await apiClient.post<ApiResponse<Category>>("/admin/categories", data);
   if (res.data.code !== 200) throw new Error(res.data.message || "创建失败");
   return res.data.data!;
 }
 
-export async function updateCategory(id: number, data: { name: string; type: string; status: string; sort_order: number }): Promise<void> {
+export async function updateCategory(id: number, data: { name: string; type: string; status: string; sort_order: number; parent_id?: number }): Promise<void> {
   const res = await apiClient.put<ApiResponse<null>>(`/admin/categories/${id}`, data);
   if (res.data.code !== 200) throw new Error(res.data.message || "更新失败");
 }

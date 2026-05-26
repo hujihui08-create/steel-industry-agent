@@ -436,16 +436,12 @@ export function LoginLogs() {
           </label>
           <Select value={filterUserType} onValueChange={handleUserTypeChange}>
             <SelectTrigger
-              className={cn(
-                "h-9 w-[140px] rounded-md",
-                "border-[#E5E5E5] bg-white",
-                "text-[13px] text-[#404040]",
-                "outline-none focus:ring-2 focus:ring-[#0A0A0A]/10 focus:border-[#0A0A0A]",
-              )}
+              variant="filter"
+              className="h-9 w-[140px] text-[13px]"
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent variant="filter">
               {USER_TYPE_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}

@@ -602,17 +602,12 @@ export default function SystemSettingsPage() {
                           }
                         >
                           <SelectTrigger
-                            className={cn(
-                              "h-9 w-[120px] rounded-[10px] border-[#E5E5E5] bg-white",
-                              "text-[13px] leading-[1.5] text-[#0A0A0A]",
-                              "focus:ring-2 focus:ring-[#0A0A0A]/5",
-                            )}
+                            variant="filter"
+                            className="h-9 w-[120px] text-[13px] leading-[1.5]"
                           >
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent
-                            className="rounded-[10px] border-[#E5E5E5]"
-                          >
+                          <SelectContent variant="filter">
                             {SMTP_ENCRYPTIONS.map((opt) => (
                               <SelectItem
                                 key={opt.value}
@@ -749,15 +744,12 @@ export default function SystemSettingsPage() {
                         onValueChange={(v) => updateField("smsProvider", v)}
                       >
                         <SelectTrigger
-                          className={cn(
-                            "h-9 w-[200px] rounded-[10px] border-[#E5E5E5] bg-white",
-                            "text-[13px] leading-[1.5] text-[#0A0A0A]",
-                            "focus:ring-2 focus:ring-[#0A0A0A]/5",
-                          )}
+                          variant="filter"
+                          className="h-9 w-[200px] text-[13px] leading-[1.5]"
                         >
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="rounded-[10px] border-[#E5E5E5]">
+                        <SelectContent variant="filter">
                           {SMS_PROVIDERS.map((opt) => (
                             <SelectItem
                               key={opt.value}

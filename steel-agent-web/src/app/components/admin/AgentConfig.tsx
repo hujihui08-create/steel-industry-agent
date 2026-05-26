@@ -57,6 +57,7 @@ import type {
   QuickCommand,
   HallucinationRule,
   ModelConfig,
+  Category,
 } from "@/app/types/admin";
 
 // ============================================================
@@ -97,6 +98,22 @@ const DEFAULT_QUICK_COMMANDS: QuickCommand[] = [
   { id: "qc-5", icon: "TrendingUp", label: "看走势", prompt: "螺纹钢价格走势如何？", order: 5 },
   { id: "qc-6", icon: "Bell", label: "设预警", prompt: "帮我设置价格预警", order: 6 },
 ];
+
+// ============================================================
+// 辅助函数：从树形品类中提取叶子品种名称
+// ============================================================
+
+function flattenCategoryNames(categories: Category[]): string[] {
+  const names: string[] = [];
+  for (const cat of categories) {
+    if (cat.children && cat.children.length > 0) {
+      for (const child of cat.children) names.push(child.name);
+    } else {
+      names.push(cat.name);
+    }
+  }
+  return names;
+}
 
 // ============================================================
 // 子组件：Section 卡片容器
@@ -266,8 +283,8 @@ export function AgentConfigPage() {
     getPublicCategories()
       .then((data) => {
         const names = [
-          ...data.spot.map((c) => c.name),
-          ...data.futures.map((c) => c.name),
+          ...flattenCategoryNames(data.spot),
+          ...flattenCategoryNames(data.futures),
         ];
         setAvailableCategories(names);
       })
@@ -649,17 +666,10 @@ export function AgentConfigPage() {
             <div>
               <FieldLabel htmlFor="primaryModel">主力模型</FieldLabel>
               <Select value={primaryModel} onValueChange={setPrimaryModel}>
-                <SelectTrigger
-                  id="primaryModel"
-                  className={cn(
-                    "h-10 rounded-[10px] border-[#E5E5E5] bg-white",
-                    "text-[14px] text-[#404040]",
-                    "focus:border-[#0A0A0A] focus:ring-1 focus:ring-[#0A0A0A]/10",
-                  )}
-                >
+                <SelectTrigger id="primaryModel" variant="filter">
                   <SelectValue placeholder="选择主力模型" />
                 </SelectTrigger>
-                <SelectContent className="border-[#E5E5E5] rounded-[10px]">
+                <SelectContent variant="filter">
                   {modelOptions.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value} className="text-[13px]">
                       {opt.label}
@@ -671,17 +681,10 @@ export function AgentConfigPage() {
             <div>
               <FieldLabel htmlFor="backupModel">备选模型</FieldLabel>
               <Select value={backupModel} onValueChange={setBackupModel}>
-                <SelectTrigger
-                  id="backupModel"
-                  className={cn(
-                    "h-10 rounded-[10px] border-[#E5E5E5] bg-white",
-                    "text-[14px] text-[#404040]",
-                    "focus:border-[#0A0A0A] focus:ring-1 focus:ring-[#0A0A0A]/10",
-                  )}
-                >
+                <SelectTrigger id="backupModel" variant="filter">
                   <SelectValue placeholder="选择备选模型" />
                 </SelectTrigger>
-                <SelectContent className="border-[#E5E5E5] rounded-[10px]">
+                <SelectContent variant="filter">
                   {modelOptions.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value} className="text-[13px]">
                       {opt.label}
@@ -1184,15 +1187,10 @@ export function AgentConfigPage() {
                     value={qc.icon}
                     onValueChange={(v) => handleUpdateQuickCommand(qc.id, "icon", v)}
                   >
-                    <SelectTrigger
-                      className={cn(
-                        "w-[100px] h-9 rounded-[6px] border-[#E5E5E5]",
-                        "text-[13px] text-[#404040]",
-                      )}
-                    >
+                    <SelectTrigger variant="filter" className="w-[100px]">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="border-[#E5E5E5] rounded-[8px]">
+                    <SelectContent variant="filter">
                       {ICON_OPTIONS.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value} className="text-[13px]">
                           {opt.label}

@@ -593,17 +593,10 @@ export function IntentManagement() {
       <div className="flex items-center gap-3 mb-4">
         {/* 状态筛选 */}
         <Select value={statusFilter} onValueChange={handleStatusChange}>
-          <SelectTrigger
-            className={cn(
-              "h-9 w-[130px] rounded-md",
-              "border border-[#E5E5E5] bg-white",
-              "text-[13px] leading-[1.5] text-[#404040]",
-              "focus:ring-2 focus:ring-[#0A0A0A]/10 focus:border-[#0A0A0A]",
-            )}
-          >
+          <SelectTrigger variant="filter" className="h-9 w-[130px] text-[13px] leading-[1.5]">
             <SelectValue placeholder="全部状态" />
           </SelectTrigger>
-          <SelectContent className="border border-[#E5E5E5] rounded-md">
+          <SelectContent variant="filter">
             <SelectItem value="all">全部</SelectItem>
             <SelectItem value="enabled">启用</SelectItem>
             <SelectItem value="disabled">禁用</SelectItem>
@@ -917,17 +910,10 @@ export function IntentManagement() {
                     setFormData((prev) => ({ ...prev, priority: Number(v) }))
                   }
                 >
-                  <SelectTrigger
-                    className={cn(
-                      "h-9 rounded-md",
-                      "border border-[#E5E5E5] bg-white",
-                      "text-[13px] leading-[1.5] text-[#404040]",
-                      "focus:ring-2 focus:ring-[#0A0A0A]/10 focus:border-[#0A0A0A]",
-                    )}
-                  >
+                  <SelectTrigger variant="filter" className="h-9 text-[13px] leading-[1.5]">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="border border-[#E5E5E5] rounded-md">
+                  <SelectContent variant="filter">
                     {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
                       <SelectItem key={n} value={String(n)}>
                         优先级 {n}
@@ -949,17 +935,10 @@ export function IntentManagement() {
                     setFormData((prev) => ({ ...prev, status: v as "enabled" | "disabled" }))
                   }
                 >
-                  <SelectTrigger
-                    className={cn(
-                      "h-9 rounded-md",
-                      "border border-[#E5E5E5] bg-white",
-                      "text-[13px] leading-[1.5] text-[#404040]",
-                      "focus:ring-2 focus:ring-[#0A0A0A]/10 focus:border-[#0A0A0A]",
-                    )}
-                  >
+                  <SelectTrigger variant="filter" className="h-9 text-[13px] leading-[1.5]">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="border border-[#E5E5E5] rounded-md">
+                  <SelectContent variant="filter">
                     <SelectItem value="enabled">启用</SelectItem>
                     <SelectItem value="disabled">禁用</SelectItem>
                   </SelectContent>

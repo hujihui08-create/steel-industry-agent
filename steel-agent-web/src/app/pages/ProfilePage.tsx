@@ -6,7 +6,6 @@
 
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
 import {
   User,
   Shield,
@@ -61,7 +60,7 @@ export default function ProfilePage() {
     {
       icon: <Shield className="h-5 w-5 text-steel-muted" strokeWidth={1.75} aria-hidden="true" />,
       label: "企业认证",
-      onClick: () => toast.info("功能开发中"),
+      onClick: () => navigate(ROUTE.CERTIFICATION),
     },
     {
       icon: <Bell className="h-5 w-5 text-steel-muted" strokeWidth={1.75} aria-hidden="true" />,
@@ -71,7 +70,7 @@ export default function ProfilePage() {
     {
       icon: <Star className="h-5 w-5 text-steel-muted" strokeWidth={1.75} aria-hidden="true" />,
       label: "我的收藏",
-      onClick: () => toast.info("功能开发中"),
+      onClick: () => navigate(ROUTE.FAVORITES),
     },
     {
       icon: <Settings className="h-5 w-5 text-steel-muted" strokeWidth={1.75} aria-hidden="true" />,

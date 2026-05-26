@@ -30,6 +30,8 @@ const SIDEBAR_PATH_TO_TOP_MENU: Record<string, string> = {
   "/admin/api-stats": "system",
   "/admin/scheduled-tasks": "system",
   "/admin/menu-management": "system",
+  "/admin/certifications": "system",
+  "/admin/feedbacks": "system",
 };
 
 // 路径到侧边栏项 ID 的映射
@@ -53,6 +55,8 @@ const PATH_TO_SIDEBAR_ID: Record<string, string> = {
   "/admin/api-stats": "api-stats",
   "/admin/scheduled-tasks": "scheduled-tasks",
   "/admin/menu-management": "menu-management",
+  "/admin/certifications": "certification-manage",
+  "/admin/feedbacks": "feedback-manage",
 };
 
 interface AdminLayoutProps {

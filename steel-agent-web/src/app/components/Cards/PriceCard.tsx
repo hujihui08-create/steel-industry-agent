@@ -1,4 +1,4 @@
-import { ArrowUpRight, ArrowDownRight, Minus, Bell, BarChart3 } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Minus, Bell, BarChart3, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAlertStore } from "@/app/stores/alertStore";
@@ -18,6 +18,18 @@ export interface PriceCardProps {
   source?: string;
   sourceTime?: string;
   onViewTrend?: (e: React.MouseEvent) => void;
+  /** 规格型号，显示在标题下方 */
+  spec?: string;
+  /** 加载中骨架屏 */
+  isLoading?: boolean;
+  /** 错误状态 */
+  isError?: boolean;
+  /** 错误信息文本 */
+  errorMessage?: string;
+  /** 重试回调 */
+  onRetry?: () => void;
+  /** 价格日期，显示在 header 右侧 */
+  priceDate?: string;
 }
 
 function formatPrice(value: number): string {
@@ -46,6 +58,12 @@ export function PriceCard({
   source,
   sourceTime,
   onViewTrend,
+  spec,
+  isLoading = false,
+  isError = false,
+  errorMessage = "加载失败",
+  onRetry,
+  priceDate,
 }: PriceCardProps) {
   const { createAlert } = useAlertStore();
 
@@ -68,6 +86,68 @@ export function PriceCard({
       toast.error(message);
     }
   };
+
+  // ---- Loading skeleton ----
+  if (isLoading) {
+    return (
+      <div>
+        <div className="rounded-2xl border border-steel-line overflow-hidden">
+          <div className="px-5 py-4 border-b border-steel-line">
+            <div className="animate-pulse rounded bg-steel-line h-3 w-12 mb-2" />
+            <div className="animate-pulse rounded bg-steel-line h-5 w-2/3" />
+          </div>
+          <div className="divide-y divide-steel-line">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="px-5 py-3.5 flex items-center justify-between">
+                <div className="animate-pulse rounded bg-steel-line h-4 w-16" />
+                <div className="flex items-baseline gap-3">
+                  <div className="animate-pulse rounded bg-steel-line h-5 w-20" />
+                  <div className="animate-pulse rounded bg-steel-line h-4 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Error state ----
+  if (isError) {
+    return (
+      <div>
+        <div className="rounded-2xl border border-steel-down/20 overflow-hidden">
+          <div className="px-5 py-4 border-b border-steel-down/20 flex items-center justify-between">
+            <div className="min-w-0">
+              <div className="text-[11px] leading-[1.5] tracking-[0.18em] uppercase text-steel-muted">
+                {eyebrow}
+              </div>
+              <div className="text-[18px] leading-[1.4] font-medium text-steel-ink mt-0.5 truncate">
+                {title}
+              </div>
+            </div>
+          </div>
+          <div className="px-5 py-6 flex flex-col items-center gap-3">
+            <p className="text-[13px] text-steel-down text-center">{errorMessage}</p>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="inline-flex items-center gap-1.5 rounded-full border border-steel-line px-3 py-1.5 text-[13px] text-steel-ink hover:bg-steel-surface transition-colors duration-150"
+              >
+                <RefreshCw className="size-3" strokeWidth={1.75} />
+                重试
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Display date ----
+  const displayDate = priceDate || sourceTime;
+
   return (
     <div>
       <div className="rounded-2xl border border-steel-line overflow-hidden">
@@ -80,10 +160,15 @@ export function PriceCard({
             <div className="text-[18px] leading-[1.4] font-medium text-steel-ink mt-0.5 truncate">
               {title}
             </div>
+            {spec && (
+              <div className="text-[13px] leading-[1.5] text-steel-muted mt-0.5 truncate">
+                {spec}
+              </div>
+            )}
           </div>
-          {sourceTime && (
+          {displayDate && (
             <div className="text-[12px] leading-[1.5] text-steel-muted shrink-0 ml-4">
-              {sourceTime}
+              {displayDate}
             </div>
           )}
         </div>

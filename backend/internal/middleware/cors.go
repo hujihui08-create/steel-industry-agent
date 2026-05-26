@@ -1,29 +1,40 @@
 package middleware
 
 import (
-	"time"
-
-	"steel-agent-backend/internal/config"
-
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-// CORS returns a Gin middleware that configures Cross-Origin Resource Sharing
-// based on the application configuration. In development mode or when no
-// allowed origins are configured, it defaults to allowing all origins.
-func CORS() gin.HandlerFunc {
-	allowedOrigins := config.AppConfig.CORSAllowedOrigins
-	if len(allowedOrigins) == 0 || config.AppConfig.APPEnv == "development" {
-		allowedOrigins = []string{"*"}
-	}
+func CORS(allowedOrigins []string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		origin := c.Request.Header.Get("Origin")
 
-	return cors.New(cors.Config{
-		AllowOrigins:     allowedOrigins,
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	})
+		if len(allowedOrigins) > 0 && origin != "" {
+			allowed := false
+			for _, o := range allowedOrigins {
+				if o == "*" || o == origin {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				c.AbortWithStatus(204)
+				return
+			}
+			c.Header("Access-Control-Allow-Origin", origin)
+		} else if origin != "" {
+			c.Header("Access-Control-Allow-Origin", origin)
+		}
+
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization")
+		c.Header("Access-Control-Max-Age", "43200")
+		c.Header("Access-Control-Expose-Headers", "X-Request-ID, Retry-After")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
 }

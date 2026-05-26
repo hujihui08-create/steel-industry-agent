@@ -42,6 +42,7 @@ import {
   type CallChainStep,
 } from "@/app/api/admin-debug";
 import { getPublicCategories } from "@/app/api/admin";
+import type { Category } from "@/app/types/admin";
 
 // ============================================================
 // 常量
@@ -83,6 +84,18 @@ function formatJson(obj: unknown): string {
   }
 }
 
+function flattenCategoryNames(categories: Category[]): string[] {
+  const names: string[] = [];
+  for (const cat of categories) {
+    if (cat.children && cat.children.length > 0) {
+      for (const child of cat.children) names.push(child.name);
+    } else {
+      names.push(cat.name);
+    }
+  }
+  return names;
+}
+
 // ============================================================
 // DebugToolTab
 // ============================================================
@@ -103,8 +116,8 @@ export function DebugToolTab() {
   const [mockSaving, setMockSaving] = useState(false);
 
   // 动态品种分类
-  const [availableCategories, setAvailableCategories] = useState<string[]>(["螺纹钢", "热卷", "冷轧", "中厚板"]);
-  const categoriesRef = useRef<string[]>(["螺纹钢", "热卷", "冷轧", "中厚板"]);
+  const [availableCategories, setAvailableCategories] = useState<string[]>(["螺纹钢", "热卷", "冷轧", "中厚板", "镀锌板", "彩涂板", "不锈钢", "型钢", "管材"]);
+  const categoriesRef = useRef<string[]>(["螺纹钢", "热卷", "冷轧", "中厚板", "镀锌板", "彩涂板", "不锈钢", "型钢", "管材"]);
 
   // 同步 ref
   useEffect(() => {
@@ -262,13 +275,13 @@ export function DebugToolTab() {
     getPublicCategories()
       .then((data) => {
         const names = [
-          ...data.spot.map((c) => c.name),
-          ...data.futures.map((c) => c.name),
+          ...flattenCategoryNames(data.spot),
+          ...flattenCategoryNames(data.futures),
         ];
-        setAvailableCategories(names.length > 0 ? names : ["螺纹钢", "热卷", "冷轧", "中厚板"]);
+        setAvailableCategories(names.length > 0 ? names : ["螺纹钢", "热卷", "冷轧", "中厚板", "镀锌板", "彩涂板", "不锈钢", "型钢", "管材"]);
       })
       .catch(() => {
-        setAvailableCategories(["螺纹钢", "热卷", "冷轧", "中厚板"]);
+        setAvailableCategories(["螺纹钢", "热卷", "冷轧", "中厚板", "镀锌板", "彩涂板", "不锈钢", "型钢", "管材"]);
       });
   }, []);
 
@@ -490,14 +503,15 @@ export function DebugToolTab() {
             onValueChange={(v) => handleParamChange(key, v)}
           >
             <SelectTrigger
+              variant="filter"
               className={cn(
-                "w-full h-9 text-[13px] rounded-md border-[#E5E5E5]",
+                "w-full h-9 text-[13px]",
                 error && "border-[#B42318]",
               )}
             >
               <SelectValue placeholder={`选择${prop.description || key}`} />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent variant="filter">
               {prop.enum.map((opt) => (
                 <SelectItem key={opt} value={opt}>
                   {opt}
@@ -630,10 +644,10 @@ export function DebugToolTab() {
               选择工具
             </label>
             <Select value={selectedToolName} onValueChange={handleToolSelect}>
-              <SelectTrigger className="w-full h-9 text-[13px] rounded-md border-[#E5E5E5]">
+              <SelectTrigger variant="filter" className="w-full h-9 text-[13px]">
                 <SelectValue placeholder="选择要调试的工具..." />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent variant="filter">
                 {tools.map((tool) => (
                   <SelectItem key={tool.name} value={tool.name}>
                     {tool.displayName}
@@ -644,7 +658,7 @@ export function DebugToolTab() {
           </div>
 
           {selectedTool && (
-            <p className="text-[12px] leading-[1.5] text-[#737373]">
+            <p className="text-[13px] leading-[1.5] text-[#404040]">
               {selectedTool.description}
             </p>
           )}
@@ -834,7 +848,12 @@ export function DebugToolTab() {
                       <td className="px-4 py-3 text-[13px] leading-[1.5] text-[#404040]">
                         {tool.successRate > 0 ? `${tool.successRate}%` : "—"}
                       </td>
-                      <td className="px-4 py-3 text-[13px] leading-[1.5] text-[#737373] max-w-[200px] truncate">
+                      <td
+                        className={cn(
+                          "px-4 py-3 text-[13px] leading-[1.5] max-w-[200px] truncate",
+                          tool.lastError ? "text-[#B42318]" : "text-[#404040]",
+                        )}
+                      >
                         {tool.lastError || "—"}
                       </td>
                     </tr>

@@ -1,118 +1,101 @@
 @echo off
-REM 钢铁行业 Agent 构建脚本 (Windows)
-REM 用于构建和部署应用
-
 setlocal enabledelayedexpansion
-
 cd /d "%~dp0"
 
 echo ==========================================
-echo   钢铁行业 Agent 构建脚本
+echo   Steel Agent Build Script
 echo ==========================================
 echo.
 
-REM 检查 Docker
-docker --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERROR] Docker 未安装或未运行，请先安装并启动 Docker
+where docker >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Docker CLI not found. Please install Docker Desktop.
+    echo   Download: https://www.docker.com/products/docker-desktop/
     pause
     exit /b 1
 )
 
-docker-compose --version >nul 2>&1
-if %errorlevel% neq 0 (
-    docker compose version >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo [ERROR] Docker Compose 未安装，请先安装 Docker Compose
+docker info >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Docker daemon not running.
+    echo   If Docker Desktop shows Running, try:
+    echo     1. Wait for Engine to turn green
+    echo     2. Reopen this terminal
+    echo     3. Restart Docker Desktop
+    pause
+    exit /b 1
+)
+
+docker compose version >nul 2>&1
+if errorlevel 1 (
+    docker-compose --version >nul 2>&1
+    if errorlevel 1 (
+        echo [ERROR] Docker Compose not found.
         pause
         exit /b 1
     )
 )
 
-echo [INFO] Docker 环境检查通过
+echo [INFO] Docker check passed
 echo.
 
-REM 检查环境变量
 if not exist "backend\.env.production" (
-    echo [WARN] 未找到 backend\.env.production
     if exist "backend\.env" (
-        echo [INFO] 从 backend\.env 复制配置
         copy "backend\.env" "backend\.env.production" >nul
     )
 )
 
-REM 清理旧构建产物，确保与源码一致
-echo [INFO] 清理旧的构建产物...
-if exist "steel-agent-web\dist" (
-    rmdir /s /q "steel-agent-web\dist"
-)
+if exist "steel-agent-web\dist" rmdir /s /q "steel-agent-web\dist"
 
-echo [INFO] 开始构建前端...
+echo [INFO] Building frontend...
 cd steel-agent-web
 
 if not exist "node_modules" (
-    echo [INFO] 安装前端依赖...
+    echo [INFO] Installing dependencies...
     call npm install --legacy-peer-deps
-    if !errorlevel! neq 0 (
-        echo [ERROR] 依赖安装失败
+    if errorlevel 1 (
+        echo [ERROR] npm install failed
         pause
         exit /b 1
     )
 )
 
-echo [INFO] 构建前端应用...
+echo [INFO] Building app...
 call npm run build
-if !errorlevel! neq 0 (
-    echo [ERROR] 前端构建失败
+if errorlevel 1 (
+    echo [ERROR] Build failed
     pause
     exit /b 1
 )
 
 cd ..
-echo [INFO] 前端构建完成
-echo.
 
-REM 停止旧服务
-echo [INFO] 停止旧服务...
-docker-compose down >nul 2>&1
+echo [INFO] Stopping old services...
+docker compose down >nul 2>&1
 
-REM 强制重建前端镜像（不使用 Docker 缓存）
-echo [INFO] 构建前端 Docker 镜像（无视缓存）...
-docker-compose build --no-cache frontend
-if !errorlevel! neq 0 (
-    echo [ERROR] 前端镜像构建失败
+echo [INFO] Building Docker images...
+docker compose build --no-cache frontend
+if errorlevel 1 (
+    echo [ERROR] Frontend image build failed
     pause
     exit /b 1
 )
 
-REM 构建并启动所有服务
-echo [INFO] 构建后端并启动所有服务...
-docker-compose up -d --build
+echo [INFO] Starting all services...
+docker compose up -d --build
 
-if %errorlevel% equ 0 (
+if not errorlevel 1 (
     echo.
     echo ==========================================
-    echo   钢铁行业 Agent 部署完成！
+    echo   Deploy Success!
     echo ==========================================
     echo.
-    echo   访问地址：
-    echo   - 前端应用: http://localhost
-    echo   - 后端 API: http://localhost/api
-    echo   - MinIO 控制台: http://localhost:9001
-    echo.
-    echo   默认凭据：
-    echo   - MinIO 用户名: minioadmin
-    echo   - MinIO 密码: minioadmin
-    echo.
-    echo   管理命令：
-    echo   - 查看日志: docker-compose logs -f
-    echo   - 停止服务: docker-compose down
-    echo   - 重启服务: docker-compose restart
-    echo.
-    echo   详细文档请查看: DEPLOYMENT.md
+    echo   Frontend:    http://localhost
+    echo   Backend API: http://localhost/api
+    echo   MinIO:       http://localhost:9001
     echo.
 ) else (
-    echo [ERROR] 部署失败，请检查错误信息
+    echo [ERROR] Deploy failed
 )
 
 pause

@@ -18,6 +18,8 @@ export interface TrendCardProps {
   data: TrendDataPoint[];
   changePct?: number;
   period?: string;
+  /** 加载中骨架屏 */
+  isLoading?: boolean;
 }
 
 function formatValue(value: number): string {
@@ -32,6 +34,7 @@ export function TrendCard({
   data,
   changePct,
   period,
+  isLoading = false,
 }: TrendCardProps) {
   const isUp = changePct != null && changePct >= 0;
   const isDown = changePct != null && changePct < 0;
@@ -48,6 +51,25 @@ export function TrendCard({
   const minVal = values.length > 0 ? Math.min(...values) : 0;
   const maxVal = values.length > 0 ? Math.max(...values) : 0;
   const padding = Math.max((maxVal - minVal) * 0.15, 20);
+
+  // ---- Loading skeleton ----
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-steel-line p-5">
+        <div className="flex items-start justify-between mb-4">
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="animate-pulse rounded bg-steel-line h-5 w-2/3" />
+            <div className="animate-pulse rounded bg-steel-line h-3 w-1/3" />
+          </div>
+          <div className="shrink-0 ml-4 space-y-2">
+            <div className="animate-pulse rounded bg-steel-line h-5 w-20" />
+            <div className="animate-pulse rounded bg-steel-line h-3 w-16" />
+          </div>
+        </div>
+        <div className="animate-pulse rounded-lg bg-steel-line h-[200px] w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-2xl border border-steel-line p-5">

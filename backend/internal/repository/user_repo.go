@@ -71,3 +71,7 @@ func (r *UserRepository) FindAll(ctx context.Context, keyword string, limit, off
 func (r *UserRepository) UpdateStatus(ctx context.Context, id uint, status int) error {
 	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).Update("status", status).Error
 }
+
+func (r *UserRepository) UpdateIsVerified(ctx context.Context, id uint, verified bool) error {
+	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).Update("is_verified", verified).Error
+}

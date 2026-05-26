@@ -16,6 +16,7 @@ export const ROUTE = {
   CHAT: "/chat",
   SPLASH: "/splash",
   REGISTER: "/register",
+  PRICE_BOARD: "/price-board",
   CHART: "/chart",
   NEWS_DETAIL: "/news/:id",
   QUOTATIONS: "/quotations",
@@ -30,4 +31,10 @@ export const ROUTE = {
   SETTINGS: "/settings",
   ADMIN: "/admin",
   ADMIN_LOGIN: "/admin/login",
+  CALENDAR: "/calendar",
+  FAVORITES: "/favorites",
+  HELP: "/help",
+  CERTIFICATION: "/certification",
+  ONBOARDING: "/onboarding",
+  KNOWLEDGE_DETAIL: "/knowledge/:id",
 } as const;

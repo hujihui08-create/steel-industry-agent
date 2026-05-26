@@ -656,10 +656,10 @@ export default function CrawlerManage() {
                 value={form.source_type}
                 onValueChange={(v) => setForm({ ...form, source_type: v })}
               >
-                <SelectTrigger className="rounded-md border-[#E5E5E5] h-9 text-[13px]">
+                <SelectTrigger variant="filter" className="h-9 text-[13px]">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent variant="filter">
                   <SelectItem value="price">价格 (price)</SelectItem>
                   <SelectItem value="news">资讯 (news)</SelectItem>
                   <SelectItem value="tender">招标 (tender)</SelectItem>

@@ -2,11 +2,23 @@
 // 用户设置 API 函数封装
 // GET /api/v1/settings
 // PUT /api/v1/settings
+// GET /api/v1/public/config
 // ============================================================
 
 import apiClient from "@/app/api/client";
 import type { ApiResponse } from "@/app/types/api";
 import type { UserSettings, SettingsUpdateData } from "@/app/types/settings";
+
+// -----------------------------------------------------------
+// 站点公开配置类型
+// -----------------------------------------------------------
+
+export interface SiteConfig {
+  siteName: string;
+  logoUrl: string;
+  contactEmail: string;
+  contactPhone: string;
+}
 
 // -----------------------------------------------------------
 // 获取用户设置
@@ -35,4 +47,16 @@ export async function updateSettings(
   );
   if (!data?.data) throw new Error(data?.message || "更新设置失败");
   return data.data;
+}
+
+// -----------------------------------------------------------
+// 获取站点公开配置（无需认证）
+// GET /api/v1/public/config
+// -----------------------------------------------------------
+
+export async function getPublicConfig(): Promise<SiteConfig> {
+  const { data } = await apiClient.get<ApiResponse<SiteConfig>>(
+    "/public/config",
+  );
+  return data.data!;
 }

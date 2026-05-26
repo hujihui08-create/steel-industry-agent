@@ -168,6 +168,57 @@ func (s *CacheService) InvalidatePriceCache(ctx context.Context, category string
 	return nil
 }
 
+// DeletePriceCache removes all cached price data for a given category,
+// including latest, trend, and compare caches. It supersedes InvalidatePriceCache.
+func (s *CacheService) DeletePriceCache(ctx context.Context, category string) error {
+	if s.redisClient == nil || !s.redisAvailable.Load() {
+		return nil
+	}
+
+	// Collect all known exact keys
+	keys := []string{
+		fmt.Sprintf("price:latest:%s", category),
+		"price:hot",
+	}
+
+	// Scan for trend keys: price:trend:{category}:*
+	s.collectKeys(ctx, &keys, fmt.Sprintf("price:trend:%s:*", category), 50)
+
+	// Scan for compare keys: price:compare:{category}:*
+	s.collectKeys(ctx, &keys, fmt.Sprintf("price:compare:%s:*", category), 50)
+
+	if len(keys) == 0 {
+		return nil
+	}
+
+	err := s.redisClient.Del(ctx, keys...).Err()
+	if err != nil && s.redisAvailable.Load() {
+		s.redisAvailable.Store(false)
+		slog.Warn("Redis unavailable, price cache deletion skipped",
+			"category", category,
+			"error", err,
+		)
+	}
+	// Never fail the caller because of cache invalidation failure
+	return nil
+}
+
+// collectKeys scans Redis for keys matching pattern and appends them to the slice.
+func (s *CacheService) collectKeys(ctx context.Context, keys *[]string, pattern string, count int64) {
+	var cursor uint64
+	for {
+		scannedKeys, nextCursor, err := s.redisClient.Scan(ctx, cursor, pattern, count).Result()
+		if err != nil {
+			break
+		}
+		*keys = append(*keys, scannedKeys...)
+		if nextCursor == 0 {
+			break
+		}
+		cursor = nextCursor
+	}
+}
+
 // -- Internal helpers ---------------------------------------------------------
 
 func (s *CacheService) set(ctx context.Context, key string, data interface{}, ttl time.Duration) error {

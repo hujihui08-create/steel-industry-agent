@@ -35,6 +35,8 @@ const ApiStats = lazy(() =>
 const ScheduledTasks = lazy(() =>
   import("@/app/components/admin/ScheduledTasks").then((m) => ({ default: m.ScheduledTasks }))
 );
+const FeedbackManage = lazy(() => import("@/app/components/admin/FeedbackManage"));
+const CertificationManage = lazy(() => import("@/app/components/admin/CertificationManage"));
 const MenuManagement = lazy(() =>
   import("@/app/components/admin/MenuManagement").then((m) => ({ default: m.MenuManagement }))
 );
@@ -76,6 +78,8 @@ export default function AdminPage() {
           <Route path="profile" element={<AdminProfilePage />} />
           <Route path="change-password" element={<AdminChangePasswordPage />} />
           <Route path="data-list" element={<SteelDataList />} />
+          <Route path="feedbacks" element={<FeedbackManage />} />
+          <Route path="certifications" element={<CertificationManage />} />
         </Routes>
       </Suspense>
     </AdminLayout>

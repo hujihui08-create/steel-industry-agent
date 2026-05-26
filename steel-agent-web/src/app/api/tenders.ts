@@ -5,11 +5,33 @@
 // POST /api/v1/tenders/:id/favorite
 // DELETE /api/v1/tenders/:id/favorite
 // GET /api/v1/tenders/favorites
+// GET /api/v1/calendar
 // ============================================================
 
 import apiClient from "@/app/api/client";
 import type { ApiResponse } from "@/app/types/api";
 import type { TenderDetail } from "@/app/types/tender";
+
+// -----------------------------------------------------------
+// Calendar types
+// -----------------------------------------------------------
+
+export interface CalendarItem {
+  id: number;
+  title: string;
+  deadline: string;
+  status: string;
+}
+
+export interface CalendarDate {
+  date: string;
+  items: CalendarItem[];
+}
+
+export interface CalendarData {
+  dates: CalendarDate[];
+  total: number;
+}
 
 // -----------------------------------------------------------
 // 获取招标列表
@@ -71,5 +93,18 @@ export async function getTenderFavorites(): Promise<number[]> {
     "/tenders/favorites",
   );
   if (!data?.data) throw new Error(data?.message || "获取收藏列表失败");
+  return data.data;
+}
+
+// -----------------------------------------------------------
+// 获取投标日历
+// GET /api/v1/calendar
+// -----------------------------------------------------------
+
+export async function getCalendar(): Promise<CalendarData> {
+  const { data } = await apiClient.get<ApiResponse<CalendarData>>(
+    "/calendar",
+  );
+  if (!data?.data) throw new Error(data?.message || "获取投标日历失败");
   return data.data;
 }

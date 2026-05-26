@@ -50,6 +50,7 @@ import type { ChatSession } from "@/app/types/chat";
 import { ROUTE } from "@/app/constants/auth";
 import { useAuthStore } from "@/app/stores/authStore";
 import { useLoginDialogStore } from "@/app/stores/loginDialogStore";
+import { useSettingsStore } from "@/app/stores/settingsStore";
 
 // ==================================================================
 // Props
@@ -114,6 +115,9 @@ export function ChatSidebar({
   // ---- auth --------------------------------------------------
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const openLoginDialog = useLoginDialogStore((s) => s.openLoginDialog);
+
+  // ---- site config (public branding) --------------------------
+  const siteConfig = useSettingsStore((s) => s.siteConfig);
 
   const requireAuth = useCallback(
     (fn: () => void) => {
@@ -197,11 +201,19 @@ export function ChatSidebar({
           Brand Header — 品牌 Logo + 标题
           ============================================================ */}
       <div className="flex items-center gap-2 px-3 py-[11px] border-b border-steel-line shrink-0">
-        <div className="w-7 h-7 rounded-lg bg-steel-ink flex items-center justify-center shrink-0">
-          <Sparkles className="w-4 h-4 text-steel-canvas" strokeWidth={2} />
-        </div>
+        {siteConfig?.logoUrl ? (
+          <img
+            src={siteConfig.logoUrl}
+            alt={siteConfig.siteName || "品牌 Logo"}
+            className="w-7 h-7 rounded-lg object-cover shrink-0"
+          />
+        ) : (
+          <div className="w-7 h-7 rounded-lg bg-steel-ink flex items-center justify-center shrink-0">
+            <Sparkles className="w-4 h-4 text-steel-canvas" strokeWidth={2} />
+          </div>
+        )}
         <span className="text-[15px] leading-[1.5] text-steel-ink font-medium">
-          钢铁助手
+          {siteConfig?.siteName || "钢铁助手"}
         </span>
       </div>
 
@@ -390,7 +402,7 @@ export function ChatSidebar({
               type="button"
               onClick={() => requireAuth(() => {
                 if (isMobile) onToggle();
-                navigate(ROUTE.CHART);
+                navigate(ROUTE.PRICE_BOARD);
               })}
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer hover:bg-steel-surface transition-colors duration-150 text-left"
               aria-label="价格看板"
@@ -442,7 +454,7 @@ export function ChatSidebar({
               type="button"
               onClick={() => requireAuth(() => {
                 if (isMobile) onToggle();
-                toast("功能开发中");
+                navigate(ROUTE.FAVORITES);
               })}
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer hover:bg-steel-surface transition-colors duration-150 text-left"
               aria-label="我的收藏"
@@ -468,7 +480,7 @@ export function ChatSidebar({
               type="button"
               onClick={() => requireAuth(() => {
                 if (isMobile) onToggle();
-                toast("功能开发中");
+                navigate(ROUTE.HELP);
               })}
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer hover:bg-steel-surface transition-colors duration-150 text-left"
               aria-label="帮助与反馈"

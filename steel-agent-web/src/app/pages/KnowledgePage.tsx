@@ -116,6 +116,7 @@ export default function KnowledgePage() {
             {displayList.map((item) => (
               <button
                 key={item.id}
+                onClick={() => navigate(`/knowledge/${item.id}`)}
                 className="w-full text-left rounded-xl border border-steel-line bg-white p-4 transition-colors duration-150 hover:border-steel-ink/30"
               >
                 <div className="flex items-start gap-3">

@@ -717,16 +717,12 @@ export function MenuManagement() {
                 }
               >
                 <SelectTrigger
-                  className={cn(
-                    "h-9 rounded-md",
-                    "border border-[#E5E5E5] bg-white",
-                    "text-[13px] leading-[1.5] text-[#404040]",
-                    "focus:ring-2 focus:ring-[#0A0A0A]/10 focus:border-[#0A0A0A]",
-                  )}
+                  variant="filter"
+                  className="h-9 text-[13px] leading-[1.5]"
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="border border-[#E5E5E5] rounded-md max-h-[260px]">
+                <SelectContent variant="filter" className="max-h-[260px]">
                   {parentOptions.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
