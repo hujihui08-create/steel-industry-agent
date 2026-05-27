@@ -12,6 +12,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { adminLogin } from "@/app/api/admin-auth";
+import { setAdminToken } from "@/app/utils/auth";
 import { ROUTE } from "@/app/constants/auth";
 
 interface AdminLoginFormValues {
@@ -30,15 +31,7 @@ export default function AdminLoginPage() {
     try {
       const data = await adminLogin(values.username.trim(), values.password);
 
-      const stored = {
-        state: {
-          access_token: data.token,
-          refresh_token: "",
-          isAuthenticated: true,
-        },
-        version: 0,
-      };
-      localStorage.setItem("auth-storage", JSON.stringify(stored));
+      setAdminToken(data.token);
 
       navigate(ROUTE.ADMIN, { replace: true });
     } catch (err: unknown) {

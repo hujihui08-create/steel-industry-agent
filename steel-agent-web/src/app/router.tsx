@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, useLocation, useRouteError } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import AuthGuard from "@/app/components/Auth/AuthGuard";
+import { useAuthStore } from "@/app/stores/authStore";
 import AdminAuthGuard from "@/app/components/Auth/AdminAuthGuard";
 import { ROUTE } from "@/app/constants/auth";
 
@@ -25,7 +26,6 @@ function RouteErrorBoundary() {
 // Eager-loaded pages (critical path)
 import LoginPage from "@/app/pages/LoginPage";
 import AdminLoginPage from "@/app/pages/admin/AdminLoginPage";
-import ChatPage from "@/app/pages/ChatPage";
 
 // Lazy-loaded pages
 const SplashPage = lazy(() => import("@/app/pages/SplashPage"));
@@ -54,6 +54,7 @@ const HelpFeedbackPage = lazy(() => import("@/app/pages/HelpFeedbackPage"));
 const CertificationPage = lazy(() => import("@/app/pages/CertificationPage"));
 const OnboardingPage = lazy(() => import("@/app/pages/OnboardingPage"));
 const KnowledgeDetailPage = lazy(() => import("@/app/pages/KnowledgeDetailPage"));
+const ChatPage = lazy(() => import("@/app/pages/ChatPage"));
 
 function LazyFallback() {
   return (
@@ -72,6 +73,11 @@ function withSuspense(children: React.ReactNode) {
   return <Suspense fallback={<LazyFallback />}>{children}</Suspense>;
 }
 
+function NotFoundRedirect() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  return <Navigate to={isAuthenticated ? ROUTE.CHAT : ROUTE.SPLASH} replace />;
+}
+
 export const router = createBrowserRouter([
   {
     path: ROUTE.ROOT,
@@ -85,7 +91,7 @@ export const router = createBrowserRouter([
   },
   {
     path: ROUTE.CHAT,
-    element: <ChatPage />,
+    element: withSuspense(<ChatPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
@@ -278,5 +284,9 @@ export const router = createBrowserRouter([
     path: ROUTE.ONBOARDING,
     element: withSuspense(<OnboardingPage />),
     errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "*",
+    element: <NotFoundRedirect />,
   },
 ]);
