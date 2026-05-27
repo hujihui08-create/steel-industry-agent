@@ -87,6 +87,7 @@ const MATCH_TYPE_LABELS: Record<string, string> = {
 // ============================================================
 
 interface IntentFormData {
+  id: string;
   code: string;
   name: string;
   keywords: string;
@@ -104,6 +105,7 @@ interface TestHistoryItem {
 }
 
 const EMPTY_FORM: IntentFormData = {
+  id: "",
   code: "",
   name: "",
   keywords: "",
@@ -258,6 +260,7 @@ export function IntentManagement() {
   const openEditForm = useCallback((intent: Intent) => {
     setIsEditing(true);
     setFormData({
+      id: intent.id,
       code: intent.code,
       name: intent.name,
       keywords: intent.keywords,
@@ -285,7 +288,7 @@ export function IntentManagement() {
     setFormSubmitting(true);
     try {
       const intentPayload: Intent = {
-        id: isEditing ? (intents.find((i) => i.code === formData.code)?.id ?? "") : `intent-${Date.now()}`,
+        id: isEditing ? formData.id : `intent-${Date.now()}`,
         code: formData.code.trim(),
         name: formData.name.trim(),
         keywords: formData.keywords.trim(),

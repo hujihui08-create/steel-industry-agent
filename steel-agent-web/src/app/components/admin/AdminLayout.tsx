@@ -8,6 +8,7 @@ import { AdminHeader } from "./AdminHeader";
 import { TopNavBar } from "./TopNavBar";
 import { AdminSidebar, SIDEBAR_MENU_MAP, TOP_MENU_TITLES } from "./AdminSidebar";
 import type { SidebarMenuItem } from "./AdminSidebar";
+import { removeAdminToken } from "@/app/utils/auth";
 
 // 侧边栏项 ID 到路径的映射，用于反向匹配当前路由
 const SIDEBAR_PATH_TO_TOP_MENU: Record<string, string> = {
@@ -175,7 +176,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         setCountdown(remaining);
         if (remaining <= 0) {
           if (countdownRef.current) clearInterval(countdownRef.current);
-          localStorage.removeItem("auth-storage");
+          removeAdminToken();
           window.location.href = "/admin/login";
         }
       }, 1000);
@@ -394,7 +395,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <Button
                 variant="outline"
                 onClick={() => {
-                  localStorage.removeItem("auth-storage");
+                  removeAdminToken();
                   window.location.href = "/admin/login";
                 }}
                 className="border-[#E5E5E5] text-[#404040] hover:bg-[#FAFAFA] rounded-full h-10 px-5 text-[14px]"
