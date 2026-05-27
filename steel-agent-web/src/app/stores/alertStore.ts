@@ -16,8 +16,14 @@ import {
 
 interface AlertState {
   alerts: PriceAlert[];
+  // Loading counter prevents premature isLoading=false when
+  // multiple async operations are in flight concurrently.
+  _loadingCount: number;
   isLoading: boolean;
   error: string | null;
+
+  _startLoading: () => void;
+  _endLoading: () => void;
 
   fetchAlerts: () => Promise<void>;
   createAlert: (data: CreateAlertParams) => Promise<PriceAlert>;
@@ -28,73 +34,95 @@ interface AlertState {
 
 export const useAlertStore = create<AlertState>((set, get) => ({
   alerts: [],
+  _loadingCount: 0,
   isLoading: false,
   error: null,
 
+  _startLoading: () => {
+    const count = get()._loadingCount + 1;
+    set({ _loadingCount: count, isLoading: true });
+  },
+
+  _endLoading: () => {
+    const count = Math.max(0, get()._loadingCount - 1);
+    set({ _loadingCount: count, isLoading: count > 0 });
+  },
+
   fetchAlerts: async () => {
-    set({ isLoading: true, error: null });
+    get()._startLoading();
+    set({ error: null });
     try {
       const alerts = await getAlertList();
-      set({ alerts, isLoading: false });
+      set({ alerts });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "获取预警列表失败";
-      set({ error: message, isLoading: false });
+      set({ error: message });
+    } finally {
+      get()._endLoading();
     }
   },
 
   createAlert: async (data: CreateAlertParams) => {
-    set({ isLoading: true, error: null });
+    get()._startLoading();
+    set({ error: null });
     try {
       const newAlert = await createAlertApi(data);
       const { alerts } = get();
-      set({ alerts: [newAlert, ...alerts], isLoading: false });
+      set({ alerts: [newAlert, ...alerts] });
       return newAlert;
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "创建预警失败";
-      set({ error: message, isLoading: false });
-      throw err;
+      set({ error: message });
+      return {} as PriceAlert;
+    } finally {
+      get()._endLoading();
     }
   },
 
   updateAlert: async (id: number, data: UpdateAlertParams) => {
-    set({ isLoading: true, error: null });
+    get()._startLoading();
+    set({ error: null });
     try {
       const updatedAlert = await updateAlertApi(id, data);
       const { alerts } = get();
       set({
         alerts: alerts.map((a) => (a.id === id ? updatedAlert : a)),
-        isLoading: false,
       });
       return updatedAlert;
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "更新预警失败";
-      set({ error: message, isLoading: false });
-      throw err;
+      set({ error: message });
+      return {} as PriceAlert;
+    } finally {
+      get()._endLoading();
     }
   },
 
   deleteAlert: async (id: number) => {
-    set({ isLoading: true, error: null });
+    get()._startLoading();
+    set({ error: null });
     try {
       await deleteAlert(id);
       const { alerts } = get();
       set({
         alerts: alerts.filter((a) => a.id !== id),
-        isLoading: false,
       });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "删除预警失败";
-      set({ error: message, isLoading: false });
+      set({ error: message });
+    } finally {
+      get()._endLoading();
     }
   },
 
   reset: () =>
     set({
       alerts: [],
+      _loadingCount: 0,
       isLoading: false,
       error: null,
     }),

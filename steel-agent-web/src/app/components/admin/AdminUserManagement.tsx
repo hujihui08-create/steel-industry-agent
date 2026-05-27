@@ -12,7 +12,7 @@
 // Design tokens: 使用项目色板/字阶/圆角规范
 // ============================================================
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Plus,
   Pencil,
@@ -182,6 +182,7 @@ export function AdminUserManagement() {
   const [formData, setFormData] = useState<AdminUserFormData>({ ...EMPTY_FORM });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formSubmitting, setFormSubmitting] = useState(false);
+  const formFieldRefs = useRef<Record<string, HTMLInputElement | HTMLSelectElement | HTMLButtonElement | null>>({});
 
   // ---- 删除确认 ----
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
@@ -262,9 +263,7 @@ export function AdminUserManagement() {
     if (Object.keys(errors).length > 0) {
       // 聚焦第一个错误字段
       const firstErrorKey = Object.keys(errors)[0];
-      const el = document.querySelector<HTMLInputElement>(
-        `[data-field-id="${firstErrorKey}"]`,
-      );
+      const el = formFieldRefs.current[firstErrorKey];
       el?.focus();
       return;
     }
@@ -594,11 +593,10 @@ export function AdminUserManagement() {
               </Label>
               <Input
                 id="field-username"
-                data-field-id="username"
                 placeholder="请输入用户名（3-20位字母、数字或下划线）"
                 value={formData.username}
-                readOnly={isEditing}
                 disabled={isEditing}
+                ref={(el) => { formFieldRefs.current['username'] = el; }}
                 onChange={(e) => {
                   setFormData((prev) => ({ ...prev, username: e.target.value }));
                   if (formErrors.username) setFormErrors((prev) => ({ ...prev, username: "" }));
@@ -633,7 +631,6 @@ export function AdminUserManagement() {
               </Label>
               <Input
                 id="field-nickname"
-                data-field-id="nickname"
                 placeholder="请输入昵称"
                 value={formData.nickname}
                 onChange={(e) =>
@@ -666,10 +663,10 @@ export function AdminUserManagement() {
                   <div className="relative flex-1">
                     <Input
                       id="field-password"
-                      data-field-id="password"
                       type="password"
                       placeholder="自动生成或手动输入"
                       value={formData.password}
+                      ref={(el) => { formFieldRefs.current['password'] = el; }}
                       onChange={(e) => {
                         setFormData((prev) => ({ ...prev, password: e.target.value }));
                         if (formErrors.password)
@@ -752,7 +749,7 @@ export function AdminUserManagement() {
               >
                 <SelectTrigger
                   id="field-role"
-                  data-field-id="role"
+                  ref={(el) => { formFieldRefs.current['role'] = el; }}
                   variant="filter"
                   className={cn(
                     "px-3 leading-[1.5] transition-colors duration-200",

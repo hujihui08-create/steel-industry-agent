@@ -309,7 +309,7 @@ export function Dashboard() {
     let cancelled = false;
     const fetchHealth = async () => {
       const result = await Promise.race([
-        getToolHealth(),
+        getToolHealth().then((r) => r.tools),
         new Promise<ToolHealth[]>((resolve) =>
           setTimeout(() => resolve(getDefaultToolHealthItems()), 5000),
         ),

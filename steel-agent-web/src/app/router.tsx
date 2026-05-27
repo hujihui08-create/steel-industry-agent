@@ -109,7 +109,11 @@ export const router = createBrowserRouter([
   },
   {
     path: ROUTE.CHART,
-    element: <ChartRedirect />,
+    element: (
+      <AuthGuard>
+        <ChartRedirect />
+      </AuthGuard>
+    ),
     errorElement: <RouteErrorBoundary />,
   },
   {

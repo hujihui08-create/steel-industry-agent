@@ -6,6 +6,8 @@
 import { create } from "zustand";
 import type { ChatSession, ChatMessage, QuickCommand, CardAttachment } from "@/app/types/chat";
 
+let __messageIdCounter = 0;
+
 interface ChatState {
   currentSessionId: number | null;
   sessions: ChatSession[];
@@ -68,6 +70,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   appendToLastMessage: (token) =>
     set((state) => {
+      if (!state.isStreaming) return state;
       const messages = [...state.messages];
       const lastMsg = messages[messages.length - 1];
       if (lastMsg && lastMsg.role === "assistant") {
@@ -77,7 +80,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         };
       } else {
         messages.push({
-          id: Date.now(),
+          id: Date.now() * 1000 + (__messageIdCounter++ % 1000),
           session_id: state.currentSessionId || 0,
           role: "assistant",
           content: token,
@@ -105,7 +108,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (lastMsg && lastMsg.role === "assistant") {
         messages[messages.length - 1] = {
           ...lastMsg,
-          content: lastMsg.content + "\n\n_已停止生成_",
+          is_stopped: true,
         };
       }
       return { messages };
@@ -132,17 +135,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
       inputValue: "",
       error: null,
       activeQuickCommand: null,
+      selectedCard: null,
+      statusMessage: null,
       focusInputTrigger: 0,
     }),
 
   removeSession: (sessionId) =>
-    set((state) => ({
-      sessions: state.sessions.filter((s) => s.id !== sessionId),
-      currentSessionId:
-        state.currentSessionId === sessionId ? null : state.currentSessionId,
-      messages:
-        state.currentSessionId === sessionId ? [] : state.messages,
-    })),
+    set((state) => {
+      const isRemovingCurrent = state.currentSessionId === sessionId;
+      return {
+        sessions: state.sessions.filter((s) => s.id !== sessionId),
+        currentSessionId: isRemovingCurrent ? null : state.currentSessionId,
+        messages: isRemovingCurrent ? [] : state.messages,
+        ...(isRemovingCurrent && {
+          isStreaming: false,
+          error: null,
+          activeQuickCommand: null,
+          selectedCard: null,
+          statusMessage: null,
+        }),
+      };
+    }),
 
   appendAttachment: (messageIndex, attachment) =>
     set((state) => {
@@ -160,10 +173,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearAttachments: () =>
     set((state) => ({
-      messages: state.messages.map((msg) => ({
-        ...msg,
-        attachments: undefined,
-      })),
+      messages: state.messages.map(({ attachments, ...msg }) => msg),
     })),
 
   fixMessageSessionIds: (sessionId) =>

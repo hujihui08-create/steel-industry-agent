@@ -9,8 +9,14 @@ import { getProfile, updateProfile } from "@/app/api/users";
 
 interface ProfileState {
   profile: UserProfile | null;
+  // Loading counter prevents premature isLoading=false when
+  // multiple async operations are in flight concurrently.
+  _loadingCount: number;
   isLoading: boolean;
   error: string | null;
+
+  _startLoading: () => void;
+  _endLoading: () => void;
 
   fetchProfile: () => Promise<void>;
   updateProfile: (data: ProfileUpdateData) => Promise<void>;
@@ -18,32 +24,49 @@ interface ProfileState {
   reset: () => void;
 }
 
-export const useProfileStore = create<ProfileState>((set) => ({
+export const useProfileStore = create<ProfileState>((set, get) => ({
   profile: null,
+  _loadingCount: 0,
   isLoading: false,
   error: null,
 
+  _startLoading: () => {
+    const count = get()._loadingCount + 1;
+    set({ _loadingCount: count, isLoading: true });
+  },
+
+  _endLoading: () => {
+    const count = Math.max(0, get()._loadingCount - 1);
+    set({ _loadingCount: count, isLoading: count > 0 });
+  },
+
   fetchProfile: async () => {
-    set({ isLoading: true, error: null });
+    get()._startLoading();
+    set({ error: null });
     try {
       const profile = await getProfile();
-      set({ profile, isLoading: false });
+      set({ profile });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "获取用户资料失败";
-      set({ error: message, isLoading: false });
+      set({ error: message });
+    } finally {
+      get()._endLoading();
     }
   },
 
   updateProfile: async (data: ProfileUpdateData) => {
-    set({ isLoading: true, error: null });
+    get()._startLoading();
+    set({ error: null });
     try {
       const profile = await updateProfile(data);
-      set({ profile, isLoading: false });
+      set({ profile });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "更新用户资料失败";
-      set({ error: message, isLoading: false });
+      set({ error: message });
+    } finally {
+      get()._endLoading();
     }
   },
 
@@ -52,6 +75,7 @@ export const useProfileStore = create<ProfileState>((set) => ({
   reset: () =>
     set({
       profile: null,
+      _loadingCount: 0,
       isLoading: false,
       error: null,
     }),

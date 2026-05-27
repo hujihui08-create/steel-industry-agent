@@ -14,10 +14,7 @@ export async function adminLogin(username: string, password: string): Promise<{ 
 }
 
 export async function adminLogout(): Promise<void> {
-  const { data } = await apiClient.post<ApiResponse<null>>("/admin/auth/logout");
-  if (data.code !== 200) {
-    throw new Error(data.message || "登出失败");
-  }
+  await apiClient.post<ApiResponse<null>>("/admin/auth/logout");
 }
 
 export async function adminGetInfo(): Promise<AdminUser> {
@@ -29,20 +26,14 @@ export async function adminGetInfo(): Promise<AdminUser> {
 }
 
 export async function adminUpdatePassword(oldPassword: string, newPassword: string): Promise<void> {
-  const { data } = await apiClient.put<ApiResponse<null>>("/admin/auth/password", {
+  await apiClient.put<ApiResponse<null>>("/admin/auth/password", {
     old_password: oldPassword,
     new_password: newPassword,
   });
-  if (data.code !== 200) {
-    throw new Error(data.message || "修改密码失败");
-  }
 }
 
 export async function adminUpdateProfile(nickname: string): Promise<void> {
-  const { data } = await apiClient.put<ApiResponse<null>>("/admin/auth/profile", {
+  await apiClient.put<ApiResponse<null>>("/admin/auth/profile", {
     nickname,
   });
-  if (data.code !== 200) {
-    throw new Error(data.message || "更新个人资料失败");
-  }
 }

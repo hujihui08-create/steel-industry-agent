@@ -9,65 +9,10 @@ import axios, {
   type AxiosError,
   type InternalAxiosRequestConfig,
 } from "axios";
-import type { ApiResponse, AuthStorageState } from "@/app/types/api";
-import { API_BASE_URL, API_TIMEOUT, AUTH_STORAGE_KEY, REFRESH_PATH } from "@/app/config";
-
-// -----------------------------------------------------------
-// Token 存储工具函数
-// -----------------------------------------------------------
-
-function getStoredTokens(): {
-  access_token: string | null;
-  refresh_token: string | null;
-} {
-  try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!raw) return { access_token: null, refresh_token: null };
-    const parsed: AuthStorageState = JSON.parse(raw);
-    return {
-      access_token: parsed.state?.access_token ?? null,
-      refresh_token: parsed.state?.refresh_token ?? null,
-    };
-  } catch {
-    return { access_token: null, refresh_token: null };
-  }
-}
-
-function updateStoredTokens(
-  access_token: string,
-  refresh_token: string,
-): void {
-  try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!raw) return;
-    const parsed: AuthStorageState = JSON.parse(raw);
-    if (!parsed.state) return;
-    parsed.state.access_token = access_token;
-    parsed.state.refresh_token = refresh_token;
-    parsed.state.isAuthenticated = true;
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(parsed));
-  } catch {
-    // 静默失败：解析/写入异常时不影响用户体验
-  }
-}
-
-function clearStoredAuth(): void {
-  try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!raw) return;
-    const parsed: AuthStorageState = JSON.parse(raw);
-    if (!parsed.state) {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-      return;
-    }
-    parsed.state.access_token = null;
-    parsed.state.refresh_token = null;
-    parsed.state.isAuthenticated = false;
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(parsed));
-  } catch {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-  }
-}
+import type { ApiResponse } from "@/app/types/api";
+import { API_BASE_URL, API_TIMEOUT, REFRESH_PATH } from "@/app/config";
+import { getStoredTokens, updateStoredTokens, clearStoredAuth } from "@/app/utils/auth";
+import { useAuthStore } from "@/app/stores/authStore";
 
 // -----------------------------------------------------------
 // 请求队列类型
@@ -182,7 +127,7 @@ apiClient.interceptors.response.use(
     try {
       const { data: refreshResponse } = await axios.post<
         ApiResponse<{ access_token: string; refresh_token: string }>
-      >(API_BASE_URL + REFRESH_PATH, { refresh_token });
+      >(API_BASE_URL + REFRESH_PATH, { refresh_token }, { timeout: Math.min(API_TIMEOUT, 10000) });
 
       if (!refreshResponse?.data?.access_token || !refreshResponse?.data?.refresh_token) {
         throw new Error("Refresh response missing tokens");
@@ -192,6 +137,7 @@ apiClient.interceptors.response.use(
       const newRefreshToken = refreshResponse.data.refresh_token;
 
       updateStoredTokens(newAccessToken, newRefreshToken);
+      useAuthStore.getState().setTokens(newAccessToken, newRefreshToken);
 
       // 处理队列中的请求
       processQueue(null, newAccessToken);

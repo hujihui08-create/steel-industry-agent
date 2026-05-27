@@ -34,6 +34,7 @@ export default function ProfilePage() {
     data: profile,
     isLoading,
     isError,
+    error,
     refetch,
   } = useQuery({
     queryKey: ["profile"],
@@ -95,7 +96,7 @@ export default function ProfilePage() {
 
     // Error
     if (isError) {
-      return <ErrorState onRetry={() => refetch()} />;
+      return <ErrorState message={error instanceof Error ? error.message : "加载用户信息失败"} onRetry={() => refetch()} />;
     }
 
     // Profile data

@@ -30,7 +30,7 @@ export async function submitCertification(params: SubmitCertificationParams): Pr
     "/users/certification",
     params,
   );
-  if (data.code !== 200) throw new Error(data.message || "提交认证失败");
+  if (!data?.data) throw new Error(data.message || "提交认证失败");
   return data.data;
 }
 
@@ -38,7 +38,6 @@ export async function getMyCertification(): Promise<CertificationData | null> {
   const { data } = await apiClient.get<ApiResponse<CertificationData | null>>(
     "/users/certification",
   );
-  if (data.code !== 200) throw new Error(data.message || "获取认证状态失败");
   return data.data;
 }
 
@@ -51,21 +50,19 @@ export async function getCertificationList(
     "/admin/certifications",
     { params: { status, limit, offset } },
   );
-  if (data.code !== 200) throw new Error(data.message || "获取认证列表失败");
+  if (!data?.data) throw new Error(data.message || "获取认证列表失败");
   return data.data;
 }
 
 export async function approveCertification(id: number): Promise<void> {
-  const { data } = await apiClient.put<ApiResponse<null>>(
+  await apiClient.put<ApiResponse<null>>(
     `/admin/certifications/${id}/approve`,
   );
-  if (data.code !== 200) throw new Error(data.message || "审核失败");
 }
 
 export async function rejectCertification(id: number, remark: string): Promise<void> {
-  const { data } = await apiClient.put<ApiResponse<null>>(
+  await apiClient.put<ApiResponse<null>>(
     `/admin/certifications/${id}/reject`,
     { remark },
   );
-  if (data.code !== 200) throw new Error(data.message || "驳回失败");
 }

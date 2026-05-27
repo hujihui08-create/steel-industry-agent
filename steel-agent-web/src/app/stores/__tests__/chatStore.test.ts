@@ -121,6 +121,7 @@ describe("appendToLastMessage()", () => {
       makeMsg({ id: 1, role: "assistant", content: "螺纹钢" }),
     );
 
+    useChatStore.setState({ isStreaming: true });
     store.appendToLastMessage("价格");
     store.appendToLastMessage("¥3,850");
 
@@ -133,6 +134,7 @@ describe("appendToLastMessage()", () => {
     const store = useChatStore.getState();
     store.addMessage(makeMsg({ id: 1, role: "user", content: "查询" }));
 
+    useChatStore.setState({ isStreaming: true });
     store.appendToLastMessage("新消息");
 
     const state = useChatStore.getState();
@@ -142,6 +144,7 @@ describe("appendToLastMessage()", () => {
   });
 
   it("should create new message if messages list is empty", () => {
+    useChatStore.setState({ isStreaming: true });
     useChatStore.getState().appendToLastMessage("第一条");
 
     const state = useChatStore.getState();
@@ -179,7 +182,7 @@ describe("updateLastMessage()", () => {
 // 7. markLastMessageStopped
 // ===========================================================================
 describe("markLastMessageStopped()", () => {
-  it("should append stop marker to last assistant message", () => {
+  it("should set is_stopped flag on last assistant message", () => {
     const store = useChatStore.getState();
     store.addMessage(
       makeMsg({ id: 1, role: "assistant", content: "部分内容" }),
@@ -188,8 +191,8 @@ describe("markLastMessageStopped()", () => {
     store.markLastMessageStopped();
 
     const state = useChatStore.getState();
-    expect(state.messages[0].content).toContain("_已停止生成_");
-    expect(state.messages[0].content).toBe("部分内容\n\n_已停止生成_");
+    expect(state.messages[0].is_stopped).toBe(true);
+    expect(state.messages[0].content).toBe("部分内容");
   });
 
   it("should do nothing if last message is not assistant", () => {

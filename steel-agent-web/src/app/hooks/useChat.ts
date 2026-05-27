@@ -10,15 +10,18 @@ import * as chatApi from '@/app/api/chat';
 import type { ChatMessage, CardAttachment } from '@/app/types/chat';
 
 export function useChat() {
-  const store = useChatStore();
   const abortRef = useRef<AbortController | null>(null);
   const stoppedRef = useRef(false);
+  const generationRef = useRef(0);
 
   // -----------------------------------------------------------
   // 发送消息（SSE 流式）
   // -----------------------------------------------------------
   const sendMessage = useCallback(async (content: string) => {
+    const store = useChatStore.getState();
     if (!content.trim() || store.isStreaming) return;
+
+    const genId = ++generationRef.current;
 
     const sessionId = store.currentSessionId || 0;
     const userMessage: ChatMessage = {
@@ -37,32 +40,33 @@ export function useChat() {
     store.clearAttachments();
     stoppedRef.current = false;
 
-    const fullContent: string[] = [];
-
     const controller = chatApi.sendMessage(
       { session_id: sessionId, content: content.trim() },
       (chunk) => {
-        fullContent.push(chunk);
-        store.setStatusMessage(null);
-        store.appendToLastMessage(chunk);
+        const s = useChatStore.getState();
+        s.setStatusMessage(null);
+        s.appendToLastMessage(chunk);
       },
       (error) => {
-        store.setStatusMessage(null);
-        store.setError(error);
-        store.setStreaming(false);
+        const s = useChatStore.getState();
+        s.setStatusMessage(null);
+        s.setError(error);
+        s.setStreaming(false);
       },
       async () => {
-        store.setStatusMessage(null);
-        store.setStreaming(false);
-        if (store.currentSessionId !== null) {
+        const s = useChatStore.getState();
+        s.setStatusMessage(null);
+        s.setStreaming(false);
+        if (s.currentSessionId !== null) {
           try {
             const [sessions, messages] = await Promise.all([
               chatApi.getSessions(),
-              chatApi.getSessionMessages(store.currentSessionId),
+              chatApi.getSessionMessages(s.currentSessionId),
             ]);
-            store.setSessions(sessions);
+            if (genId !== generationRef.current) return;
+            s.setSessions(sessions);
             if (messages.length > 0) {
-              store.setMessages(messages);
+              s.setMessages(messages);
             }
           } catch {
             // 静默失败
@@ -70,18 +74,20 @@ export function useChat() {
         }
       },
       (card) => {
-        const currentMessages = useChatStore.getState().messages;
+        const s = useChatStore.getState();
+        const currentMessages = s.messages;
         const lastIdx = currentMessages.length - 1;
         if (lastIdx >= 0) {
-          store.appendAttachment(lastIdx, card);
+          s.appendAttachment(lastIdx, card);
         }
       },
       (newSessionId, title) => {
-        store.fixMessageSessionIds(newSessionId);
-        store.setCurrentSessionId(newSessionId);
+        const s = useChatStore.getState();
+        s.fixMessageSessionIds(newSessionId);
+        s.setCurrentSessionId(newSessionId);
 
         const now = new Date().toISOString();
-        store.setSessions([
+        s.setSessions([
           {
             id: newSessionId,
             user_id: 0,
@@ -92,21 +98,22 @@ export function useChat() {
             created_at: now,
             updated_at: now,
           },
-          ...useChatStore.getState().sessions,
+          ...s.sessions,
         ]);
       },
       (status) => {
-        store.setStatusMessage(status);
+        useChatStore.getState().setStatusMessage(status);
       },
     );
 
     abortRef.current = controller;
-  }, [store]);
+  }, []);
 
   // -----------------------------------------------------------
   // 停止生成
   // -----------------------------------------------------------
   const stopGeneration = useCallback(async () => {
+    const store = useChatStore.getState();
     if (!store.isStreaming || !store.currentSessionId) return;
 
     stoppedRef.current = true;
@@ -119,19 +126,20 @@ export function useChat() {
     } catch {
       // 静默失败
     }
-  }, [store]);
+  }, []);
 
   // -----------------------------------------------------------
   // 继续生成
   // -----------------------------------------------------------
   const continueGeneration = useCallback(async () => {
+    const store = useChatStore.getState();
     if (!store.currentSessionId) return;
 
     store.setStreaming(true);
     store.setError(null);
     stoppedRef.current = false;
 
-    const currentMessages = useChatStore.getState().messages;
+    const currentMessages = store.messages;
     const lastIdx = currentMessages.length - 1;
     if (lastIdx >= 0) {
       const lastMsg = currentMessages[lastIdx];
@@ -149,34 +157,39 @@ export function useChat() {
     const controller = chatApi.continueGeneration(
       { session_id: store.currentSessionId, content: '' },
       (chunk) => {
-        store.setStatusMessage(null);
-        store.appendToLastMessage(chunk);
+        const s = useChatStore.getState();
+        s.setStatusMessage(null);
+        s.appendToLastMessage(chunk);
       },
       (error) => {
-        store.setStatusMessage(null);
-        store.setError(error);
-        store.setStreaming(false);
+        const s = useChatStore.getState();
+        s.setStatusMessage(null);
+        s.setError(error);
+        s.setStreaming(false);
       },
       () => {
-        store.setStatusMessage(null);
-        store.setStreaming(false);
+        const s = useChatStore.getState();
+        s.setStatusMessage(null);
+        s.setStreaming(false);
       },
       (card) => {
-        const currentMessages = useChatStore.getState().messages;
+        const s = useChatStore.getState();
+        const currentMessages = s.messages;
         const lastIdx = currentMessages.length - 1;
         if (lastIdx >= 0) {
-          store.appendAttachment(lastIdx, card);
+          s.appendAttachment(lastIdx, card);
         }
       }
     );
 
     abortRef.current = controller;
-  }, [store]);
+  }, []);
 
   // -----------------------------------------------------------
   // 切换会话
   // -----------------------------------------------------------
   const switchSession = useCallback(async (sessionId: number) => {
+    const store = useChatStore.getState();
     store.setCurrentSessionId(sessionId);
     store.setError(null);
     try {
@@ -185,14 +198,14 @@ export function useChat() {
     } catch {
       store.setMessages([]);
     }
-  }, [store]);
+  }, []);
 
   // -----------------------------------------------------------
   // 新建会话
   // -----------------------------------------------------------
   const newSession = useCallback(() => {
-    store.newSession();
-  }, [store]);
+    useChatStore.getState().newSession();
+  }, []);
 
   // -----------------------------------------------------------
   // 加载会话列表
@@ -200,11 +213,12 @@ export function useChat() {
   const loadSessions = useCallback(async () => {
     try {
       const sessions = await chatApi.getSessions();
-      store.setSessions(sessions);
-      if (sessions.length > 0) {
-        store.setCurrentSessionId(sessions[0].id);
+      const s = useChatStore.getState();
+      s.setSessions(sessions);
+      if (sessions.length > 0 && s.currentSessionId === null) {
+        s.setCurrentSessionId(sessions[0].id);
         const messages = await chatApi.getSessionMessages(sessions[0].id);
-        store.setMessages(messages);
+        s.setMessages(messages);
       }
     } catch {
       // 静默失败
@@ -215,6 +229,7 @@ export function useChat() {
   // 删除会话
   // -----------------------------------------------------------
   const deleteSession = useCallback(async (sessionId: number) => {
+    const store = useChatStore.getState();
     try {
       await chatApi.deleteSession(sessionId);
       store.removeSession(sessionId);
@@ -222,7 +237,7 @@ export function useChat() {
       store.setError("删除会话失败，请稍后重试");
       throw new Error("deleteSession failed");
     }
-  }, [store]);
+  }, []);
 
   return {
     sendMessage,

@@ -101,6 +101,7 @@ export interface ChatMessage {
   content: string;
   tokens: number;
   created_at: string;
+  is_stopped?: boolean;
   is_edited?: boolean;
   parent_message_id?: number;
   branch_id?: string;

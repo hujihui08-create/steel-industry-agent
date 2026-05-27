@@ -14,7 +14,8 @@ type Intent struct {
 	Keywords      pq.StringArray `gorm:"type:text[]" json:"keywords"`
 	ReplyTemplate string         `gorm:"type:text" json:"reply_template"`
 	Priority      int            `gorm:"default:0" json:"priority"`
-	IsActive      bool           `gorm:"default:true" json:"is_active"`
+	IsActive      bool           `json:"is_active"`
+	ToolName      string         `gorm:"size:50" json:"tool_name"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 }

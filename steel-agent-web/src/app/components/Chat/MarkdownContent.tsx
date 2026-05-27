@@ -93,16 +93,11 @@ function MarkdownContent({ content, className }: MarkdownContentProps) {
           td: ({ children }) => (
             <td className="px-2 py-1 text-steel-body">{children}</td>
           ),
-          tr: ({ children, ...props }: any) => {
-            const isEven = (props.index ?? 0) % 2 === 0;
-            return (
-              <tr
-                className={`border-b border-steel-line last:border-b-0 ${isEven ? "" : "bg-steel-surface/50"}`}
-              >
-                {children}
-              </tr>
-            );
-          },
+          tr: ({ children }) => (
+            <tr className="border-b border-steel-line last:border-b-0 [&:nth-child(even)]:bg-steel-surface/50">
+              {children}
+            </tr>
+          ),
           blockquote: ({ children }) => (
             <blockquote className="border-l-2 border-steel-line pl-3 my-1 text-steel-muted">
               {children}

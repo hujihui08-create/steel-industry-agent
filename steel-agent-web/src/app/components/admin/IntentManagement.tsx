@@ -94,6 +94,7 @@ interface IntentFormData {
   template: string;
   priority: number;
   status: "enabled" | "disabled";
+  toolName: string;
 }
 
 interface TestHistoryItem {
@@ -110,6 +111,7 @@ const EMPTY_FORM: IntentFormData = {
   template: "",
   priority: 5,
   status: "enabled",
+  toolName: "",
 };
 
 // ============================================================
@@ -263,6 +265,7 @@ export function IntentManagement() {
       template: intent.template,
       priority: intent.priority,
       status: intent.status,
+      toolName: intent.toolName ?? "",
     });
     setFormErrors({});
     setFormOpen(true);
@@ -290,6 +293,7 @@ export function IntentManagement() {
         template: formData.template.trim(),
         priority: formData.priority,
         status: formData.status,
+        toolName: formData.toolName,
       };
 
       if (isEditing) {
@@ -894,6 +898,37 @@ export function IntentManagement() {
                   "resize-none",
                 )}
               />
+            </div>
+
+            {/* 关联工具 */}
+            <div className="flex flex-col gap-1.5">
+              <label
+                className="text-[12px] leading-[1.5] text-[#404040] font-medium"
+              >
+                关联工具
+              </label>
+              <Select
+                value={formData.toolName}
+                onValueChange={(v) =>
+                  setFormData((prev) => ({ ...prev, toolName: v }))
+                }
+              >
+                <SelectTrigger variant="filter" className="h-9 text-[13px] leading-[1.5]">
+                  <SelectValue placeholder="无（AI 自行判断）" />
+                </SelectTrigger>
+                <SelectContent variant="filter">
+                  <SelectItem value="">无（AI 自行判断）</SelectItem>
+                  <SelectItem value="query_steel_price">query_steel_price</SelectItem>
+                  <SelectItem value="get_price_trend">get_price_trend</SelectItem>
+                  <SelectItem value="calculate_quotation">calculate_quotation</SelectItem>
+                  <SelectItem value="query_tender">query_tender</SelectItem>
+                  <SelectItem value="search_knowledge">search_knowledge</SelectItem>
+                  <SelectItem value="set_price_alert">set_price_alert</SelectItem>
+                  <SelectItem value="convert_unit">convert_unit</SelectItem>
+                  <SelectItem value="calculate_weight">calculate_weight</SelectItem>
+                  <SelectItem value="search_news">search_news</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* 优先级 & 状态 */}

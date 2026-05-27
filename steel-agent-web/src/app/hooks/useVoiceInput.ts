@@ -56,6 +56,7 @@ export function useVoiceInput(): UseVoiceInputReturn {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const isActiveRef = useRef(false);
   const finalRef = useRef("");
+  const restartTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const startInstance = useCallback(() => {
     if (!SpeechRecognitionCtor) return;
@@ -85,14 +86,11 @@ export function useVoiceInput(): UseVoiceInputReturn {
     recognition.onend = () => {
       recognitionRef.current = null;
       if (!isActiveRef.current) return;
-      const timeout = setTimeout(() => {
+      restartTimeoutRef.current = setTimeout(() => {
         if (isActiveRef.current) {
           startInstance();
         }
       }, 200);
-      if (typeof window !== "undefined") {
-        (window as unknown as Record<string, unknown>).__voiceRestartTimeout = timeout;
-      }
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -164,6 +162,10 @@ export function useVoiceInput(): UseVoiceInputReturn {
   useEffect(() => {
     return () => {
       isActiveRef.current = false;
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+        restartTimeoutRef.current = undefined;
+      }
       if (recognitionRef.current) {
         try { recognitionRef.current.abort(); } catch { /* ignore */ }
         recognitionRef.current = null;

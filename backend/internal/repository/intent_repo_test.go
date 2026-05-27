@@ -33,17 +33,17 @@ func TestIntentRepo_FindAll(t *testing.T) {
 		{
 			IntentCode: "price_query", IntentName: "价格查询",
 			Keywords: pq.StringArray{"价格", "报价"}, ReplyTemplate: "正在查询价格...",
-			Priority: 10, IsActive: true,
+			Priority: 10, IsActive: true, ToolName: "query_steel_price",
 		},
 		{
 			IntentCode: "tender_search", IntentName: "招标搜索",
 			Keywords: pq.StringArray{"招标", "采购"}, ReplyTemplate: "正在搜索招标...",
-			Priority: 5, IsActive: true,
+			Priority: 5, IsActive: true, ToolName: "query_tender",
 		},
 		{
 			IntentCode: "knowledge_search", IntentName: "知识搜索",
 			Keywords: pq.StringArray{"标准", "规格"}, ReplyTemplate: "正在搜索知识库...",
-			Priority: 1, IsActive: false,
+			Priority: 1, IsActive: false, ToolName: "",
 		},
 	}
 
@@ -74,7 +74,7 @@ func TestIntentRepo_FindByCode(t *testing.T) {
 	intent := &model.Intent{
 		IntentCode: "test_intent", IntentName: "测试意图",
 		Keywords: pq.StringArray{"测试", "test"}, ReplyTemplate: "测试回复模板",
-		Priority: 3, IsActive: true,
+		Priority: 3, IsActive: true, ToolName: "query_steel_price",
 	}
 	if err := repo.Create(ctx, intent); err != nil {
 		t.Fatalf("Create failed: %v", err)
@@ -106,7 +106,7 @@ func TestIntentRepo_Create(t *testing.T) {
 	intent := &model.Intent{
 		IntentCode: "create_intent", IntentName: "创建测试",
 		Keywords: pq.StringArray{"创建"}, ReplyTemplate: "创建回复",
-		Priority: 0, IsActive: true,
+		Priority: 0, IsActive: true, ToolName: "convert_unit",
 	}
 	err := repo.Create(ctx, intent)
 	if err != nil {
@@ -125,7 +125,7 @@ func TestIntentRepo_Update(t *testing.T) {
 	intent := &model.Intent{
 		IntentCode: "update_intent", IntentName: "原始名称",
 		Keywords: pq.StringArray{"原始"}, ReplyTemplate: "原始模板",
-		Priority: 1, IsActive: true,
+		Priority: 1, IsActive: true, ToolName: "",
 	}
 	if err := repo.Create(ctx, intent); err != nil {
 		t.Fatalf("Create failed: %v", err)
@@ -160,7 +160,7 @@ func TestIntentRepo_Delete(t *testing.T) {
 	intent := &model.Intent{
 		IntentCode: "delete_intent", IntentName: "待删除",
 		Keywords: pq.StringArray{"删除"}, ReplyTemplate: "删除模板",
-		Priority: 2, IsActive: true,
+		Priority: 2, IsActive: true, ToolName: "",
 	}
 	if err := repo.Create(ctx, intent); err != nil {
 		t.Fatalf("Create failed: %v", err)
@@ -175,5 +175,61 @@ func TestIntentRepo_Delete(t *testing.T) {
 	_, err := repo.FindByCode(ctx, "delete_intent")
 	if err == nil {
 		t.Errorf("expected error after delete, got nil -- record still exists")
+	}
+}
+
+func TestIntentRepo_FindByToolName_Found(t *testing.T) {
+	db := setupIntentTestDB(t)
+	repo := NewIntentRepository(db)
+	ctx := context.Background()
+
+	intent := &model.Intent{
+		IntentCode: "price_query", IntentName: "价格查询",
+		Keywords: pq.StringArray{"价格", "报价"},
+		ToolName: "query_steel_price",
+		Priority: 10, IsActive: true,
+	}
+	if err := repo.Create(ctx, intent); err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	found, err := repo.FindByToolName(ctx, "query_steel_price")
+	if err != nil {
+		t.Fatalf("FindByToolName failed: %v", err)
+	}
+	if found.IntentCode != "price_query" {
+		t.Errorf("expected intent_code 'price_query', got '%s'", found.IntentCode)
+	}
+}
+
+func TestIntentRepo_FindByToolName_Inactive(t *testing.T) {
+	db := setupIntentTestDB(t)
+	repo := NewIntentRepository(db)
+	ctx := context.Background()
+
+	intent := &model.Intent{
+		IntentCode: "old_intent", IntentName: "已禁用意图",
+		Keywords: pq.StringArray{"old"},
+		ToolName: "some_old_tool",
+		Priority: 1, IsActive: false,
+	}
+	if err := repo.Create(ctx, intent); err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	_, err := repo.FindByToolName(ctx, "some_old_tool")
+	if err == nil {
+		t.Errorf("expected error for inactive intent, got nil")
+	}
+}
+
+func TestIntentRepo_FindByToolName_NotFound(t *testing.T) {
+	db := setupIntentTestDB(t)
+	repo := NewIntentRepository(db)
+	ctx := context.Background()
+
+	_, err := repo.FindByToolName(ctx, "nonexistent_tool")
+	if err == nil {
+		t.Errorf("expected error for nonexistent tool_name, got nil")
 	}
 }

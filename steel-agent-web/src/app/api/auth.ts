@@ -39,7 +39,7 @@ export async function loginByCode(
     "/auth/login",
     payload,
   );
-  if (data.code !== 200 || !data?.data?.access_token) {
+  if (!data?.data?.access_token) {
     throw new Error(data.message || "登录失败，未获取到有效的访问令牌");
   }
   return data.data;
@@ -59,7 +59,7 @@ export async function loginByPassword(
     "/auth/login-password",
     payload,
   );
-  if (data.code !== 200 || !data?.data?.access_token) {
+  if (!data?.data?.access_token) {
     throw new Error(data.message || "登录失败，未获取到有效的访问令牌");
   }
   return data.data;
@@ -78,7 +78,7 @@ export async function register(
     "/auth/register",
     payload,
   );
-  if (data.code !== 200 || !data?.data?.access_token) {
+  if (!data?.data?.access_token) {
     throw new Error(data.message || "注册失败，未获取到有效的访问令牌");
   }
   return data.data;
@@ -96,7 +96,7 @@ export async function refreshToken(
   const { data } = await apiClient.post<
     ApiResponse<RefreshTokenResponseData>
   >("/auth/refresh", payload);
-  if (data.code !== 200 || !data?.data?.access_token) {
+  if (!data?.data?.access_token) {
     throw new Error(data.message || "令牌刷新失败");
   }
   return data.data;

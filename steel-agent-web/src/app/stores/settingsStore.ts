@@ -39,11 +39,14 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   },
 
   loadSiteConfig: async () => {
+    set({ isLoading: true, error: null });
     try {
       const config = await getPublicConfig();
-      set({ siteConfig: config });
-    } catch {
-      // Silent fail — fall back to hardcoded defaults
+      set({ siteConfig: config, isLoading: false });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "获取站点配置失败";
+      set({ error: message, isLoading: false });
     }
   },
 

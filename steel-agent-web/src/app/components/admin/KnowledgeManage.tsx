@@ -100,10 +100,22 @@ export default function KnowledgeManage() {
     try { setStats(await adminKnowledgeApi.adminGetKnowledgeStats()); } catch { /* silent */ }
   }, []);
 
-  useEffect(() => { loadData(); loadStats(); }, [loadData, loadStats]);
+  useEffect(() => { loadStats(); }, [loadStats]);
+
+  // Load data when filter conditions or page changes
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, filterType, filterStatus, filterCategory, searchKeyword]);
 
   const handleSearch = () => { setPage(1); loadData(); };
-  const handleFilterChange = (setter: (v: string) => void, value: string) => { setter(value); setPage(1); setTimeout(() => loadData(), 0); };
+  const handleFilterChange = (setter: (v: string) => void, value: string) => { setter(value); setPage(1); };
+
+  // Trigger data reload when filter conditions change
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, filterType, filterStatus, filterCategory, searchKeyword]);
 
   const openCreateModal = () => { setIsEditing(false); setFormData({ type: "standard", title: "", category: "", standard_no: "", content: "", keywords: "", vectorize: false }); setFormModalOpen(true); };
   const openEditModal = (item: KnowledgeItem) => {

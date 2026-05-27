@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 
 export interface ListItem {
+  id?: string;
   text: string;
   tag?: string;
   onClick?: () => void;
@@ -25,7 +26,7 @@ export function ListCard({ title, items }: ListCardProps) {
       <div className="divide-y divide-steel-line">
         {items.map((item, idx) => (
           <div
-            key={idx}
+            key={item.id ?? idx}
             onClick={item.onClick}
             className={`px-5 py-3.5 flex items-start justify-between gap-4 ${
               item.onClick

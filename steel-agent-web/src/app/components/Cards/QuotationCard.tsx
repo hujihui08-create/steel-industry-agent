@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, RefreshCw, Save, Share2 } from "lucide-react";
 
@@ -32,6 +32,17 @@ export function QuotationCard({
   onRecalculate,
 }: QuotationCardProps) {
   const [saved, setSaved] = useState(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 清理 timer
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current) {
+        clearTimeout(savedTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div>
       <div className="rounded-2xl border border-steel-line overflow-hidden">
@@ -91,7 +102,11 @@ export function QuotationCard({
                 if (!saved) {
                   setSaved(true);
                   onSave();
-                  setTimeout(() => setSaved(false), 1500);
+                  // 清除之前的 timer
+                  if (savedTimerRef.current) {
+                    clearTimeout(savedTimerRef.current);
+                  }
+                  savedTimerRef.current = setTimeout(() => setSaved(false), 1500);
                 }
               }}
               className={`rounded-full border-steel-line hover:bg-transparent hover:border-steel-ink text-[13px] h-8 px-3.5 ${saved ? "text-steel-up" : "text-steel-ink"}`}

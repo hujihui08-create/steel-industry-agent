@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lib/pq"
 	"github.com/sashabaranov/go-openai"
 
 	"steel-agent-backend/internal/model"
@@ -1062,6 +1063,368 @@ func TestExecuteSetPriceAlert_RepoError(t *testing.T) {
 //   - type field equals "card"
 //   - card_type field equals "alert"
 //   - data sub-map contains id, category, target_price, condition, is_active
+// ---------------------------------------------------------------------------
+// Intent classification tests
+// ---------------------------------------------------------------------------
+
+// intentRepoInterface defines the subset of IntentRepository needed by intent tests.
+type intentRepoInterface interface {
+	FindAll(ctx context.Context) ([]model.Intent, error)
+	FindByToolName(ctx context.Context, toolName string) (*model.Intent, error)
+}
+
+// mockIntentRepo is a test double for intentRepoInterface.
+type mockIntentRepo struct {
+	findAllResult      []model.Intent
+	findAllErr         error
+	findByToolNameResult *model.Intent
+	findByToolNameErr    error
+}
+
+func (m *mockIntentRepo) FindAll(ctx context.Context) ([]model.Intent, error) {
+	if m.findAllErr != nil {
+		return nil, m.findAllErr
+	}
+	return m.findAllResult, nil
+}
+
+func (m *mockIntentRepo) FindByToolName(ctx context.Context, toolName string) (*model.Intent, error) {
+	if m.findByToolNameErr != nil {
+		return nil, m.findByToolNameErr
+	}
+	return m.findByToolNameResult, nil
+}
+
+// testableIntentService mirrors the intent-related methods of ChatService so
+// they can be tested in isolation without constructing a full ChatService.
+type testableIntentService struct {
+	intentRepo intentRepoInterface
+	chatRepo   chatRepoInterface
+}
+
+func newTestableIntentService(intentRepo intentRepoInterface, chatRepo chatRepoInterface) *testableIntentService {
+	return &testableIntentService{intentRepo: intentRepo, chatRepo: chatRepo}
+}
+
+// buildIntentClassifierPrompt mirrors ChatService.buildIntentClassifierPrompt.
+func (s *testableIntentService) buildIntentClassifierPrompt(ctx context.Context) string {
+	intents, err := s.intentRepo.FindAll(ctx)
+	if err != nil {
+		return "你是一个钢铁行业意图分类器。\n- unknown: 无法确定意图\n\n仅返回 JSON：{\"intent\":\"xxx\",\"confidence\":0.9}"
+	}
+
+	var b strings.Builder
+	b.WriteString("你是一个钢铁行业意图分类器。根据用户输入，判断用户意图属于以下哪一类：\n")
+
+	hasActive := false
+	for _, intent := range intents {
+		if !intent.IsActive {
+			continue
+		}
+		hasActive = true
+		b.WriteString(fmt.Sprintf("- %s: %s\n", intent.IntentCode, intent.IntentName))
+	}
+
+	if !hasActive {
+		return "你是一个钢铁行业意图分类器。\n- unknown: 无法确定意图\n\n仅返回 JSON：{\"intent\":\"xxx\",\"confidence\":0.9}"
+	}
+
+	b.WriteString("- unknown: 无法确定意图\n")
+	b.WriteString("\n仅返回 JSON：{\"intent\":\"xxx\",\"confidence\":0.9}")
+
+	return b.String()
+}
+
+// matchIntent mirrors ChatService.matchIntent (keyword-only portion,
+// excluding extractEntitiesFromText and classifyIntentWithLLM for testability).
+func (s *testableIntentService) matchIntent(ctx context.Context, userMessage string) intentMatchResult {
+	intents, err := s.intentRepo.FindAll(ctx)
+	if err != nil {
+		return intentMatchResult{matchMethod: "none"}
+	}
+
+	var bestMatch *model.Intent
+	var bestScore int
+	for i := range intents {
+		intent := &intents[i]
+		if !intent.IsActive {
+			continue
+		}
+		score := 0
+		for _, kw := range intent.Keywords {
+			if kw != "" && strings.Contains(userMessage, kw) {
+				score++
+			}
+		}
+		if score > bestScore {
+			bestScore = score
+			bestMatch = intent
+		}
+	}
+
+	if bestMatch != nil && bestScore > 0 {
+		confidence := float64(bestScore) / float64(len(bestMatch.Keywords)+1)
+		return intentMatchResult{
+			intentName:  bestMatch.IntentName,
+			intentCode:  bestMatch.IntentCode,
+			confidence:  confidence,
+			matchMethod: "keyword",
+			toolName:    bestMatch.ToolName,
+		}
+	}
+
+	return intentMatchResult{matchMethod: "none"}
+}
+
+// persistContext mirrors ChatService.persistContext.
+func (s *testableIntentService) persistContext(ctx context.Context, sessionID uint, toolCalls []openai.ToolCall) {
+	sess, err := s.chatRepo.FindSessionByID(ctx, sessionID)
+	if err != nil {
+		return
+	}
+
+	chatCtx := sess.GetContext()
+	chatCtx.TurnCount++
+
+	if len(toolCalls) > 0 {
+		toolName := toolCalls[0].Function.Name
+		if matchedIntent, err := s.intentRepo.FindByToolName(ctx, toolName); err == nil && matchedIntent != nil {
+			chatCtx.Intent = matchedIntent.IntentCode
+		} else {
+			chatCtx.Intent = toolName
+		}
+	}
+
+	sess.SetContext(chatCtx)
+	_ = s.chatRepo.UpdateSession(ctx, sess)
+}
+
+// ---------------------------------------------------------------------------
+// TestBuildIntentClassifierPrompt_WithActive
+// ---------------------------------------------------------------------------
+
+func TestBuildIntentClassifierPrompt_WithActive(t *testing.T) {
+	ctx := context.Background()
+
+	intentRepo := &mockIntentRepo{
+		findAllResult: []model.Intent{
+			{IntentCode: "price_query", IntentName: "价格查询", IsActive: true, Keywords: pq.StringArray{"价格"}},
+			{IntentCode: "quotation", IntentName: "报价计算", IsActive: true, Keywords: pq.StringArray{"报价"}},
+			{IntentCode: "greeting", IntentName: "问候语", IsActive: false, Keywords: pq.StringArray{"你好"}},
+		},
+	}
+	svc := newTestableIntentService(intentRepo, nil)
+
+	prompt := svc.buildIntentClassifierPrompt(ctx)
+
+	// Assert prompt contains both active intent codes and names.
+	if !strings.Contains(prompt, "price_query") {
+		t.Errorf("expected prompt to contain 'price_query', got: %s", prompt)
+	}
+	if !strings.Contains(prompt, "价格查询") {
+		t.Errorf("expected prompt to contain '价格查询', got: %s", prompt)
+	}
+	if !strings.Contains(prompt, "quotation") {
+		t.Errorf("expected prompt to contain 'quotation', got: %s", prompt)
+	}
+	if !strings.Contains(prompt, "报价计算") {
+		t.Errorf("expected prompt to contain '报价计算', got: %s", prompt)
+	}
+
+	// Assert prompt does NOT contain the inactive intent.
+	if strings.Contains(prompt, "greeting") {
+		t.Errorf("expected prompt NOT to contain inactive intent 'greeting', got: %s", prompt)
+	}
+	if strings.Contains(prompt, "问候语") {
+		t.Errorf("expected prompt NOT to contain inactive intent name '问候语', got: %s", prompt)
+	}
+
+	// Assert prompt ends with the unknown fallback.
+	if !strings.Contains(prompt, "- unknown: 无法确定意图") {
+		t.Errorf("expected prompt to contain '- unknown: 无法确定意图', got: %s", prompt)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestBuildIntentClassifierPrompt_Empty
+// ---------------------------------------------------------------------------
+
+func TestBuildIntentClassifierPrompt_Empty(t *testing.T) {
+	ctx := context.Background()
+
+	intentRepo := &mockIntentRepo{
+		findAllResult: []model.Intent{},
+	}
+	svc := newTestableIntentService(intentRepo, nil)
+
+	prompt := svc.buildIntentClassifierPrompt(ctx)
+
+	// Assert prompt contains only the unknown fallback.
+	if !strings.Contains(prompt, "unknown") {
+		t.Errorf("expected prompt to contain 'unknown', got: %s", prompt)
+	}
+	if !strings.Contains(prompt, "无法确定意图") {
+		t.Errorf("expected prompt to contain '无法确定意图', got: %s", prompt)
+	}
+
+	// Assert it does NOT contain a header about active intents.
+	if strings.Contains(prompt, "判断用户意图属于以下哪一类") {
+		t.Errorf("expected prompt NOT to contain intent classification header when empty, got: %s", prompt)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestMatchIntent_KeywordWithToolName
+// ---------------------------------------------------------------------------
+
+func TestMatchIntent_KeywordWithToolName(t *testing.T) {
+	ctx := context.Background()
+
+	intentRepo := &mockIntentRepo{
+		findAllResult: []model.Intent{
+			{
+				IntentCode: "price_query",
+				IntentName: "价格查询",
+				IsActive:   true,
+				Keywords:   pq.StringArray{"价格", "多少钱", "报价"},
+				ToolName:   "query_steel_price",
+			},
+		},
+	}
+	svc := newTestableIntentService(intentRepo, nil)
+
+	result := svc.matchIntent(ctx, "价格查询")
+
+	if result.intentCode != "price_query" {
+		t.Errorf("expected intentCode 'price_query', got '%s'", result.intentCode)
+	}
+	if result.intentName != "价格查询" {
+		t.Errorf("expected intentName '价格查询', got '%s'", result.intentName)
+	}
+	if result.toolName != "query_steel_price" {
+		t.Errorf("expected toolName 'query_steel_price', got '%s'", result.toolName)
+	}
+	if result.matchMethod != "keyword" {
+		t.Errorf("expected matchMethod 'keyword', got '%s'", result.matchMethod)
+	}
+	if result.confidence <= 0 {
+		t.Errorf("expected confidence > 0, got %f", result.confidence)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestPersistContext_ReverseLookup
+// ---------------------------------------------------------------------------
+
+func TestPersistContext_ReverseLookup(t *testing.T) {
+	ctx := context.Background()
+
+	mockChat := newMockChatRepo()
+	mockChat.sessions[1] = &model.ChatSession{
+		ID:      1,
+		UserID:  1,
+		Title:   "测试会话",
+		Context: `{"intent":"","entities":null,"last_query":"","turn_count":2}`,
+	}
+	mockChat.findSessionByIDResult = &model.ChatSession{
+		ID:      1,
+		UserID:  1,
+		Title:   "测试会话",
+		Context: `{"intent":"","entities":null,"last_query":"","turn_count":2}`,
+	}
+
+	intentRepo := &mockIntentRepo{
+		findByToolNameResult: &model.Intent{
+			IntentCode: "price_query",
+			IntentName: "价格查询",
+			IsActive:   true,
+			ToolName:   "query_steel_price",
+		},
+	}
+
+	svc := newTestableIntentService(intentRepo, mockChat)
+
+	toolCalls := []openai.ToolCall{
+		{
+			ID:   "call_1",
+			Type: openai.ToolTypeFunction,
+			Function: openai.FunctionCall{
+				Name:      "query_steel_price",
+				Arguments: `{"category":"螺纹钢"}`,
+			},
+		},
+	}
+
+	svc.persistContext(ctx, 1, toolCalls)
+
+	// Verify the session context was updated with the correct intent.
+	updated := mockChat.sessions[1]
+	chatCtx := updated.GetContext()
+
+	if chatCtx.Intent != "price_query" {
+		t.Errorf("expected Intent 'price_query', got '%s'", chatCtx.Intent)
+	}
+	if chatCtx.TurnCount != 3 {
+		t.Errorf("expected TurnCount 3, got %d", chatCtx.TurnCount)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestPersistContext_UnknownTool
+// ---------------------------------------------------------------------------
+
+func TestPersistContext_UnknownTool(t *testing.T) {
+	ctx := context.Background()
+
+	mockChat := newMockChatRepo()
+	mockChat.sessions[1] = &model.ChatSession{
+		ID:      1,
+		UserID:  1,
+		Title:   "测试会话",
+		Context: `{"intent":"","entities":null,"last_query":"","turn_count":1}`,
+	}
+	mockChat.findSessionByIDResult = &model.ChatSession{
+		ID:      1,
+		UserID:  1,
+		Title:   "测试会话",
+		Context: `{"intent":"","entities":null,"last_query":"","turn_count":1}`,
+	}
+
+	intentRepo := &mockIntentRepo{
+		findByToolNameErr: errors.New("record not found"),
+	}
+
+	svc := newTestableIntentService(intentRepo, mockChat)
+
+	toolCalls := []openai.ToolCall{
+		{
+			ID:   "call_2",
+			Type: openai.ToolTypeFunction,
+			Function: openai.FunctionCall{
+				Name:      "some_unknown_tool",
+				Arguments: `{}`,
+			},
+		},
+	}
+
+	svc.persistContext(ctx, 1, toolCalls)
+
+	// Verify the session context falls back to the tool name.
+	updated := mockChat.sessions[1]
+	chatCtx := updated.GetContext()
+
+	if chatCtx.Intent != "some_unknown_tool" {
+		t.Errorf("expected Intent 'some_unknown_tool' (fallback), got '%s'", chatCtx.Intent)
+	}
+	if chatCtx.TurnCount != 2 {
+		t.Errorf("expected TurnCount 2, got %d", chatCtx.TurnCount)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// set_price_alert SSE card emission tests
+// ---------------------------------------------------------------------------
+
 func TestSetPriceAlertCardFormat(t *testing.T) {
 	// Construct the alert result as it would come from executeSetPriceAlert.
 	alertResult := struct {

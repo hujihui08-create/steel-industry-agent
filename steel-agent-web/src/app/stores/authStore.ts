@@ -39,8 +39,11 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     set({ access_token: null, refresh_token: null, isAuthenticated: false });
-    const currentState = useAuthStore.getState();
-    writeStorage(currentState);
+    try {
+      writeStorage(useAuthStore.getState());
+    } catch {
+      // 静默失败 - 已清除内存中的 token
+    }
   },
 
   hydrate: () => {
@@ -53,6 +56,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
         if (access_token && refresh_token && typeof access_token === "string" && typeof refresh_token === "string") {
           set({ access_token, refresh_token, isAuthenticated: true, isHydrated: true });
+          writeStorage(useAuthStore.getState());
           return;
         }
       }

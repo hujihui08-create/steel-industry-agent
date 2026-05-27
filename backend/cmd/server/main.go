@@ -46,6 +46,7 @@ func main() {
 	crawlerLogRepo := repository.NewCrawlerLogRepository(db)
 	crawlerSourceRepo := repository.NewCrawlerSourceRepository(db)
 	intentRepo := repository.NewIntentRepository(db)
+	entityConfigRepo := repository.NewEntityConfigRepository(db)
 	knowledgeRepo := repository.NewKnowledgeRepository(db)
 	loginLogRepo := repository.NewLoginLogRepository(db)
 	menuRepo := repository.NewMenuRepository(db)
@@ -101,6 +102,7 @@ func main() {
 	agentConfigService := service.NewAgentConfigService(agentConfigRepo, categoryRepo)
 	categoryService := service.NewCategoryService(categoryRepo, steelPriceRepo)
 	intentService := service.NewIntentService(intentRepo)
+	entityConfigService := service.NewEntityConfigService(entityConfigRepo)
 	tokenUsageService := service.NewTokenUsageService(tokenUsageRepo)
 	menuService := service.NewMenuService(menuRepo)
 	mobileRoleService := service.NewMobileRoleService(mobileRoleRepo, userRepo)
@@ -110,10 +112,10 @@ func main() {
 	feedbackService := service.NewFeedbackService(feedbackRepo)
 
 	badCaseService := service.NewBadCaseService(badCaseRepo, nil)
-	chatService := service.NewChatService(chatRepo, llmAdapter, agentConfigService, steelPriceRepo, quotationRepo, knowledgeRepo, knowledgeService, tenderRepo, priceAlertRepo, newsRepo, categoryRepo, badCaseService, intentRepo, tokenUsageRepo)
+	chatService := service.NewChatService(chatRepo, llmAdapter, agentConfigService, steelPriceRepo, quotationRepo, knowledgeRepo, knowledgeService, tenderRepo, priceAlertRepo, newsRepo, categoryRepo, badCaseService, intentRepo, tokenUsageRepo, entityConfigService)
 	badCaseService.SetChatService(chatService)
 
-	debugService := service.NewDebugService(chatService, intentRepo, agentConfigService, chatRepo, categoryRepo, redisClient)
+	debugService := service.NewDebugService(chatService, intentRepo, agentConfigService, chatRepo, categoryRepo, entityConfigService, redisClient)
 
 	// --- Handlers ---
 	healthHandler := handler.NewHealthHandler(db, redisClient, version)
@@ -135,6 +137,7 @@ func main() {
 	adminNotifHandler := handler.NewAdminNotificationHandler(adminNotifService)
 	debugHandler := handler.NewDebugHandler(debugService)
 	intentHandler := handler.NewIntentHandler(intentService)
+	entityConfigHandler := handler.NewEntityConfigHandler(entityConfigService)
 	badCaseHandler := handler.NewBadCaseHandler(badCaseService)
 	backupHandler := handler.NewBackupHandler(backupService)
 	adminLogHandler := handler.NewAdminLogHandler(adminLogService)
@@ -186,6 +189,7 @@ func main() {
 		certificationHandler,
 		adminCertificationHandler,
 		feedbackHandler,
+		entityConfigHandler,
 		adminRepo,
 		adminLogRepo,
 		apiCallLogRepo,

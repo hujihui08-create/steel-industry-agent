@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Building2, MessageCircle, Bell } from "lucide-react";
+import { Building2, MessageCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -203,7 +203,7 @@ export default function LoginPage() {
                 <div className="flex items-center justify-center gap-8">
                   <div className="flex flex-col items-center gap-1 opacity-50">
                     <div className="w-10 h-10 rounded-full bg-steel-surface border border-steel-line flex items-center justify-center">
-                      <MessageCircle className="h-5 w-5 text-steel-muted" aria-hidden="true" />
+                      <span className="text-[16px] font-medium text-steel-muted">微</span>
                     </div>
                     <span className="text-[12px] text-steel-placeholder">
                       微信
@@ -214,7 +214,7 @@ export default function LoginPage() {
                   </div>
                   <div className="flex flex-col items-center gap-1 opacity-50">
                     <div className="w-10 h-10 rounded-full bg-steel-surface border border-steel-line flex items-center justify-center">
-                      <Bell className="h-5 w-5 text-steel-muted" aria-hidden="true" />
+                      <span className="text-[16px] font-medium text-steel-muted">钉</span>
                     </div>
                     <span className="text-[12px] text-steel-placeholder">
                       钉钉
@@ -306,7 +306,7 @@ export default function LoginPage() {
                 <div className="flex items-center justify-center gap-8">
                   <div className="flex flex-col items-center gap-1 opacity-50">
                     <div className="w-10 h-10 rounded-full bg-steel-surface border border-steel-line flex items-center justify-center">
-                      <MessageCircle className="h-5 w-5 text-steel-muted" aria-hidden="true" />
+                      <span className="text-[16px] font-medium text-steel-muted">微</span>
                     </div>
                     <span className="text-[12px] text-steel-placeholder">
                       微信
@@ -317,7 +317,7 @@ export default function LoginPage() {
                   </div>
                   <div className="flex flex-col items-center gap-1 opacity-50">
                     <div className="w-10 h-10 rounded-full bg-steel-surface border border-steel-line flex items-center justify-center">
-                      <Bell className="h-5 w-5 text-steel-muted" aria-hidden="true" />
+                      <span className="text-[16px] font-medium text-steel-muted">钉</span>
                     </div>
                     <span className="text-[12px] text-steel-placeholder">
                       钉钉

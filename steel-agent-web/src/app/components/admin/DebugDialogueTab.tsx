@@ -63,6 +63,7 @@ interface TurnDebugInfo {
   turn: number;
   intent: string;
   entities: Record<string, string>;
+  tool_name?: string;
   promptTokens: number;
   completionTokens: number;
   anaphoraResolved: boolean;
@@ -245,8 +246,7 @@ export function DebugDialogueTab() {
 
         switch (event.type) {
           case "token": {
-            const tokenData = event.data as { token: string };
-            fullContent += tokenData.token;
+            fullContent += event.data.content;
             setStreamingContent(fullContent);
             break;
           }
@@ -261,30 +261,33 @@ export function DebugDialogueTab() {
             break;
           }
           case "intent_match": {
-            const im = event.data as IntentMatchData;
-            debugInfoData.intent = im.intent || debugInfoData.intent;
-            if (im.entities) Object.assign(debugInfoData.entities, im.entities);
+            debugInfoData.intent = event.data.intent || debugInfoData.intent;
+            if (event.data.entities) Object.assign(debugInfoData.entities, event.data.entities);
+            if (event.data.tool_name) debugInfoData.tool_name = event.data.tool_name;
             break;
           }
           case "tool_call": {
-            const tc = event.data as { toolName: string; params: Record<string, unknown> };
-            fullContent += `\n[工具调用: ${tc.toolName}(${JSON.stringify(tc.params)})]`;
+            fullContent += `\n[工具调用: ${event.data.tool_name}(${event.data.arguments})]`;
+            setStreamingContent(fullContent);
+            break;
+          }
+          case "tool_result": {
+            const statusText = event.data.status === "success" ? "成功" : "失败";
+            fullContent += `\n[工具结果: ${event.data.tool_name} - ${statusText}]`;
             setStreamingContent(fullContent);
             break;
           }
           case "done": {
-            const doneData = event.data as { totalPromptTokens: number; totalCompletionTokens: number };
-            if (doneData.totalPromptTokens) {
-              setTotalPromptTokens((p) => p + doneData.totalPromptTokens);
+            if (event.data.total_prompt_tokens) {
+              setTotalPromptTokens((p) => p + event.data.total_prompt_tokens!);
             }
-            if (doneData.totalCompletionTokens) {
-              setTotalCompletionTokens((p) => p + doneData.totalCompletionTokens);
+            if (event.data.total_completion_tokens) {
+              setTotalCompletionTokens((p) => p + event.data.total_completion_tokens!);
             }
             break;
           }
           case "error": {
-            const errData = event.data as { message: string };
-            showErrorToast(errData.message || "流式请求失败");
+            showErrorToast(event.data.message || "流式请求失败");
             break;
           }
         }
@@ -312,6 +315,7 @@ export function DebugDialogueTab() {
         turn,
         intent: debugInfoData.intent || "未识别",
         entities: debugInfoData.entities || {},
+        tool_name: debugInfoData.tool_name,
         promptTokens: debugInfoData.promptTokens || 0,
         completionTokens: debugInfoData.completionTokens || estimateTokens(fullContent),
         anaphoraResolved: debugInfoData.anaphoraResolved || false,
@@ -845,6 +849,13 @@ export function DebugDialogueTab() {
                       </span>
                     )}
                   </div>
+
+                  {info.tool_name && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[#737373]">工具：</span>
+                      <span className="text-[#404040]">{info.tool_name}</span>
+                    </div>
+                  )}
 
                   {Object.keys(info.entities).length > 0 && (
                     <div>

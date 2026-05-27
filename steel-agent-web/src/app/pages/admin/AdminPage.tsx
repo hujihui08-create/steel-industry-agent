@@ -41,6 +41,9 @@ const MenuManagement = lazy(() =>
   import("@/app/components/admin/MenuManagement").then((m) => ({ default: m.MenuManagement }))
 );
 const SteelDataList = lazy(() => import("@/app/components/admin/SteelDataList"));
+const EntityConfig = lazy(() =>
+  import("@/app/components/admin/EntityConfig").then((m) => ({ default: m.EntityConfig }))
+);
 
 function PageFallback() {
   return (
@@ -58,6 +61,7 @@ export default function AdminPage() {
           <Route index element={<Dashboard />} />
           <Route path="agent-config" element={<AgentConfig />} />
           <Route path="intent-management" element={<IntentManagement />} />
+          <Route path="entity-config" element={<EntityConfig />} />
           <Route path="bad-case" element={<BadCaseManagement />} />
           <Route path="knowledge-manage" element={<KnowledgeManage />} />
           <Route path="crawler-manage" element={<CrawlerManage />} />

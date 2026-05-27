@@ -87,20 +87,20 @@ export async function updateQuotation(
 }
 
 export async function deleteQuotation(id: number): Promise<void> {
-  const { data } = await apiClient.delete<ApiResponse<null>>(
-    `/quotations/${id}`,
-  );
-  if (data?.code !== 200 && data?.code !== undefined) {
-    throw new Error(data?.message || "删除报价单失败");
-  }
+  await apiClient.delete(`/quotations/${id}`);
 }
 
 export async function exportQuotationPDF(id: number): Promise<void> {
-  const { data } = await apiClient.get<Blob>(`/quotations/${id}/pdf`, {
+  const response = await apiClient.get<Blob>(`/quotations/${id}/pdf`, {
     responseType: "blob",
   });
 
-  const url = window.URL.createObjectURL(data);
+  const contentType = String(response.headers["content-type"] ?? "");
+  if (!contentType.includes("application/pdf") && !contentType.includes("application/octet-stream")) {
+    throw new Error("返回的不是有效的 PDF 文件");
+  }
+
+  const url = window.URL.createObjectURL(response.data);
   const a = document.createElement("a");
   a.href = url;
   a.download = `quotation_${id}.pdf`;

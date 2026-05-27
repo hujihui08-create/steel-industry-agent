@@ -166,6 +166,7 @@ export interface Intent {
   template: string;
   priority: number;
   status: IntentStatus;
+  toolName?: string;
 }
 
 export type IntentStatus = 'enabled' | 'disabled';

@@ -26,8 +26,15 @@ export default function KnowledgeDetailPage() {
         if (standardResult.type === "standard") {
           return standardResult;
         }
-        throw new Error("Type mismatch");
-      } catch {
+        // Not a standard entry, fall through to try term detail
+        return getTermDetail(numericId);
+      } catch (err) {
+        // If getStandardDetail threw because it's not a standard item (e.g., 404),
+        // fall through to try term detail; otherwise re-throw.
+        if (err instanceof Error && err.message === "Type mismatch") {
+          return getTermDetail(numericId);
+        }
+        // For genuine API errors, try term detail as fallback
         return getTermDetail(numericId);
       }
     },

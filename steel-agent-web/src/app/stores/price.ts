@@ -34,5 +34,12 @@ export const usePriceStore = create<PriceStore>((set) => ({
 
   setDays: (days) => set({ days }),
 
-  resetFilters: () => set({ selectedRegion: "", selectedSpec: "" }),
+  resetFilters: () =>
+    set({
+      selectedCategory: "",
+      selectedRegion: "",
+      selectedSpec: "",
+      viewMode: "list",
+      days: 30,
+    }),
 }));

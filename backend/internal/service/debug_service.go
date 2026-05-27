@@ -19,7 +19,7 @@ import (
 // ---------------------------------------------------------------------------
 
 type DebugDialogueRequest struct {
-	SessionID    uint   `json:"session_id"`
+	SessionID    string `json:"session_id"`
 	Message      string `json:"message"`
 	ContextTurns int    `json:"context_turns"`
 	Model        string `json:"model"`
@@ -34,8 +34,8 @@ type DebugToolExecuteRequest struct {
 
 type ToolCallChainStep struct {
 	Step       string `json:"step"`
-	DurationMs int64  `json:"duration_ms"`
-	Success    bool   `json:"success"`
+	DurationMs int64  `json:"durationMs"`
+	Status     string `json:"status"`
 	Detail     string `json:"detail,omitempty"`
 }
 
@@ -43,16 +43,17 @@ type ToolExecuteResult struct {
 	Status     string              `json:"status"`
 	Result     interface{}         `json:"result"`
 	Chain      []ToolCallChainStep `json:"chain"`
-	DurationMs int64               `json:"duration_ms"`
+	DurationMs int64               `json:"durationMs"`
+	ErrorMsg   string              `json:"errorMsg,omitempty"`
 }
 
 type ToolHealthItem struct {
 	Name         string  `json:"name"`
 	DisplayName  string  `json:"displayName"`
 	Status       string  `json:"status"`
-	ResponseTime int64   `json:"response_time"`
-	SuccessRate  float64 `json:"success_rate"`
-	LastError    string  `json:"last_error,omitempty"`
+	ResponseTime int64   `json:"responseTime"`
+	SuccessRate  float64 `json:"successRate"`
+	LastError    string  `json:"lastError,omitempty"`
 }
 
 type ToolHealthResult struct {
@@ -66,7 +67,7 @@ type ToolHealthResult struct {
 
 type ToolSchema struct {
 	Name        string                 `json:"name"`
-	DisplayName string                 `json:"display_name"`
+	DisplayName string                 `json:"displayName"`
 	Description string                 `json:"description"`
 	Parameters  map[string]interface{} `json:"parameters"`
 }
@@ -142,12 +143,13 @@ type MockConfig struct {
 // ---------------------------------------------------------------------------
 
 type DebugService struct {
-	chatService        *ChatService
-	intentRepo         *repository.IntentRepository
-	agentConfigService *AgentConfigService
-	chatRepo           *repository.ChatRepository
-	categoryRepo       *repository.CategoryRepository
-	redisClient        redis.UniversalClient
+	chatService         *ChatService
+	intentRepo          *repository.IntentRepository
+	agentConfigService  *AgentConfigService
+	chatRepo            *repository.ChatRepository
+	categoryRepo        *repository.CategoryRepository
+	entityConfigService *EntityConfigService
+	redisClient         redis.UniversalClient
 }
 
 func NewDebugService(
@@ -156,15 +158,17 @@ func NewDebugService(
 	agentConfigService *AgentConfigService,
 	chatRepo *repository.ChatRepository,
 	categoryRepo *repository.CategoryRepository,
+	entityConfigService *EntityConfigService,
 	redisClient redis.UniversalClient,
 ) *DebugService {
 	return &DebugService{
-		chatService:        chatService,
-		intentRepo:         intentRepo,
-		agentConfigService: agentConfigService,
-		chatRepo:           chatRepo,
-		categoryRepo:       categoryRepo,
-		redisClient:        redisClient,
+		chatService:         chatService,
+		intentRepo:          intentRepo,
+		agentConfigService:  agentConfigService,
+		chatRepo:            chatRepo,
+		categoryRepo:        categoryRepo,
+		entityConfigService: entityConfigService,
+		redisClient:         redisClient,
 	}
 }
 
@@ -241,7 +245,10 @@ func (s *DebugService) extractEntities(ctx context.Context, text string) []Inten
 		}
 	}
 
-	regions := []string{"上海", "北京", "广州", "深圳", "杭州", "南京", "武汉", "成都", "重庆", "天津"}
+	regions, err := s.entityConfigService.GetRegions(ctx)
+	if err != nil || len(regions) == 0 {
+		regions = []string{"上海", "北京", "广州", "深圳", "杭州", "南京", "武汉", "成都", "重庆", "天津"}
+	}
 	for _, reg := range regions {
 		if strings.Contains(text, reg) {
 			entities = append(entities, IntentEntity{Key: "region", Value: reg})
@@ -281,10 +288,14 @@ func (s *DebugService) ExecuteTool(ctx context.Context, toolName string, params 
 
 	step1Start := time.Now()
 	paramsJSON, err := json.Marshal(params)
+	status := "success"
+	if err != nil {
+		status = "error"
+	}
 	chain = append(chain, ToolCallChainStep{
 		Step:       "参数序列化",
 		DurationMs: time.Since(step1Start).Milliseconds(),
-		Success:    err == nil,
+		Status:     status,
 		Detail:     string(paramsJSON),
 	})
 	if err != nil {
@@ -300,7 +311,7 @@ func (s *DebugService) ExecuteTool(ctx context.Context, toolName string, params 
 	chain = append(chain, ToolCallChainStep{
 		Step:       "Mock检查",
 		DurationMs: time.Since(step2Start).Milliseconds(),
-		Success:    true,
+		Status:     "success",
 		Detail:     fmt.Sprintf("hasMock=%v", hasMock),
 	})
 
@@ -334,10 +345,14 @@ func (s *DebugService) ExecuteTool(ctx context.Context, toolName string, params 
 
 	execResult, execErr := s.chatService.ExecuteTool(ctx, 0, toolCall)
 	step3Duration := time.Since(step3Start).Milliseconds()
+	status3 := "success"
+	if execErr != nil {
+		status3 = "error"
+	}
 	chain = append(chain, ToolCallChainStep{
 		Step:       "工具执行",
 		DurationMs: step3Duration,
-		Success:    execErr == nil,
+		Status:     status3,
 		Detail:     fmt.Sprintf("tool=%s", toolName),
 	})
 
@@ -550,27 +565,27 @@ func (s *DebugService) StreamDebugChat(ctx context.Context, req *DebugDialogueRe
 		{Role: openai.ChatMessageRoleSystem, Content: sysPrompt},
 	}
 
-	if req.SessionID > 0 {
-		messages, err := s.chatRepo.FindMessagesBySessionID(ctx, req.SessionID)
-		if err != nil {
-			sendSSEEvent(ch, "error", map[string]string{"message": fmt.Sprintf("加载会话失败: %v", err)})
-			return err
-		}
-
-		for _, msg := range messages {
-			var role string
-			switch msg.Role {
-			case "user":
-				role = openai.ChatMessageRoleUser
-			case "assistant":
-				role = openai.ChatMessageRoleAssistant
-			default:
-				role = openai.ChatMessageRoleUser
+	if req.SessionID != "" {
+		var sid uint
+		if _, parseErr := fmt.Sscanf(req.SessionID, "%d", &sid); parseErr == nil {
+			messages, loadErr := s.chatRepo.FindMessagesBySessionID(ctx, sid)
+			if loadErr == nil {
+				for _, msg := range messages {
+					var role string
+					switch msg.Role {
+					case "user":
+						role = openai.ChatMessageRoleUser
+					case "assistant":
+						role = openai.ChatMessageRoleAssistant
+					default:
+						role = openai.ChatMessageRoleUser
+					}
+					openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
+						Role:    role,
+						Content: msg.Content,
+					})
+				}
 			}
-			openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
-				Role:    role,
-				Content: msg.Content,
-			})
 		}
 	}
 
@@ -668,8 +683,10 @@ func (s *DebugService) StreamDebugChat(ctx context.Context, req *DebugDialogueRe
 	}
 
 	sendSSEEvent(ch, "done", map[string]interface{}{
-		"message": "调试对话完成",
-		"turns":   req.ContextTurns,
+		"message":                 "调试对话完成",
+		"turns":                   req.ContextTurns,
+		"total_prompt_tokens":     0,
+		"total_completion_tokens": 0,
 	})
 
 	return nil

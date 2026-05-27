@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useReducer } from "react";
 import { useSearchParams } from "react-router-dom";
 import { RefreshCw, Plus, Upload, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -64,6 +64,29 @@ const TYPE_CONFIG: Record<
 
 const PAGE_SIZE = 20;
 
+interface PaginationState {
+  offset: number;
+  hasMore: boolean;
+}
+
+type PaginationAction =
+  | { type: "RESET" }
+  | { type: "LOAD_MORE"; newOffset: number }
+  | { type: "SET_HAS_MORE"; hasMore: boolean };
+
+function paginationReducer(state: PaginationState, action: PaginationAction): PaginationState {
+  switch (action.type) {
+    case "RESET":
+      return { offset: 0, hasMore: true };
+    case "LOAD_MORE":
+      return { ...state, offset: action.newOffset };
+    case "SET_HAS_MORE":
+      return { ...state, hasMore: action.hasMore };
+    default:
+      return state;
+  }
+}
+
 export default function SteelDataList() {
   const [searchParams] = useSearchParams();
   const dataType = searchParams.get("type") as DataType;
@@ -74,8 +97,7 @@ export default function SteelDataList() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
+  const [pagination, dispatchPagination] = useReducer(paginationReducer, { offset: 0, hasMore: true });
   const [loadingMore, setLoadingMore] = useState(false);
 
   // CRUD dialog state
@@ -90,14 +112,14 @@ export default function SteelDataList() {
     async (reset = false) => {
       if (reset) {
         setLoading(true);
-        setOffset(0);
+        dispatchPagination({ type: "RESET" });
       } else {
         setLoadingMore(true);
       }
       setError(null);
 
       try {
-        const currentOffset = reset ? 0 : offset;
+        const currentOffset = reset ? 0 : pagination.offset;
         let result: any[] = [];
 
         switch (effectiveType) {
@@ -120,7 +142,7 @@ export default function SteelDataList() {
         } else {
           setRows((prev) => [...prev, ...result]);
         }
-        setHasMore(result.length === PAGE_SIZE);
+        dispatchPagination({ type: "SET_HAS_MORE", hasMore: result.length === PAGE_SIZE });
       } catch (err: any) {
         setError(err?.message || "加载失败");
       } finally {
@@ -128,7 +150,7 @@ export default function SteelDataList() {
         setLoadingMore(false);
       }
     },
-    [effectiveType, sourceName, offset],
+    [effectiveType, sourceName, pagination.offset],
   );
 
   useEffect(() => {
@@ -137,15 +159,15 @@ export default function SteelDataList() {
   }, [effectiveType, sourceName]);
 
   const loadMore = () => {
-    const newOffset = offset + PAGE_SIZE;
-    setOffset(newOffset);
+    const newOffset = pagination.offset + PAGE_SIZE;
+    dispatchPagination({ type: "LOAD_MORE", newOffset });
   };
 
   useEffect(() => {
-    if (offset > 0) {
+    if (pagination.offset > 0) {
       loadData(false);
     }
-  }, [offset]);
+  }, [pagination.offset]);
 
   // ---- CRUD Handlers ----
 
@@ -255,7 +277,7 @@ export default function SteelDataList() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="text-[12px] text-[#737373]">
-            共 {rows.length} 条{hasMore ? "+" : ""}
+            共 {rows.length} 条{pagination.hasMore ? "+" : ""}
           </div>
           {effectiveType === "price" && (
             <>
@@ -370,7 +392,7 @@ export default function SteelDataList() {
             </table>
           </div>
 
-          {hasMore && (
+          {pagination.hasMore && (
             <div className="flex justify-center py-4 border-t border-[#E5E5E5]">
               <button
                 onClick={loadMore}

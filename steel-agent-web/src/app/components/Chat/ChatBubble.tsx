@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { ChatMessage } from "@/app/types/chat";
 import { Sparkles, User, Copy, RefreshCw, ThumbsUp, ThumbsDown, Pencil, Trash2 } from "lucide-react";
 import { MarkdownContent } from "./MarkdownContent";
+import { cn } from "@/lib/utils";
 
 const MemoMarkdownContent = React.memo(MarkdownContent, (prev, next) => prev.content === next.content);
 
@@ -183,10 +184,6 @@ export function ErrorBubble({ content, onRegenerate }: ErrorBubbleProps) {
   );
 }
 
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
-}
-
 export interface ChatBubbleProps {
   message: ChatMessage;
   isStreaming?: boolean;
@@ -219,10 +216,9 @@ export const ChatBubble = React.memo(function ChatBubble({
   const isUser = message.role === "user";
   const isAssistant = !isUser;
 
-  // 1. Stop marker detection
-  const stopMarker = "_已停止生成_";
-  const hasStop = content.includes(stopMarker);
-  const displayContent = hasStop ? content.split(stopMarker)[0].trim().replace(/\n+$/, "") : content;
+  // 1. Stop marker detection - use is_stopped field instead of checking content
+  const hasStop = message.is_stopped === true;
+  const displayContent = content;
 
   // 2. Source citation parsing
   const sourceMatch = displayContent.match(/\n来源[：:]\s*(.+?)$/m);

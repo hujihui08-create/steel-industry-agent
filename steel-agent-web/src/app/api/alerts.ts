@@ -31,5 +31,6 @@ export async function updateAlert(id: number, params: UpdateAlertParams): Promis
 }
 
 export async function deleteAlert(id: number): Promise<void> {
-  await apiClient.delete(`/alerts/${id}`);
+  const { data } = await apiClient.delete<ApiResponse<null>>(`/alerts/${id}`);
+  if (!data) throw new Error("删除预警失败");
 }

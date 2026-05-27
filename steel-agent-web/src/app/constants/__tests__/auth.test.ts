@@ -150,7 +150,7 @@ describe("ROUTE", () => {
   it("ROUTE should have correct structure with all expected keys", () => {
     // ROUTE is defined `as const` for compile-time type narrowing
     const keys = Object.keys(ROUTE);
-    expect(keys).toHaveLength(20);
+    expect(keys).toHaveLength(26);
     expect(keys).toContain("ROOT");
     expect(keys).toContain("LOGIN");
     expect(keys).toContain("CHAT");

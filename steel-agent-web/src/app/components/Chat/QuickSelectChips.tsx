@@ -9,7 +9,7 @@
 // Colors: steel-ink / steel-line / steel-muted tokens.
 // ============================================================
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 // ============================================================
@@ -41,6 +41,11 @@ export function QuickSelectChips({
   onSelect,
 }: QuickSelectChipsProps) {
   const [locked, setLocked] = useState(false);
+
+  // 当 selectedValue 或 options 变化时重置 locked 状态
+  useEffect(() => {
+    setLocked(false);
+  }, [selectedValue, options]);
 
   if (!options.length) return null;
 

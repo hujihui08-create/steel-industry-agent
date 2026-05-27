@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuthStore } from "@/app/stores/authStore";
@@ -23,7 +23,7 @@ export function useTenderFavorite() {
     staleTime: 30_000,
   });
 
-  const favoriteSet = new Set(favoriteIds.map(String));
+  const favoriteSet = useMemo(() => new Set(favoriteIds.map(String)), [favoriteIds]);
 
   const addMutation = useMutation({
     mutationFn: addTenderFavorite,

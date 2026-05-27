@@ -27,5 +27,6 @@ export async function getNotifications(): Promise<Notification[]> {
 // -----------------------------------------------------------
 
 export async function markAsRead(id: string): Promise<void> {
-  await apiClient.put(`/notifications/${id}/read`);
+  const { data } = await apiClient.put<ApiResponse<null>>(`/notifications/${id}/read`);
+  if (!data) throw new Error("标记已读失败");
 }

@@ -6,6 +6,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +46,7 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
 
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // --- Stores ---
   const logout = useAuthStore((s) => s.logout);
@@ -107,15 +109,10 @@ export default function SettingsPage() {
   };
 
   const handleClearCache = () => {
-    // Mock: clear local storage entries except auth
-    const authKey = "auth-storage";
-    const themeKey = "steel-theme";
-    const preserved: Record<string, string> = {};
-    const authValue = localStorage.getItem(authKey);
-    const themeValue = localStorage.getItem(themeKey);
-    if (authValue) preserved[authKey] = authValue;
-    if (themeValue) preserved[themeKey] = themeValue;
-    // ... in real impl, clear specific cache keys
+    // Clear TanStack Query cache and invalidate all queries
+    queryClient.clear();
+    // Also clear any cached API responses by refetching active queries
+    queryClient.invalidateQueries();
     toast.success("缓存已清除");
   };
 

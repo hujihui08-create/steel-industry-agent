@@ -41,23 +41,31 @@ function readStoredTheme(): Theme {
   return "system";
 }
 
-function setupSystemListener(): void {
+// Prevent duplicate listener registration (e.g. HMR)
+let _systemListenerInstalled = false;
+
+function setupSystemListener(): () => void {
+  if (_systemListenerInstalled) return () => {};
+  _systemListenerInstalled = true;
+
   const mql = window.matchMedia("(prefers-color-scheme: dark)");
 
   const handleChange = () => {
     const state = useThemeStore.getState();
     if (state.theme === "system") {
-      if (mql.matches) {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
-      }
+      applyThemeClass("system");
     }
   };
 
-  // Use addEventListener (modern API)
   mql.addEventListener("change", handleChange);
+
+  return () => {
+    _systemListenerInstalled = false;
+    mql.removeEventListener("change", handleChange);
+  };
 }
+
+export const cleanupSystemListener = setupSystemListener();
 
 export const useThemeStore = create<ThemeState>((set) => ({
   theme: readStoredTheme(),
@@ -75,6 +83,3 @@ export const useThemeStore = create<ThemeState>((set) => ({
 
 // Apply initial theme on store creation
 applyThemeClass(useThemeStore.getState().theme);
-
-// Listen for OS theme changes when theme is "system"
-setupSystemListener();

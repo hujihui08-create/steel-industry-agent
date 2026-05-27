@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   SlidersHorizontal,
   GitBranch,
+  FileCog,
   Bug,
   Smartphone,
   Shield,
@@ -55,6 +56,12 @@ export const SIDEBAR_MENU_MAP: Record<string, SidebarMenuItem[]> = {
       label: "意图管理",
       icon: GitBranch,
       path: "/admin/intent-management",
+    },
+    {
+      id: "entity-config",
+      label: "实体配置",
+      icon: FileCog,
+      path: "/admin/entity-config",
     },
     {
       id: "agent-debug",

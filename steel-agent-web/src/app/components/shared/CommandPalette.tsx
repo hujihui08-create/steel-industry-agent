@@ -4,7 +4,7 @@
 // 设计系统: 极简 · 1px 描边 · 仅 ink 强调色 · 无阴影
 // ============================================================
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -100,6 +100,10 @@ export function CommandPalette({
   onSelectCommand,
 }: CommandPaletteProps) {
   const navigate = useNavigate();
+  const openRef = useRef(open);
+  openRef.current = open;
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
 
   // ---- Global keyboard shortcut ------------------------------
   useEffect(() => {
@@ -107,19 +111,19 @@ export function CommandPalette({
       // ⌘K (Mac) or Ctrl+K (Windows) — toggle open
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        onOpenChange(!open);
+        onOpenChangeRef.current(!openRef.current);
         return;
       }
       // Escape when open — the Dialog handles this natively via
       // Radix, but we also handle here for robustness.
-      if (e.key === "Escape" && open) {
-        onOpenChange(false);
+      if (e.key === "Escape" && openRef.current) {
+        onOpenChangeRef.current(false);
       }
     }
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onOpenChange]);
+  }, []);
 
   // ---- Handlers ----------------------------------------------
 

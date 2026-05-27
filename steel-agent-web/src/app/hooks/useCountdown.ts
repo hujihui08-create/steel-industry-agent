@@ -5,12 +5,6 @@ export function useCountdown() {
   const timerRef = useRef<ReturnType<typeof setInterval>>();
 
   useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
     if (countdown <= 0) {
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -26,6 +20,13 @@ export function useCountdown() {
         });
       }, 1000);
     }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = undefined;
+      }
+    };
   }, [countdown]);
 
   const startCountdown = useCallback((seconds: number) => {

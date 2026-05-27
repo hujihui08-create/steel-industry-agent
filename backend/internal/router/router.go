@@ -43,6 +43,7 @@ func Setup(
 	certificationHandler *handler.CertificationHandler,
 	adminCertificationHandler *handler.AdminCertificationHandler,
 	feedbackHandler *handler.FeedbackHandler,
+	entityConfigHandler *handler.EntityConfigHandler,
 	adminRepo *repository.AdminRepository,
 	adminLogRepo *repository.AdminLogRepository,
 	apiCallLogRepo *repository.ApiCallLogRepository,
@@ -289,6 +290,14 @@ func Setup(
 		adminIntents.PUT("/:id", intentHandler.Update)
 		adminIntents.DELETE("/:id", intentHandler.Delete)
 		adminIntents.GET("/stats", intentHandler.Stats)
+	}
+
+	adminEntityConfigs := api.Group("/admin/entity-configs")
+	adminEntityConfigs.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
+	{
+		adminEntityConfigs.GET("", entityConfigHandler.List)
+		adminEntityConfigs.POST("", entityConfigHandler.Create)
+		adminEntityConfigs.DELETE("/:id", entityConfigHandler.Delete)
 	}
 
 	adminBadCases := api.Group("/admin/bad-cases")

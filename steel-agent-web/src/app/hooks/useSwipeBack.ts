@@ -1,7 +1,6 @@
 // ============================================================
 // useSwipeBack — 手势返回 Hook
 // 检测触屏设备上的右滑手势（deltaX > 80px）触发返回
-// 同时监听浏览器 popstate 事件
 // ============================================================
 
 import { useEffect, useRef, useCallback } from 'react';
@@ -23,12 +22,14 @@ interface SwipeBackOptions {
  *
  * - 仅在 touch 设备（pointer: coarse）上激活
  * - 检测右滑手势：deltaX > threshold 且 水平位移 > 垂直位移
- * - 同时监听 popstate 事件
  */
 export function useSwipeBack(onBack: () => void, options: SwipeBackOptions = {}) {
   const { threshold = 80 } = options;
   const onBackRef = useRef(onBack);
-  onBackRef.current = onBack;
+
+  useEffect(() => {
+    onBackRef.current = onBack;
+  });
 
   const touchRef = useRef<{
     startX: number;
@@ -89,15 +90,6 @@ export function useSwipeBack(onBack: () => void, options: SwipeBackOptions = {})
 
     touchRef.current.tracking = false;
   }, [threshold]);
-
-  // ---- Popstate 监听 -----------------------------------------
-  useEffect(() => {
-    const handler = () => {
-      onBackRef.current();
-    };
-    window.addEventListener('popstate', handler);
-    return () => window.removeEventListener('popstate', handler);
-  }, []);
 
   // ---- 绑定/解绑 Touch 事件 -----------------------------------
   useEffect(() => {

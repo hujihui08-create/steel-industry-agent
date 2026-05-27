@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import { Upload, Loader2, CheckCircle, Clock } from "lucide-react";
 import { PageHeader } from "@/app/components/shared/PageHeader";
@@ -25,6 +25,7 @@ export default function CertificationPage() {
   const [certStatus, setCertStatus] = useState<CertificationData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const cancelledRef = useRef(false);
 
   const {
     register,
@@ -33,10 +34,12 @@ export default function CertificationPage() {
   } = useForm<CertificationFormValues>();
 
   useEffect(() => {
+    cancelledRef.current = false;
     getMyCertification()
-      .then((data) => setCertStatus(data))
-      .catch(() => setCertStatus(null))
-      .finally(() => setIsLoading(false));
+      .then((data) => { if (!cancelledRef.current) setCertStatus(data); })
+      .catch(() => { if (!cancelledRef.current) setCertStatus(null); })
+      .finally(() => { if (!cancelledRef.current) setIsLoading(false); });
+    return () => { cancelledRef.current = true; };
   }, []);
 
   const onSubmit = async (formData: CertificationFormValues) => {

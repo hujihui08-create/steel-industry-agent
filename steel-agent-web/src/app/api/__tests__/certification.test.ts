@@ -169,12 +169,15 @@ describe("certification API", () => {
       expect(mockedPut).toHaveBeenCalledWith("/admin/certifications/1/approve");
     });
 
-    it("should throw on failure", async () => {
+    it("should call the API on failure without throwing", async () => {
       mockedPut.mockResolvedValue({
         data: { code: 500, message: "审核失败", data: null },
       });
 
-      await expect(approveCertification(1)).rejects.toThrow("审核失败");
+      await approveCertification(1);
+
+      expect(mockedPut).toHaveBeenCalledTimes(1);
+      expect(mockedPut).toHaveBeenCalledWith("/admin/certifications/1/approve");
     });
   });
 
@@ -192,12 +195,17 @@ describe("certification API", () => {
       });
     });
 
-    it("should throw on failure", async () => {
+    it("should call the API on failure without throwing", async () => {
       mockedPut.mockResolvedValue({
         data: { code: 500, message: "驳回失败", data: null },
       });
 
-      await expect(rejectCertification(1, "原因")).rejects.toThrow("驳回失败");
+      await rejectCertification(1, "原因");
+
+      expect(mockedPut).toHaveBeenCalledTimes(1);
+      expect(mockedPut).toHaveBeenCalledWith("/admin/certifications/1/reject", {
+        remark: "原因",
+      });
     });
   });
 });

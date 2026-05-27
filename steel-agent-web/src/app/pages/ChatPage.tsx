@@ -65,7 +65,7 @@ export default function ChatPage() {
   // ---- site config (public branding) --------------------------
   const { siteConfig, loadSiteConfig } = useSettingsStore();
 
-  const scrollRef = useRef<any>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const conversationRef = useRef<HTMLDivElement>(null);
 
@@ -234,16 +234,19 @@ export default function ChatPage() {
       // ⌘/ / Ctrl+/ = 聚焦输入框
       if ((e.metaKey || e.ctrlKey) && e.key === '/') {
         e.preventDefault();
-        store.triggerFocusInput();
+        useChatStore.getState().triggerFocusInput();
       }
       // Esc closes selected card on mobile
-      if (e.key === 'Escape' && selectedCard && window.innerWidth < 1280) {
-        clearSelectedCard();
+      if (e.key === 'Escape' && window.innerWidth < 1280) {
+        const card = useChatStore.getState().selectedCard;
+        if (card) {
+          useChatStore.getState().clearSelectedCard();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedCard, clearSelectedCard, newSession, store]);
+  }, []);
 
   // ============================================================
   // Handlers

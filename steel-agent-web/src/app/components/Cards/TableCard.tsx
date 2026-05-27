@@ -32,7 +32,7 @@ export function TableCard({ title, headers, rows }: TableCardProps) {
           <tbody>
             {rows.map((row, rowIdx) => (
               <tr
-                key={rowIdx}
+                key={row.length > 0 ? `${row[0]}-${rowIdx}` : `${rowIdx}`}
                 className="border-b border-steel-line last:border-b-0 hover:bg-steel-surface transition-colors"
               >
                 {row.map((cell, cellIdx) => (

@@ -5,6 +5,7 @@
 // GET /api/v1/public/config
 // ============================================================
 
+import axios from "axios";
 import apiClient from "@/app/api/client";
 import type { ApiResponse } from "@/app/types/api";
 import type { UserSettings, SettingsUpdateData } from "@/app/types/settings";
@@ -50,13 +51,14 @@ export async function updateSettings(
 }
 
 // -----------------------------------------------------------
-// 获取站点公开配置（无需认证）
+// 获取站点公开配置（无需认证，使用原生 axios 避免自动附带 Token）
 // GET /api/v1/public/config
 // -----------------------------------------------------------
 
 export async function getPublicConfig(): Promise<SiteConfig> {
-  const { data } = await apiClient.get<ApiResponse<SiteConfig>>(
-    "/public/config",
+  const { data } = await axios.get<ApiResponse<SiteConfig>>(
+    "/api/v1/public/config",
   );
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取站点配置失败");
+  return data.data;
 }

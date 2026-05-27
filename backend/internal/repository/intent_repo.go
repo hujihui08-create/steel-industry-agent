@@ -45,6 +45,16 @@ func (r *IntentRepository) Update(ctx context.Context, intent *model.Intent) err
 	return r.db.WithContext(ctx).Save(intent).Error
 }
 
+// FindByToolName finds an intent configuration by its tool_name and active status.
+func (r *IntentRepository) FindByToolName(ctx context.Context, toolName string) (*model.Intent, error) {
+	var intent model.Intent
+	err := r.db.WithContext(ctx).Where("tool_name = ? AND is_active = ?", toolName, true).First(&intent).Error
+	if err != nil {
+		return nil, err
+	}
+	return &intent, nil
+}
+
 // Delete removes an intent configuration by its ID.
 func (r *IntentRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.Intent{}).Error

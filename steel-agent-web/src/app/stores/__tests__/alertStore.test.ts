@@ -178,20 +178,16 @@ describe("createAlert", () => {
     expect(state.alerts).toEqual([]);
   });
 
-  it("error: should throw the original error", async () => {
+  it("error: should set error in store instead of rethrowing", async () => {
     const err = new Error("服务端错误");
     mockCreateAlert.mockRejectedValue(err);
 
-    let caught: unknown;
     await act(async () => {
-      try {
-        await useAlertStore.getState().createAlert(createParams);
-      } catch (e) {
-        caught = e;
-      }
+      await useAlertStore.getState().createAlert(createParams);
     });
 
-    expect(caught).toBe(err);
+    expect(useAlertStore.getState().error).toBe("服务端错误");
+    expect(useAlertStore.getState().isLoading).toBe(false);
   });
 });
 

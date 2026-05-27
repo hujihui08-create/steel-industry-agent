@@ -7,7 +7,7 @@ import apiClient from "./client";
 import type { ApiResponse } from "@/app/types/api";
 import type {
   CrawlerSource, CrawlerLog, CrawlStatus, CrawlerSourceFormData,
-  DashboardStats, TrendDataPoint, BadCaseStats, BadCaseStatisticsResponse, ToolHealth,
+  DashboardStats, TrendDataPoint, BadCaseStats, BadCaseStatisticsResponse,
   AgentConfig, PromptVersion, Intent, IntentStats, IntentTestResult,
   BadCase, BadCaseFilter, BadCaseImportResult, BadCaseVerifyResult, MobileUser, AdminUser, AdminRole, AdminUserStatus, OperationLog,
   SystemSettings, BackupRecord, BackupOverview, PaginatedResponse,
@@ -16,13 +16,32 @@ import type {
   ScheduledTask, TaskExecutionLog, MenuNode
 } from "@/app/types/admin";
 
+// Tool health re-exported from admin-debug
+export { getToolHealth } from "./admin-debug";
+
+import type { ToolHealth } from "@/app/types/admin";
+
+export function getDefaultToolHealthItems(): ToolHealth[] {
+  return [
+    { name: "query_steel_price", displayName: "价格查询", status: "normal" },
+    { name: "calculate_quotation", displayName: "报价计算", status: "normal" },
+    { name: "search_knowledge", displayName: "知识搜索", status: "normal" },
+    { name: "query_tender", displayName: "招标查询", status: "normal" },
+    { name: "get_price_trend", displayName: "价格走势", status: "normal" },
+    { name: "set_price_alert", displayName: "价格预警", status: "normal" },
+    { name: "convert_unit", displayName: "单位换算", status: "normal" },
+    { name: "calculate_weight", displayName: "重量计算", status: "normal" },
+  ];
+}
+
 // ============================================================
 // 数据备份
 // ============================================================
 
 export async function getBackupOverview(): Promise<BackupOverview> {
   const { data } = await apiClient.get<ApiResponse<BackupOverview>>("/admin/backup/overview");
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取备份概览失败");
+  return data.data;
 }
 
 export async function getBackupRecords(
@@ -33,12 +52,14 @@ export async function getBackupRecords(
     "/admin/backup/records",
     { params: { page, page_size: pageSize } },
   );
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取备份记录失败");
+  return data.data;
 }
 
 export async function triggerBackup(): Promise<BackupRecord> {
   const { data } = await apiClient.post<ApiResponse<BackupRecord>>("/admin/backup/trigger");
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "触发备份失败");
+  return data.data;
 }
 
 export async function restoreBackup(backupId: string): Promise<void> {
@@ -62,7 +83,8 @@ export async function getAutoBackupSettings(): Promise<{
     retentionDays: number;
     storagePath: string;
   }>>("/admin/backup/settings");
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取自动备份设置失败");
+  return data.data;
 }
 
 export async function saveAutoBackupSettings(
@@ -93,8 +115,7 @@ export async function updateCrawlerSource(id: number, form: Partial<CrawlerSourc
 }
 
 export async function deleteCrawlerSource(id: number): Promise<void> {
-  const { data } = await apiClient.delete<ApiResponse<null>>(`/admin/crawler/sources/${id}`);
-  if (data.code !== 200) throw new Error(data.message || "删除失败");
+  await apiClient.delete(`/admin/crawler/sources/${id}`);
 }
 
 export async function getCrawlerLogs(sourceId?: number, limit = 50): Promise<CrawlerLog[]> {
@@ -105,8 +126,7 @@ export async function getCrawlerLogs(sourceId?: number, limit = 50): Promise<Cra
 }
 
 export async function triggerCrawl(sourceId: number): Promise<void> {
-  const { data } = await apiClient.post<ApiResponse<null>>(`/admin/crawler/trigger/${sourceId}`);
-  if (data.code !== 200) throw new Error(data.message || "触发失败");
+  await apiClient.post(`/admin/crawler/trigger/${sourceId}`);
 }
 
 export async function getCrawlStatus(): Promise<Record<number, CrawlStatus>> {
@@ -139,7 +159,7 @@ export async function createAdminPrice(data: {
   price_date: string;
 }): Promise<any> {
   const { data: res } = await apiClient.post<ApiResponse<any>>("/admin/prices", data);
-  if (res.code !== 200) throw new Error(res.message || "创建失败");
+  if (!res?.data) throw new Error(res.message || "创建失败");
   return res.data;
 }
 
@@ -154,13 +174,12 @@ export async function updateAdminPrice(id: number, data: Partial<{
   price_date: string;
 }>): Promise<any> {
   const { data: res } = await apiClient.put<ApiResponse<any>>(`/admin/prices/${id}`, data);
-  if (res.code !== 200) throw new Error(res.message || "更新失败");
+  if (!res?.data) throw new Error(res.message || "更新失败");
   return res.data;
 }
 
 export async function deleteAdminPrice(id: number): Promise<void> {
-  const { data: res } = await apiClient.delete<ApiResponse<null>>(`/admin/prices/${id}`);
-  if (res.code !== 200) throw new Error(res.message || "删除失败");
+  await apiClient.delete(`/admin/prices/${id}`);
 }
 
 export async function batchImportPrices(prices: Array<{
@@ -174,8 +193,8 @@ export async function batchImportPrices(prices: Array<{
   price_date: string;
 }>): Promise<{ imported: number }> {
   const { data: res } = await apiClient.post<ApiResponse<{ imported: number }>>("/admin/prices/batch-import", prices);
-  if (res.code !== 200) throw new Error(res.message || "导入失败");
-  return res.data!;
+  if (!res?.data) throw new Error(res.message || "导入失败");
+  return res.data;
 }
 
 export async function getAdminNews(params: {
@@ -201,6 +220,7 @@ export async function getAdminTenders(params: {
 // Dashboard 仪表盘（对接真实后端 API）
 // ============================================================
 
+// TODO: 后端暂不支持变化率数据，当前硬编码为0
 export async function getDashboardStats(): Promise<DashboardStats> {
   const { data } = await apiClient.get<ApiResponse<{
     user_count: number;
@@ -279,42 +299,6 @@ export async function getBadCaseStats(): Promise<BadCaseStats> {
   return { pending: 0, fixing: 0, fixed: 0, verified: 0 };
 }
 
-export async function getToolHealth(): Promise<ToolHealth[]> {
-  try {
-    const { data } = await apiClient.get<ApiResponse<{ tools: ToolHealth[]; summary: unknown }>>("/admin/debug/tool/health");
-    const result = data.data;
-    if (!result) return getDefaultToolHealth();
-    if (Array.isArray(result)) return result as unknown as ToolHealth[];
-    if (typeof result === "object" && "tools" in result) {
-      return result.tools as ToolHealth[];
-    }
-    return getDefaultToolHealth();
-  } catch {
-    return getDefaultToolHealth();
-  }
-}
-
-const defaultToolHealthItems: ToolHealth[] = [
-  { name: "query_steel_price", displayName: "价格查询", status: "normal" },
-  { name: "calculate_quotation", displayName: "报价计算", status: "normal" },
-  { name: "search_knowledge", displayName: "知识检索", status: "normal" },
-  { name: "query_tender", displayName: "招标查询", status: "normal" },
-  { name: "get_price_trend", displayName: "价格走势", status: "normal" },
-  { name: "set_price_alert", displayName: "价格预警", status: "normal" },
-  { name: "convert_unit", displayName: "单位换算", status: "normal" },
-  { name: "calculate_weight", displayName: "重量计算", status: "normal" },
-  { name: "search_news", displayName: "资讯搜索", status: "normal" },
-  { name: "get_news_detail", displayName: "资讯详情", status: "normal" },
-];
-
-export function getDefaultToolHealthItems(): ToolHealth[] {
-  return defaultToolHealthItems;
-}
-
-function getDefaultToolHealth(): ToolHealth[] {
-  return defaultToolHealthItems;
-}
-
 export async function getRecentLogs(): Promise<OperationLog[]> {
   const { data } = await apiClient.get<ApiResponse<OperationLog[]>>(
     "/admin/logs",
@@ -346,19 +330,18 @@ export async function getRecentLogs(): Promise<OperationLog[]> {
 
 export async function getAgentConfig(): Promise<AgentConfig> {
   const res = await apiClient.get<ApiResponse<AgentConfig>>("/admin/agent-config");
-  return res.data.data!;
+  if (!res.data?.data) throw new Error(res.data.message || "获取Agent配置失败");
+  return res.data.data;
 }
 
 export async function saveAgentConfig(config: AgentConfig): Promise<void> {
-  const res = await apiClient.put<ApiResponse<null>>("/admin/agent-config", config);
-  if (res.data.code !== 200) {
-    throw new Error(res.data.message || "保存失败");
-  }
+  await apiClient.put("/admin/agent-config", config);
 }
 
 export async function getPromptVersions(): Promise<PromptVersion[]> {
   const res = await apiClient.get<ApiResponse<PromptVersion[]>>("/admin/agent-config/prompt-versions");
-  return res.data.data!;
+  if (!res.data?.data) throw new Error(res.data.message || "获取Prompt版本失败");
+  return res.data.data;
 }
 
 export async function testModelConnection(params: {
@@ -370,7 +353,8 @@ export async function testModelConnection(params: {
     "/admin/agent-config/test-connection",
     params,
   );
-  return res.data.data!;
+  if (!res.data?.data) throw new Error(res.data.message || "模型连接测试失败");
+  return res.data.data;
 }
 
 // ============================================================
@@ -391,6 +375,7 @@ function mapIntentFromAPI(raw: Record<string, unknown>): Intent {
     template: (raw.reply_template as string) ?? "",
     priority: (raw.priority as number) ?? 0,
     status: (raw.is_active as boolean) ? "enabled" : "disabled",
+    toolName: (raw.tool_name as string) ?? "",
   };
 }
 
@@ -404,6 +389,7 @@ function mapIntentToAPI(intent: Intent): Record<string, unknown> {
     reply_template: intent.template,
     priority: intent.priority,
     is_active: intent.status === "enabled",
+    tool_name: intent.toolName || "",
   };
 }
 
@@ -510,6 +496,45 @@ export async function testIntent(text: string): Promise<IntentTestResult> {
 }
 
 // ============================================================
+// 实体配置管理（对接真实后端 API）
+// ============================================================
+
+export interface EntityConfig {
+  id: number;
+  entity_type: string;
+  entity_value: string;
+  created_at: string;
+}
+
+export async function getEntityConfigs(entityType: string = "region"): Promise<EntityConfig[]> {
+  const { data } = await apiClient.get<ApiResponse<unknown>>(
+    "/admin/entity-configs",
+    { params: { entity_type: entityType } },
+  );
+  if (!data?.data) return [];
+  if (Array.isArray(data.data)) {
+    return (data.data as Record<string, unknown>[]).map((item) => ({
+      id: (item.id as number) ?? 0,
+      entity_type: (item.entity_type as string) ?? "",
+      entity_value: (item.entity_value as string) ?? "",
+      created_at: (item.created_at as string) ?? "",
+    })) as EntityConfig[];
+  }
+  return [];
+}
+
+export async function createEntityConfig(entityType: string, entityValue: string): Promise<void> {
+  await apiClient.post("/admin/entity-configs", {
+    entity_type: entityType,
+    entity_value: entityValue,
+  });
+}
+
+export async function deleteEntityConfig(id: number): Promise<void> {
+  await apiClient.delete(`/admin/entity-configs/${id}`);
+}
+
+// ============================================================
 // Bad Case 管理（对接真实后端 API）
 // ============================================================
 
@@ -518,12 +543,14 @@ export async function getBadCases(filter?: BadCaseFilter): Promise<PaginatedResp
     "/admin/bad-cases",
     { params: filter },
   );
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取Bad Case列表失败");
+  return data.data;
 }
 
 export async function getBadCaseDetail(id: string | number): Promise<BadCase> {
   const { data } = await apiClient.get<ApiResponse<BadCase>>(`/admin/bad-cases/${id}`);
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取Bad Case详情失败");
+  return data.data;
 }
 
 export async function createBadCase(params: {
@@ -533,7 +560,8 @@ export async function createBadCase(params: {
   correct_response?: string;
 }): Promise<BadCase> {
   const { data } = await apiClient.post<ApiResponse<BadCase>>("/admin/bad-cases", params);
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "创建Bad Case失败");
+  return data.data;
 }
 
 export async function updateBadCase(
@@ -555,7 +583,8 @@ export async function importBadCases(file: File): Promise<BadCaseImportResult> {
     formData,
     { headers: { "Content-Type": "multipart/form-data" } },
   );
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "导入Bad Case失败");
+  return data.data;
 }
 
 export async function exportBadCases(filter?: BadCaseFilter): Promise<Blob> {
@@ -570,7 +599,8 @@ export async function verifyBadCase(id: string | number): Promise<BadCaseVerifyR
   const { data } = await apiClient.post<ApiResponse<BadCaseVerifyResult>>(
     `/admin/bad-cases/${id}/verify`,
   );
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "验证Bad Case失败");
+  return data.data;
 }
 
 // ============================================================
@@ -588,7 +618,10 @@ export async function getMobileUsers(filter?: {
     "/admin/mobile-users",
     { params: { page: filter?.page, page_size: filter?.pageSize, keyword: filter?.keyword, status: filter?.status, role: filter?.role } },
   );
-  const raw = data.data!;
+  const raw = data.data;
+  if (!raw) {
+    return { items: [], total: 0, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 10 };
+  }
   if (Array.isArray(raw)) {
     return { items: raw, total: raw.length, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 10 };
   }
@@ -604,7 +637,8 @@ export async function getMobileUsers(filter?: {
 
 export async function getMobileUserDetail(id: number): Promise<MobileUser> {
   const { data } = await apiClient.get<ApiResponse<MobileUser>>(`/admin/mobile-users/${id}`);
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取用户详情失败");
+  return data.data;
 }
 
 export async function disableMobileUser(id: number): Promise<void> {
@@ -660,10 +694,7 @@ export async function updateAdminUser(
 }
 
 export async function deleteAdminUser(id: number): Promise<void> {
-  const { data } = await apiClient.delete<ApiResponse<null>>(`/admin/users/${id}`);
-  if (data.code !== 200) {
-    throw new Error(data.message || "删除管理员失败");
-  }
+  await apiClient.delete(`/admin/users/${id}`);
 }
 
 export async function getAdminNotifications(params?: {
@@ -678,17 +709,11 @@ export async function getAdminNotifications(params?: {
 }
 
 export async function markNotificationRead(id: number): Promise<void> {
-  const { data } = await apiClient.put<ApiResponse<null>>(`/admin/notifications/${id}/read`);
-  if (data.code !== 200) {
-    throw new Error(data.message || "标记已读失败");
-  }
+  await apiClient.put(`/admin/notifications/${id}/read`);
 }
 
 export async function markAllNotificationsRead(): Promise<void> {
-  const { data } = await apiClient.put<ApiResponse<null>>("/admin/notifications/read-all");
-  if (data.code !== 200) {
-    throw new Error(data.message || "全部标记已读失败");
-  }
+  await apiClient.put("/admin/notifications/read-all");
 }
 
 export async function getUnreadCount(): Promise<{ count: number }> {
@@ -728,7 +753,10 @@ export async function getOperationLogs(filter?: {
     "/admin/logs",
     { params: { page: filter?.page, page_size: filter?.pageSize, operator: filter?.operator, action_type: filter?.actionType, start_date: filter?.startDate, end_date: filter?.endDate } },
   );
-  const raw = data.data!;
+  const raw = data.data;
+  if (!raw) {
+    return { items: [], total: 0, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 20 };
+  }
   if (Array.isArray(raw)) {
     return { items: (raw as any[]).map(mapAdminLogToOperationLog), total: raw.length, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 20 };
   }
@@ -745,7 +773,8 @@ export async function getOperationLogs(filter?: {
 
 export async function getOperationLogDetail(id: string): Promise<OperationLog> {
   const { data } = await apiClient.get<ApiResponse<any>>(`/admin/logs/${id}`);
-  return mapAdminLogToOperationLog(data.data!);
+  if (!data?.data) throw new Error(data?.message || "获取日志详情失败");
+  return mapAdminLogToOperationLog(data.data);
 }
 
 export async function exportOperationLogs(filter?: {
@@ -767,7 +796,8 @@ export async function exportOperationLogs(filter?: {
 
 export async function getSystemSettings(): Promise<SystemSettings> {
   const { data } = await apiClient.get<ApiResponse<SystemSettings>>("/admin/settings");
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取系统设置失败");
+  return data.data;
 }
 
 export async function saveSystemSettings(settings: SystemSettings): Promise<void> {
@@ -778,12 +808,14 @@ export async function uploadLogo(file: File): Promise<string> {
   const formData = new FormData();
   formData.append("file", file);
   const { data } = await apiClient.post<ApiResponse<{ url: string }>>("/admin/settings/upload-logo", formData);
-  return data.data!.url;
+  if (!data?.data?.url) throw new Error(data?.message || "上传Logo失败");
+  return data.data.url;
 }
 
 export async function testEmail(): Promise<{ success: boolean; message: string }> {
   const { data } = await apiClient.post<ApiResponse<{ success: boolean; message: string }>>("/admin/settings/test-email");
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "邮件测试失败");
+  return data.data;
 }
 
 // ============================================================
@@ -791,38 +823,34 @@ export async function testEmail(): Promise<{ success: boolean; message: string }
 // ============================================================
 
 export async function getCategories(params?: { type?: string; status?: string }): Promise<Category[]> {
-  const query = new URLSearchParams();
-  if (params?.type) query.set("type", params.type);
-  if (params?.status) query.set("status", params.status);
-  const res = await apiClient.get<ApiResponse<Category[]>>(`/admin/categories?${query.toString()}`);
+  const res = await apiClient.get<ApiResponse<Category[]>>("/admin/categories", { params });
   if (res.data.code !== 200) throw new Error(res.data.message || "加载失败");
   return res.data.data ?? [];
 }
 
 export async function createCategory(data: { name: string; type: string; sort_order: number; parent_id?: number }): Promise<Category> {
   const res = await apiClient.post<ApiResponse<Category>>("/admin/categories", data);
-  if (res.data.code !== 200) throw new Error(res.data.message || "创建失败");
-  return res.data.data!;
+  if (!res.data?.data) throw new Error(res.data.message || "创建失败");
+  return res.data.data;
 }
 
 export async function updateCategory(id: number, data: { name: string; type: string; status: string; sort_order: number; parent_id?: number }): Promise<void> {
-  const res = await apiClient.put<ApiResponse<null>>(`/admin/categories/${id}`, data);
-  if (res.data.code !== 200) throw new Error(res.data.message || "更新失败");
+  await apiClient.put(`/admin/categories/${id}`, data);
 }
 
 export async function deleteCategory(id: number): Promise<void> {
-  const res = await apiClient.delete<ApiResponse<null>>(`/admin/categories/${id}`);
-  if (res.data.code !== 200) throw new Error(res.data.message || "删除失败");
+  await apiClient.delete(`/admin/categories/${id}`);
 }
 
 export async function toggleCategory(id: number): Promise<Category> {
   const res = await apiClient.patch<ApiResponse<Category>>(`/admin/categories/${id}/toggle`);
-  if (res.data.code !== 200) throw new Error(res.data.message || "切换失败");
-  return res.data.data!;
+  if (!res.data?.data) throw new Error(res.data.message || "切换失败");
+  return res.data.data;
 }
 
 export async function getPublicCategories(): Promise<PublicCategories> {
   const res = await fetch("/api/v1/categories");
+  if (!res.ok) throw new Error(`HTTP ${res.status}: 获取公开分类失败`);
   const data = await res.json();
   if (data.code !== 200) throw new Error(data.message || "获取失败");
   return data.data;
@@ -834,14 +862,16 @@ export async function getPublicCategories(): Promise<PublicCategories> {
 
 export async function getMobileRoles(): Promise<MobileRole[]> {
   const { data } = await apiClient.get<ApiResponse<MobileRole[]>>('/admin/mobile-roles')
-  return data.data!
+  if (!data?.data) throw new Error(data?.message || "获取角色列表失败");
+  return data.data
 }
 
 export async function createMobileRole(
   params: { name: string; description?: string; status?: number },
 ): Promise<MobileRole> {
   const { data } = await apiClient.post<ApiResponse<MobileRole>>('/admin/mobile-roles', params)
-  return data.data!
+  if (!data?.data) throw new Error(data?.message || "创建角色失败");
+  return data.data
 }
 
 export async function updateMobileRole(
@@ -849,7 +879,8 @@ export async function updateMobileRole(
   params: { name?: string; description?: string; status?: number },
 ): Promise<MobileRole> {
   const { data } = await apiClient.put<ApiResponse<MobileRole>>(`/admin/mobile-roles/${id}`, params)
-  return data.data!
+  if (!data?.data) throw new Error(data?.message || "更新角色失败");
+  return data.data
 }
 
 export async function deleteMobileRole(id: number): Promise<void> {
@@ -858,7 +889,8 @@ export async function deleteMobileRole(id: number): Promise<void> {
 
 export async function getRolePermissions(): Promise<MobileRole[]> {
   const { data } = await apiClient.get<ApiResponse<MobileRole[]>>('/admin/mobile-roles/permissions')
-  return data.data!
+  if (!data?.data) throw new Error(data?.message || "获取权限失败");
+  return data.data
 }
 
 export async function saveRolePermissions(
@@ -873,7 +905,8 @@ export async function saveRolePermissions(
 
 export async function getRetentionStats(): Promise<RetentionStats> {
   const { data } = await apiClient.get<ApiResponse<RetentionStats>>('/admin/mobile-users/retention')
-  return data.data!
+  if (!data?.data) throw new Error(data?.message || "获取留存统计失败");
+  return data.data
 }
 
 // ============================================================
@@ -889,12 +922,14 @@ export async function getLoginLogs(params?: {
     "/admin/login-logs",
     { params }
   );
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取登录日志失败");
+  return data.data;
 }
 
 export async function getLoginLogStats(): Promise<LoginLogStats> {
   const { data } = await apiClient.get<ApiResponse<LoginLogStats>>("/admin/login-logs/stats");
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取登录统计失败");
+  return data.data;
 }
 
 // ============================================================
@@ -903,29 +938,34 @@ export async function getLoginLogStats(): Promise<LoginLogStats> {
 
 export async function getApiStatsOverview(): Promise<ApiCallOverview> {
   const { data } = await apiClient.get<ApiResponse<ApiCallOverview>>("/admin/api-stats/overview");
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取API统计概览失败");
+  return data.data;
 }
 
 export async function getApiEndpointStats(): Promise<ApiEndpointStat[]> {
   const { data } = await apiClient.get<ApiResponse<ApiEndpointStat[]>>("/admin/api-stats/endpoints");
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取端点统计失败");
+  return data.data;
 }
 
 export async function getApiModelStats(): Promise<ApiModelStat[]> {
   const { data } = await apiClient.get<ApiResponse<ApiModelStat[]>>("/admin/api-stats/models");
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取模型统计失败");
+  return data.data;
 }
 
 export async function getApiUserStats(): Promise<ApiUserStat[]> {
   const { data } = await apiClient.get<ApiResponse<ApiUserStat[]>>("/admin/api-stats/users");
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取用户统计失败");
+  return data.data;
 }
 
 export async function getApiTrend(days: number = 7): Promise<ApiTrendPoint[]> {
   const { data } = await apiClient.get<ApiResponse<ApiTrendPoint[]>>("/admin/api-stats/trend", {
     params: { days }
   });
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取API趋势失败");
+  return data.data;
 }
 
 // ============================================================
@@ -934,7 +974,8 @@ export async function getApiTrend(days: number = 7): Promise<ApiTrendPoint[]> {
 
 export async function getScheduledTasks(): Promise<ScheduledTask[]> {
   const { data } = await apiClient.get<ApiResponse<ScheduledTask[]>>("/admin/scheduled-tasks");
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取定时任务列表失败");
+  return data.data;
 }
 
 export async function triggerTask(taskName: string): Promise<void> {
@@ -945,7 +986,8 @@ export async function getTaskLogs(taskId: number): Promise<TaskExecutionLog[]> {
   const { data } = await apiClient.get<ApiResponse<TaskExecutionLog[]>>("/admin/scheduled-tasks/logs", {
     params: { task_id: taskId }
   });
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取任务日志失败");
+  return data.data;
 }
 
 export async function toggleTask(taskName: string): Promise<string> {
@@ -953,7 +995,8 @@ export async function toggleTask(taskName: string): Promise<string> {
     "/admin/scheduled-tasks/toggle",
     { task_name: taskName }
   );
-  return data.data!.status;
+  if (!data?.data?.status) throw new Error(data?.message || "切换任务状态失败");
+  return data.data.status;
 }
 
 // ============================================================
@@ -962,12 +1005,14 @@ export async function toggleTask(taskName: string): Promise<string> {
 
 export async function getMenuTree(): Promise<MenuNode[]> {
   const { data } = await apiClient.get<ApiResponse<MenuNode[]>>("/admin/menus/tree");
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "获取菜单树失败");
+  return data.data;
 }
 
 export async function createMenu(menu: Partial<MenuNode>): Promise<MenuNode> {
   const { data } = await apiClient.post<ApiResponse<MenuNode>>("/admin/menus", menu);
-  return data.data!;
+  if (!data?.data) throw new Error(data?.message || "创建菜单失败");
+  return data.data;
 }
 
 export async function updateMenu(id: number, menu: Partial<MenuNode>): Promise<void> {

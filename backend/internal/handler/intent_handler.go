@@ -41,6 +41,7 @@ func (h *IntentHandler) Create(c *gin.Context) {
 	var req struct {
 		IntentCode    string   `json:"intent_code" binding:"required"`
 		IntentName    string   `json:"intent_name" binding:"required"`
+		ToolName      string   `json:"tool_name"`
 		Keywords      []string `json:"keywords"`
 		ReplyTemplate string   `json:"reply_template"`
 		Priority      int      `json:"priority"`
@@ -54,6 +55,7 @@ func (h *IntentHandler) Create(c *gin.Context) {
 	intent := &model.Intent{
 		IntentCode:    req.IntentCode,
 		IntentName:    req.IntentName,
+		ToolName:      req.ToolName,
 		Keywords:      req.Keywords,
 		ReplyTemplate: req.ReplyTemplate,
 		Priority:      req.Priority,
@@ -78,6 +80,7 @@ func (h *IntentHandler) Update(c *gin.Context) {
 	var req struct {
 		IntentCode    string   `json:"intent_code"`
 		IntentName    string   `json:"intent_name"`
+		ToolName      string   `json:"tool_name"`
 		Keywords      []string `json:"keywords"`
 		ReplyTemplate string   `json:"reply_template"`
 		Priority      int      `json:"priority"`
@@ -92,6 +95,7 @@ func (h *IntentHandler) Update(c *gin.Context) {
 		ID:            uint(id),
 		IntentCode:    req.IntentCode,
 		IntentName:    req.IntentName,
+		ToolName:      req.ToolName,
 		Keywords:      req.Keywords,
 		ReplyTemplate: req.ReplyTemplate,
 		Priority:      req.Priority,

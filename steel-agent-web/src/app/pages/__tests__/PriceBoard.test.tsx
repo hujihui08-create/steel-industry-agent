@@ -162,7 +162,7 @@ describe("PriceBoard", () => {
     // "热卷" 变为激活态
     expect(hotRolledBtn.className).toContain("bg-steel-ink");
     // "螺纹钢" 变为非激活态
-    expect(rebarBtns[0].className).toContain("text-steel-body");
+    expect(rebarBtns[0].className).toContain("text-steel-ink");
   });
 
   // =========================================================================

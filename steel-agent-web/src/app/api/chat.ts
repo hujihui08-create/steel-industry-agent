@@ -4,9 +4,9 @@
 // - SSE 流式接口使用原生 fetch（支持 ReadableStream）
 // ============================================================
 
+import axios from "axios";
 import apiClient from "@/app/api/client";
-import { AUTH_STORAGE_KEY } from "@/app/config";
-import type { ApiResponse, AuthStorageState } from "@/app/types/api";
+import type { ApiResponse } from "@/app/types/api";
 import type {
   ChatSession,
   ChatMessage,
@@ -14,27 +14,8 @@ import type {
   AIFeedback,
   CardAttachment,
 } from "@/app/types/chat";
-
-// -----------------------------------------------------------
-// Token 读取工具（与 client.ts 保持一致）
-// -----------------------------------------------------------
-
-function getStoredTokens(): {
-  access_token: string | null;
-  refresh_token: string | null;
-} {
-  try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!raw) return { access_token: null, refresh_token: null };
-    const parsed: AuthStorageState = JSON.parse(raw);
-    return {
-      access_token: parsed.state?.access_token ?? null,
-      refresh_token: parsed.state?.refresh_token ?? null,
-    };
-  } catch {
-    return { access_token: null, refresh_token: null };
-  }
-}
+import { getStoredTokens, updateStoredTokens } from "@/app/utils/auth";
+import { API_BASE_URL, REFRESH_PATH } from "@/app/config";
 
 // -----------------------------------------------------------
 // 获取会话列表
@@ -130,8 +111,8 @@ function parseSSEStream(
         }
       }
       onDone();
-    } catch {
-      // 静默
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "流读取异常");
     }
     resolve();
   });
@@ -157,26 +138,50 @@ export function sendMessage(
   const controller = new AbortController();
   const { access_token } = getStoredTokens();
 
-  fetch("/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${access_token}`,
-    },
-    body: JSON.stringify(request),
-    signal: controller.signal,
-  })
-    .then(async (response) => {
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+  const doFetch = async (token: string, isRetry = false): Promise<void> => {
+    const response = await fetch("/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+
+    if (response.status === 401) {
+      if (isRetry) {
+        throw new Error("令牌刷新后仍返回 401，请重新登录");
       }
-      await parseSSEStream(response, onChunk, onError, onDone, onCard, onSessionId, onStatus);
-    })
-    .catch((err: Error) => {
+      const tokens = getStoredTokens();
+      if (!tokens.refresh_token) {
+        throw new Error("认证已过期，请重新登录");
+      }
+      const { data: refreshData } = await axios.post<
+        ApiResponse<{ access_token: string; refresh_token: string }>
+      >(API_BASE_URL + REFRESH_PATH, { refresh_token: tokens.refresh_token });
+      if (!refreshData?.data?.access_token || !refreshData?.data?.refresh_token) {
+        throw new Error("令牌刷新失败，请重新登录");
+      }
+      updateStoredTokens(refreshData.data.access_token, refreshData.data.refresh_token);
+      return doFetch(refreshData.data.access_token, true);
+    }
+
+    if (!response.ok) {
+      throw new Error(`Request failed with status ${response.status}`);
+    }
+    await parseSSEStream(response, onChunk, onError, onDone, onCard, onSessionId, onStatus);
+  };
+
+  if (access_token) {
+    doFetch(access_token).catch((err: Error) => {
       if (err.name !== "AbortError") {
         onError(err.message);
       }
     });
+  } else {
+    onError("请先登录");
+  }
 
   return controller;
 }
@@ -207,26 +212,50 @@ export function continueGeneration(
   const controller = new AbortController();
   const { access_token } = getStoredTokens();
 
-  fetch("/api/v1/chat/continue", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${access_token}`,
-    },
-    body: JSON.stringify({ session_id: request.session_id }),
-    signal: controller.signal,
-  })
-    .then(async (response) => {
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+  const doFetch = async (token: string, isRetry = false): Promise<void> => {
+    const response = await fetch("/api/v1/chat/continue", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ session_id: request.session_id }),
+      signal: controller.signal,
+    });
+
+    if (response.status === 401) {
+      if (isRetry) {
+        throw new Error("令牌刷新后仍返回 401，请重新登录");
       }
-      await parseSSEStream(response, onChunk, onError, onDone, onCard, onSessionId, onStatus);
-    })
-    .catch((err: Error) => {
+      const tokens = getStoredTokens();
+      if (!tokens.refresh_token) {
+        throw new Error("认证已过期，请重新登录");
+      }
+      const { data: refreshData } = await axios.post<
+        ApiResponse<{ access_token: string; refresh_token: string }>
+      >(API_BASE_URL + REFRESH_PATH, { refresh_token: tokens.refresh_token });
+      if (!refreshData?.data?.access_token || !refreshData?.data?.refresh_token) {
+        throw new Error("令牌刷新失败，请重新登录");
+      }
+      updateStoredTokens(refreshData.data.access_token, refreshData.data.refresh_token);
+      return doFetch(refreshData.data.access_token, true);
+    }
+
+    if (!response.ok) {
+      throw new Error(`Request failed with status ${response.status}`);
+    }
+    await parseSSEStream(response, onChunk, onError, onDone, onCard, onSessionId, onStatus);
+  };
+
+  if (access_token) {
+    doFetch(access_token).catch((err: Error) => {
       if (err.name !== "AbortError") {
         onError(err.message);
       }
     });
+  } else {
+    onError("请先登录");
+  }
 
   return controller;
 }

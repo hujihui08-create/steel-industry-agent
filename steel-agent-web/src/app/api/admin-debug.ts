@@ -5,6 +5,7 @@
 
 import apiClient from "./client";
 import type { ApiResponse } from "@/app/types/api";
+import { getStoredTokens } from "@/app/utils/auth";
 
 // ============================================================
 // 类型定义
@@ -89,7 +90,10 @@ export interface DebugSessionItem {
 }
 
 export interface DebugSessionMessages {
-  sessionId: string;
+  id: number;
+  title: string;
+  createdAt: string;
+  turnCount: number;
   messages: DebugMessage[];
 }
 
@@ -106,18 +110,23 @@ export interface MockConfig {
   scenario: string;
 }
 
-export interface DebugChatStreamEvent {
-  type: "token" | "debug_info" | "tool_call" | "done" | "error" | "intent_match";
-  data: DebugTokenData | DebugInfoData | ToolCallData | DebugDoneData | { message: string } | IntentMatchData;
-}
+export type DebugChatStreamEvent =
+  | { type: "token"; data: { content: string } }
+  | { type: "debug_info"; data: { intent?: { code?: string; name?: string }; entities?: Array<{ key: string; value: string }>; prompt_tokens?: number; completion_tokens?: number; match_method?: string; keywords?: string[] } }
+  | { type: "tool_call"; data: { tool_name: string; arguments: string } }
+  | { type: "tool_result"; data: { tool_name: string; status: string; result?: unknown; error?: string; duration_ms?: number } }
+  | { type: "done"; data: { message?: string; turns?: number; total_prompt_tokens?: number; total_completion_tokens?: number } }
+  | { type: "error"; data: { message: string } }
+  | { type: "intent_match"; data: IntentMatchData };
 
 export interface DebugTokenData {
-  token: string;
+  content: string;
 }
 
 export interface DebugInfoData {
   intent: string;
   entities: Record<string, string>;
+  tool_name?: string;
   promptTokens: number;
   completionTokens: number;
   anaphoraResolved: boolean;
@@ -131,19 +140,19 @@ export interface IntentMatchData {
   intent: string;
   confidence: number;
   entities: Record<string, string>;
+  tool_name?: string;
 }
 
 export interface ToolCallData {
-  toolName: string;
-  params: Record<string, unknown>;
-  result: unknown;
-  durationMs: number;
+  tool_name: string;
+  arguments: string;
 }
 
 export interface DebugDoneData {
-  summary: string;
-  totalPromptTokens: number;
-  totalCompletionTokens: number;
+  message?: string;
+  turns?: number;
+  totalPromptTokens?: number;
+  totalCompletionTokens?: number;
 }
 
 // ============================================================
@@ -175,7 +184,7 @@ export async function executeTool(
 ): Promise<ToolExecuteResult> {
   const { data } = await apiClient.post<ApiResponse<ToolExecuteResult>>(
     "/admin/debug/tool/execute",
-    { tool_name: toolName, params, mock: useMock },
+    { tool_name: toolName, params, use_mock: useMock },
   );
   if (!data?.data) throw new Error(data?.message || "工具执行失败");
   return data.data;
@@ -307,6 +316,8 @@ export async function saveMockConfig(
   if (data.code !== 200) throw new Error(data.message || "保存Mock配置失败");
 }
 
+// DELETE 通过请求体传参，因为 toolName 可能包含特殊字符不适合作为 URL 路径段，
+// 且该接口遵循后端 RESTful 风格约定使用 data 字段传递参数。
 export async function deleteMockConfig(toolName: string): Promise<void> {
   const { data } = await apiClient.delete<ApiResponse<null>>(
     "/admin/debug/tool/mock",
@@ -319,17 +330,6 @@ export async function deleteMockConfig(toolName: string): Promise<void> {
 // 调试对话（SSE 流式）
 // ============================================================
 
-function getStoredToken(): string | null {
-  try {
-    const raw = localStorage.getItem("auth-storage");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed?.state?.access_token ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export async function* debugChatStream(
   sessionId: string,
   message: string,
@@ -337,7 +337,7 @@ export async function* debugChatStream(
   model: string,
   summaryMode: string = "auto",
 ): AsyncGenerator<DebugChatStreamEvent, void, undefined> {
-  const token = getStoredToken();
+  const { access_token: token } = getStoredTokens();
   const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
   const response = await fetch(`${baseUrl}/admin/debug/chat/stream`, {
@@ -385,7 +385,7 @@ export async function* debugChatStream(
 
         const jsonStr = trimmed.slice(6).trim();
         if (jsonStr === "[DONE]") {
-          yield { type: "done", data: { summary: "", totalPromptTokens: 0, totalCompletionTokens: 0 } };
+          yield { type: "done", data: { message: "", total_prompt_tokens: 0, total_completion_tokens: 0 } };
           return;
         }
 

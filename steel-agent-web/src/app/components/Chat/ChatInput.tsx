@@ -96,6 +96,7 @@ export function ChatInput({
 }: ChatInputProps) {
   // ---- refs ------------------------------------------------
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const quickCommandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const setTextareaRef = useCallback((el: HTMLTextAreaElement | null) => {
     if (el && el.offsetParent !== null) {
       textareaRef.current = el;
@@ -157,6 +158,8 @@ export function ChatInput({
   const [attachedFiles, setAttachedFiles] = useState<
     { file: File; previewUrl: string }[]
   >([]);
+  // 跟踪所有通过 URL.createObjectURL 创建的 URL，用于组件卸载时统一回收
+  const objectUrlsRef = useRef<string[]>([]);
 
   const handleAttachClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -186,6 +189,9 @@ export function ChatInput({
         file: f,
         previewUrl: URL.createObjectURL(f),
       }));
+
+      // 跟踪 URL 以便在组件卸载时清理
+      objectUrlsRef.current.push(...newFiles.map((f) => f.previewUrl));
 
       setAttachedFiles((prev) => [...prev, ...newFiles]);
     },
@@ -239,15 +245,27 @@ export function ChatInput({
   const handleRemoveFile = useCallback((index: number) => {
     setAttachedFiles((prev) => {
       URL.revokeObjectURL(prev[index].previewUrl);
+      // 从 URL 跟踪列表中移除
+      objectUrlsRef.current = objectUrlsRef.current.filter((u) => u !== prev[index].previewUrl);
       return prev.filter((_, i) => i !== index);
     });
   }, []);
 
   useEffect(() => {
     return () => {
-      attachedFiles.forEach((f) => URL.revokeObjectURL(f.previewUrl));
+      // 清理所有通过 URL.createObjectURL 创建的 URL
+      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      objectUrlsRef.current = [];
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 组件卸载时清理 quickCommand timer
+  useEffect(() => {
+    return () => {
+      if (quickCommandTimerRef.current) {
+        clearTimeout(quickCommandTimerRef.current);
+      }
+    };
   }, []);
 
   // ---- auto-grow helper ------------------------------------
@@ -277,6 +295,9 @@ export function ChatInput({
     const trimmed = value.trim();
     if ((!trimmed && attachedFiles.length === 0) || isStreaming) return;
     onSend(trimmed, attachedFiles.map((f) => f.file));
+    // 发送后回收所有预览 URL
+    objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    objectUrlsRef.current = [];
     setAttachedFiles([]);
   }, [value, isStreaming, onSend, attachedFiles]);
 
@@ -314,8 +335,12 @@ export function ChatInput({
       onChange(cmd.prompt);
       // 立即发送，不要延迟
       onSend(cmd.prompt);
+      // 清除之前的 timer
+      if (quickCommandTimerRef.current) {
+        clearTimeout(quickCommandTimerRef.current);
+      }
       // 立即重置激活状态，给一个小的视觉反馈时间
-      setTimeout(() => {
+      quickCommandTimerRef.current = setTimeout(() => {
         setActiveQuickCommand(null);
       }, 200);
     },

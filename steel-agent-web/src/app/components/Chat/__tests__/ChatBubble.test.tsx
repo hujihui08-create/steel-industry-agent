@@ -314,25 +314,23 @@ describe("ChatBubble - Error messages", () => {
 // ChatBubble - Stopped content
 // ===========================================================================
 describe("ChatBubble - Stopped content", () => {
-  it("should show stopped indicator when content contains stop marker", () => {
+  it("should show stopped indicator when is_stopped is true", () => {
     const msg = makeMsg({
       role: "assistant",
-      content: "部分回复内容\n\n_已停止生成_",
+      content: "部分回复内容",
+      is_stopped: true,
     });
 
     render(<ChatBubble message={msg} />);
 
     expect(screen.getByText("已停止生成")).toBeInTheDocument();
-    // The stop marker should be stripped from display content
-    expect(
-      screen.queryByText("_已停止生成_"),
-    ).not.toBeInTheDocument();
   });
 
   it("should show continue button when onContinue is provided", () => {
     const msg = makeMsg({
       role: "assistant",
-      content: "部分内容\n\n_已停止生成_",
+      content: "部分内容",
+      is_stopped: true,
     });
     const onContinue = vi.fn();
 
@@ -347,7 +345,8 @@ describe("ChatBubble - Stopped content", () => {
   it("should NOT show continue button when onContinue is not provided", () => {
     const msg = makeMsg({
       role: "assistant",
-      content: "部分内容\n\n_已停止生成_",
+      content: "部分内容",
+      is_stopped: true,
     });
 
     render(<ChatBubble message={msg} />);

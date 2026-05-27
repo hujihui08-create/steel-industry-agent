@@ -356,7 +356,7 @@ export default function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
             role="button"
             tabIndex={0}
             aria-label="查看用户协议"
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); } }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toast('用户协议页面即将开放'); } }}
             className="text-steel-ink underline cursor-pointer mx-0.5"
           >
             《用户协议》
@@ -366,7 +366,7 @@ export default function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
             role="button"
             tabIndex={0}
             aria-label="查看隐私政策"
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); } }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toast('隐私政策页面即将开放'); } }}
             className="text-steel-ink underline cursor-pointer mx-0.5"
           >
             《隐私政策》
