@@ -14,6 +14,7 @@ import (
 type Claims struct {
 	UserID    uint   `json:"user_id"`
 	TokenType string `json:"token_type"`
+	Role      string `json:"role"`
 	jwtlib.RegisteredClaims
 }
 
@@ -43,7 +44,7 @@ func GenerateToken(userID uint) (string, error) {
 // GenerateAccessToken creates a signed JWT access token with configurable expiry.
 // sessionTimeoutMinutes overrides the environment default when greater than 0.
 // Pass 0 to use the JWTAccessExpireHours environment variable.
-func GenerateAccessToken(userID uint, sessionTimeoutMinutes int) (string, error) {
+func GenerateAccessToken(userID uint, role string, sessionTimeoutMinutes int) (string, error) {
 	var expiresAt time.Time
 	if sessionTimeoutMinutes > 0 {
 		expiresAt = time.Now().Add(time.Duration(sessionTimeoutMinutes) * time.Minute)
@@ -57,6 +58,7 @@ func GenerateAccessToken(userID uint, sessionTimeoutMinutes int) (string, error)
 	claims := Claims{
 		UserID:    userID,
 		TokenType: "access",
+		Role:      role,
 		RegisteredClaims: jwtlib.RegisteredClaims{
 			ExpiresAt: jwtlib.NewNumericDate(expiresAt),
 			IssuedAt:  jwtlib.NewNumericDate(time.Now()),
@@ -68,7 +70,7 @@ func GenerateAccessToken(userID uint, sessionTimeoutMinutes int) (string, error)
 }
 
 // GenerateRefreshToken creates a signed JWT refresh token with configurable expiry.
-func GenerateRefreshToken(userID uint) (string, error) {
+func GenerateRefreshToken(userID uint, role string) (string, error) {
 	expireHours := config.AppConfig.JWTRefreshExpireHours
 	if expireHours <= 0 {
 		expireHours = 168
@@ -76,6 +78,7 @@ func GenerateRefreshToken(userID uint) (string, error) {
 	claims := Claims{
 		UserID:    userID,
 		TokenType: "refresh",
+		Role:      role,
 		RegisteredClaims: jwtlib.RegisteredClaims{
 			ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(time.Duration(expireHours) * time.Hour)),
 			IssuedAt:  jwtlib.NewNumericDate(time.Now()),

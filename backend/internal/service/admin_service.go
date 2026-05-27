@@ -82,7 +82,7 @@ func (s *AdminService) Login(ctx context.Context, username, password string) (st
 	_ = s.adminRepo.ResetLoginAttempts(ctx, admin.ID)
 
 	// sessionTimeout can be passed from admin_settings; 0 falls back to env var
-	token, err := jwt.GenerateAccessToken(admin.ID, 0)
+	token, err := jwt.GenerateAccessToken(admin.ID, "admin", 0)
 	if err != nil {
 		return "", err
 	}

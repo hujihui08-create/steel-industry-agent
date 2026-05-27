@@ -71,12 +71,12 @@ func (s *AuthService) Login(ctx context.Context, phone, code string) (string, st
 	}
 
 	// sessionTimeout can be passed from admin_settings; 0 falls back to env var
-	accessToken, err := jwt.GenerateAccessToken(user.ID, 0)
+	accessToken, err := jwt.GenerateAccessToken(user.ID, "user", 0)
 	if err != nil {
 		return "", "", err
 	}
 
-	refreshToken, err := jwt.GenerateRefreshToken(user.ID)
+	refreshToken, err := jwt.GenerateRefreshToken(user.ID, "user")
 	if err != nil {
 		return "", "", err
 	}
@@ -99,12 +99,12 @@ func (s *AuthService) LoginPassword(ctx context.Context, phone, password string)
 	}
 
 	// sessionTimeout can be passed from admin_settings; 0 falls back to env var
-	accessToken, err := jwt.GenerateAccessToken(user.ID, 0)
+	accessToken, err := jwt.GenerateAccessToken(user.ID, "user", 0)
 	if err != nil {
 		return "", "", err
 	}
 
-	refreshToken, err := jwt.GenerateRefreshToken(user.ID)
+	refreshToken, err := jwt.GenerateRefreshToken(user.ID, "user")
 	if err != nil {
 		return "", "", err
 	}
@@ -151,12 +151,12 @@ func (s *AuthService) Register(ctx context.Context, phone, password, code, nickn
 	}
 
 	// sessionTimeout can be passed from admin_settings; 0 falls back to env var
-	accessToken, err := jwt.GenerateAccessToken(user.ID, 0)
+	accessToken, err := jwt.GenerateAccessToken(user.ID, "user", 0)
 	if err != nil {
 		return "", "", err
 	}
 
-	refreshToken, err := jwt.GenerateRefreshToken(user.ID)
+	refreshToken, err := jwt.GenerateRefreshToken(user.ID, "user")
 	if err != nil {
 		return "", "", err
 	}
@@ -185,7 +185,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, oldToken string) (string
 	}
 
 	// sessionTimeout can be passed from admin_settings; 0 falls back to env var
-	accessToken, err := jwt.GenerateAccessToken(claims.UserID, 0)
+	accessToken, err := jwt.GenerateAccessToken(claims.UserID, claims.Role, 0)
 	if err != nil {
 		return "", err
 	}

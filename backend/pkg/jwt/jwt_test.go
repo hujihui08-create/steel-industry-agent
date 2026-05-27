@@ -175,3 +175,72 @@ func TestParseToken_Error(t *testing.T) {
 		})
 	}
 }
+
+func TestGenerateAccessToken_Role(t *testing.T) {
+	tests := []struct {
+		name   string
+		userID uint
+		role   string
+	}{
+		{"admin role", 42, "admin"},
+		{"user role", 7, "user"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token, err := GenerateAccessToken(tt.userID, tt.role, 0)
+			if err != nil {
+				t.Fatalf("GenerateAccessToken() error = %v", err)
+			}
+
+			claims, err := ParseTokenWithType(token, "access")
+			if err != nil {
+				t.Fatalf("ParseTokenWithType() error = %v", err)
+			}
+
+			if claims.Role != tt.role {
+				t.Errorf("expected Role '%s', got '%s'", tt.role, claims.Role)
+			}
+			if claims.UserID != tt.userID {
+				t.Errorf("expected UserID %d, got %d", tt.userID, claims.UserID)
+			}
+			if claims.TokenType != "access" {
+				t.Errorf("expected TokenType 'access', got '%s'", claims.TokenType)
+			}
+		})
+	}
+}
+
+func TestGenerateRefreshToken_Role(t *testing.T) {
+	token, err := GenerateRefreshToken(99, "admin")
+	if err != nil {
+		t.Fatalf("GenerateRefreshToken() error = %v", err)
+	}
+
+	claims, err := ParseTokenWithType(token, "refresh")
+	if err != nil {
+		t.Fatalf("ParseTokenWithType() error = %v", err)
+	}
+
+	if claims.Role != "admin" {
+		t.Errorf("expected Role 'admin', got '%s'", claims.Role)
+	}
+	if claims.UserID != uint(99) {
+		t.Errorf("expected UserID 99, got %d", claims.UserID)
+	}
+	if claims.TokenType != "refresh" {
+		t.Errorf("expected TokenType 'refresh', got '%s'", claims.TokenType)
+	}
+}
+
+func TestParseTokenWithType_WrongType(t *testing.T) {
+	token, err := GenerateAccessToken(1, "user", 0)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken() error = %v", err)
+	}
+
+	_, err = ParseTokenWithType(token, "refresh")
+	if err == nil {
+		t.Fatal("expected error for wrong token type, got nil")
+	}
+}
