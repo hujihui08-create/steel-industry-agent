@@ -202,6 +202,7 @@ func Setup(
 	}
 
 	adminProtectedAuth := api.Group("/admin/auth")
+	adminProtectedAuth.Use(middleware.RequireRole(adminRepo, "super_admin", "operator", "data_admin", "viewer"))
 	{
 		adminProtectedAuth.GET("/info", adminHandler.GetInfo)
 		adminProtectedAuth.PUT("/password", adminHandler.UpdatePassword)

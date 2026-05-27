@@ -247,7 +247,7 @@ func TestProtectedRoutes_NoToken_Returns401(t *testing.T) {
 
 func TestProtectedRoutes_WithValidToken_Returns200(t *testing.T) {
 	config.AppConfig = &config.Config{JWTSecret: "test-secret"}
-	token, err := jwt.GenerateAccessToken(1, 0)
+	token, err := jwt.GenerateAccessToken(1, "admin", 0)
 	if err != nil {
 		t.Fatalf("failed to generate token: %v", err)
 	}
@@ -343,7 +343,7 @@ func TestAuthMiddleware_401ResponseFormat(t *testing.T) {
 
 func TestStaticRoutes_NoParams_Registered(t *testing.T) {
 	config.AppConfig = &config.Config{JWTSecret: "test-secret"}
-	token, _ := jwt.GenerateAccessToken(1, 0)
+	token, _ := jwt.GenerateAccessToken(1, "admin", 0)
 	r := setupTestRouter()
 
 	staticRoutes := []struct {
@@ -371,7 +371,7 @@ func TestStaticRoutes_NoParams_Registered(t *testing.T) {
 
 func TestParamRoutes_Registered(t *testing.T) {
 	config.AppConfig = &config.Config{JWTSecret: "test-secret"}
-	token, _ := jwt.GenerateAccessToken(1, 0)
+	token, _ := jwt.GenerateAccessToken(1, "admin", 0)
 	r := setupTestRouter()
 
 	paramRoutes := []struct {
