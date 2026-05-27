@@ -4,4 +4,6 @@ export const API_TIMEOUT = 15000;
 
 export const AUTH_STORAGE_KEY = "auth-storage";
 
+export const ADMIN_AUTH_STORAGE_KEY = "admin-auth-storage";
+
 export const REFRESH_PATH = "/auth/refresh";

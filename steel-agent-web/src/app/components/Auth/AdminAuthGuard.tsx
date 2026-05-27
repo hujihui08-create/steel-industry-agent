@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { ROUTE } from "@/app/constants/auth";
 import { adminGetInfo } from "@/app/api/admin-auth";
+import { getAdminToken, removeAdminToken } from "@/app/utils/auth";
 
 interface AdminAuthGuardProps {
   children: React.ReactNode;
@@ -11,27 +12,17 @@ export default function AdminAuthGuard({ children }: AdminAuthGuardProps) {
   const [status, setStatus] = useState<"loading" | "ok" | "fail">("loading");
 
   useEffect(() => {
-    const stored = localStorage.getItem("auth-storage");
-    if (!stored) {
+    const token = getAdminToken();
+    if (!token) {
       setStatus("fail");
       return;
     }
-    try {
-      const parsed = JSON.parse(stored);
-      const token = parsed?.state?.access_token;
-      if (!token) {
+    adminGetInfo()
+      .then(() => setStatus("ok"))
+      .catch(() => {
+        removeAdminToken();
         setStatus("fail");
-        return;
-      }
-      adminGetInfo()
-        .then(() => setStatus("ok"))
-        .catch(() => {
-          localStorage.removeItem("auth-storage");
-          setStatus("fail");
-        });
-    } catch {
-      setStatus("fail");
-    }
+      });
   }, []);
 
   if (status === "loading") {

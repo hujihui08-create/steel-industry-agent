@@ -4,7 +4,7 @@
 // - 供 apiClient、chat、admin-debug 等模块共用
 // ============================================================
 
-import { AUTH_STORAGE_KEY } from "@/app/config";
+import { AUTH_STORAGE_KEY, ADMIN_AUTH_STORAGE_KEY } from "@/app/config";
 import type { AuthStorageState } from "@/app/types/api";
 
 export function getStoredTokens(): {
@@ -58,4 +58,31 @@ export function clearStoredAuth(): void {
   } catch {
     localStorage.removeItem(AUTH_STORAGE_KEY);
   }
+}
+
+export function getAdminToken(): string | null {
+  try {
+    const raw = localStorage.getItem(ADMIN_AUTH_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.state?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function setAdminToken(token: string): void {
+  const stored = {
+    state: {
+      access_token: token,
+      refresh_token: "",
+      isAuthenticated: true,
+    },
+    version: 0,
+  };
+  localStorage.setItem(ADMIN_AUTH_STORAGE_KEY, JSON.stringify(stored));
+}
+
+export function removeAdminToken(): void {
+  localStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
 }

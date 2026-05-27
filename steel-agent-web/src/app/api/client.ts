@@ -11,7 +11,7 @@ import axios, {
 } from "axios";
 import type { ApiResponse } from "@/app/types/api";
 import { API_BASE_URL, API_TIMEOUT, REFRESH_PATH } from "@/app/config";
-import { getStoredTokens, updateStoredTokens, clearStoredAuth } from "@/app/utils/auth";
+import { getStoredTokens, updateStoredTokens, clearStoredAuth, getAdminToken, removeAdminToken } from "@/app/utils/auth";
 import { useAuthStore } from "@/app/stores/authStore";
 
 // -----------------------------------------------------------
@@ -162,3 +162,38 @@ apiClient.interceptors.response.use(
 // -----------------------------------------------------------
 
 export default apiClient;
+
+export const adminApiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: API_TIMEOUT,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+adminApiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    const token = getAdminToken();
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
+
+adminApiClient.interceptors.response.use(
+  (response) => {
+    const data = response.data as ApiResponse | undefined;
+    if (data && typeof data === "object" && "code" in data && data.code !== 200) {
+      return Promise.reject(new Error(data.message || "请求失败"));
+    }
+    return response;
+  },
+  (error: AxiosError<ApiResponse>) => {
+    if (error.response?.status === 401) {
+      removeAdminToken();
+    }
+    return Promise.reject(error);
+  },
+);
