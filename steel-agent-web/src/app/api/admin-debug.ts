@@ -3,9 +3,9 @@
 // 对应后端 /api/v1/admin/debug/* 接口
 // ============================================================
 
-import apiClient from "./client";
+import { adminApiClient } from "./client";
 import type { ApiResponse } from "@/app/types/api";
-import { getStoredTokens } from "@/app/utils/auth";
+import { getAdminToken } from "@/app/utils/auth";
 
 // ============================================================
 // 类型定义
@@ -160,7 +160,7 @@ export interface DebugDoneData {
 // ============================================================
 
 export async function getToolSchemas(): Promise<ToolSchema[]> {
-  const { data } = await apiClient.get<ApiResponse<ToolSchema[]>>("/admin/debug/tool/schemas");
+  const { data } = await adminApiClient.get<ApiResponse<ToolSchema[]>>("/admin/debug/tool/schemas");
   return data.data ?? [];
 }
 
@@ -169,7 +169,7 @@ export async function getToolSchemas(): Promise<ToolSchema[]> {
 // ============================================================
 
 export async function getToolHealth(): Promise<ToolHealthResult> {
-  const { data } = await apiClient.get<ApiResponse<ToolHealthResult>>("/admin/debug/tool/health");
+  const { data } = await adminApiClient.get<ApiResponse<ToolHealthResult>>("/admin/debug/tool/health");
   return data.data!;
 }
 
@@ -182,7 +182,7 @@ export async function executeTool(
   params: Record<string, unknown>,
   useMock = false,
 ): Promise<ToolExecuteResult> {
-  const { data } = await apiClient.post<ApiResponse<ToolExecuteResult>>(
+  const { data } = await adminApiClient.post<ApiResponse<ToolExecuteResult>>(
     "/admin/debug/tool/execute",
     { tool_name: toolName, params, use_mock: useMock },
   );
@@ -195,7 +195,7 @@ export async function executeTool(
 // ============================================================
 
 export async function testIntent(text: string): Promise<IntentTestResult> {
-  const { data } = await apiClient.post<ApiResponse<{
+  const { data } = await adminApiClient.post<ApiResponse<{
     intent: { code: string; name: string; confidence: number };
     entities: IntentTestEntity[];
     matched_keywords: string[];
@@ -259,7 +259,7 @@ export function normalizeDebugInfo(raw: Record<string, unknown>): {
 export async function previewPrompt(
   variables: Record<string, string>,
 ): Promise<PromptPreviewResult> {
-  const { data } = await apiClient.post<ApiResponse<PromptPreviewResult>>(
+  const { data } = await adminApiClient.post<ApiResponse<PromptPreviewResult>>(
     "/admin/debug/prompt/preview",
     { variables },
   );
@@ -272,7 +272,7 @@ export async function previewPrompt(
 // ============================================================
 
 export async function getDebugSessions(): Promise<DebugSessionItem[]> {
-  const { data } = await apiClient.get<ApiResponse<DebugSessionItem[]>>(
+  const { data } = await adminApiClient.get<ApiResponse<DebugSessionItem[]>>(
     "/admin/debug/chat/sessions",
   );
   return data.data ?? [];
@@ -285,7 +285,7 @@ export async function getDebugSessions(): Promise<DebugSessionItem[]> {
 export async function loadDebugSession(
   sessionId: string,
 ): Promise<DebugSessionMessages> {
-  const { data } = await apiClient.post<ApiResponse<DebugSessionMessages>>(
+  const { data } = await adminApiClient.post<ApiResponse<DebugSessionMessages>>(
     "/admin/debug/chat/load-session",
     { session_id: sessionId },
   );
@@ -298,7 +298,7 @@ export async function loadDebugSession(
 // ============================================================
 
 export async function getMockConfigs(): Promise<MockConfig[]> {
-  const { data } = await apiClient.get<ApiResponse<MockConfig[]>>(
+  const { data } = await adminApiClient.get<ApiResponse<MockConfig[]>>(
     "/admin/debug/tool/mock",
   );
   return data.data ?? [];
@@ -309,7 +309,7 @@ export async function saveMockConfig(
   mockData: unknown,
   scenario: string,
 ): Promise<void> {
-  const { data } = await apiClient.post<ApiResponse<null>>(
+  const { data } = await adminApiClient.post<ApiResponse<null>>(
     "/admin/debug/tool/mock",
     { tool_name: toolName, mock_data: mockData, scenario },
   );
@@ -319,7 +319,7 @@ export async function saveMockConfig(
 // DELETE 通过请求体传参，因为 toolName 可能包含特殊字符不适合作为 URL 路径段，
 // 且该接口遵循后端 RESTful 风格约定使用 data 字段传递参数。
 export async function deleteMockConfig(toolName: string): Promise<void> {
-  const { data } = await apiClient.delete<ApiResponse<null>>(
+  const { data } = await adminApiClient.delete<ApiResponse<null>>(
     "/admin/debug/tool/mock",
     { data: { tool_name: toolName } },
   );
@@ -337,7 +337,7 @@ export async function* debugChatStream(
   model: string,
   summaryMode: string = "auto",
 ): AsyncGenerator<DebugChatStreamEvent, void, undefined> {
-  const { access_token: token } = getStoredTokens();
+  const token = getAdminToken();
   const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
   const response = await fetch(`${baseUrl}/admin/debug/chat/stream`, {

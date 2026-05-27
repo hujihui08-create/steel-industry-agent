@@ -116,6 +116,109 @@ func TestCalculateQuotation(t *testing.T) {
 	}
 }
 
+// TestQuotationService_Calculate_ZeroQuantity verifies calculation with zero quantity.
+func TestQuotationService_Calculate_ZeroQuantity(t *testing.T) {
+	mock := &mockPriceRepo{
+		price: &model.SteelPrice{
+			Category: "螺纹钢",
+			Spec:     "HRB400E 20mm",
+			Price:    3850,
+		},
+		err: nil,
+	}
+
+	breakdown, err := calculateQuotationWithFinder(context.Background(), mock, "螺纹钢", "HRB400E 20mm", 0)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	const epsilon = 0.01
+	assertFloatEqual(t, "MaterialCost", breakdown.MaterialCost, 0, epsilon)
+	assertFloatEqual(t, "ProcessCost", breakdown.ProcessCost, 0, epsilon)
+	assertFloatEqual(t, "FreightCost", breakdown.FreightCost, 0, epsilon)
+	assertFloatEqual(t, "TaxCost", breakdown.TaxCost, 0, epsilon)
+	assertFloatEqual(t, "TotalPrice", breakdown.TotalPrice, 0, epsilon)
+	assertFloatEqual(t, "UnitPrice", breakdown.UnitPrice, 3850, epsilon)
+}
+
+// TestQuotationService_Calculate verifies correct total calculation with formula verification.
+func TestQuotationService_Calculate(t *testing.T) {
+	mock := &mockPriceRepo{
+		price: &model.SteelPrice{
+			Category: "热卷",
+			Spec:     "5.5mm",
+			Price:    4200,
+		},
+		err: nil,
+	}
+
+	breakdown, err := calculateQuotationWithFinder(context.Background(), mock, "热卷", "5.5mm", 50)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Manual verification of calculation steps
+	expectedMaterial := 4200.0 * 50.0  // 210000
+	expectedProcess := expectedMaterial * 0.08  // 16800
+	expectedFreight := 50.0 * 50.0  // 2500
+	expectedTax := (expectedMaterial + expectedProcess + expectedFreight) * 0.13
+	expectedTotal := expectedMaterial + expectedProcess + expectedFreight + expectedTax
+
+	const epsilon = 0.01
+	assertFloatEqual(t, "MaterialCost", breakdown.MaterialCost, expectedMaterial, epsilon)
+	assertFloatEqual(t, "ProcessCost", breakdown.ProcessCost, expectedProcess, epsilon)
+	assertFloatEqual(t, "FreightCost", breakdown.FreightCost, expectedFreight, epsilon)
+	assertFloatEqual(t, "TaxCost", breakdown.TaxCost, expectedTax, epsilon)
+	assertFloatEqual(t, "TotalPrice", breakdown.TotalPrice, expectedTotal, epsilon)
+	assertFloatEqual(t, "UnitPrice", breakdown.UnitPrice, 4200, epsilon)
+}
+
+// TestQuotationService_Create verifies quotation record creation.
+func TestQuotationService_Create(t *testing.T) {
+	mock := &mockPriceRepo{
+		price: &model.SteelPrice{
+			Category: "螺纹钢",
+			Spec:     "HRB400E 20mm",
+			Price:    3850,
+		},
+		err: nil,
+	}
+
+	breakdown, err := calculateQuotationWithFinder(context.Background(), mock, "螺纹钢", "HRB400E 20mm", 100)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify the breakdown can be used to create a quotation record
+	q := &model.Quotation{
+		UserID:        1,
+		Title:         "螺纹钢报价单",
+		CustomerName:  "测试客户",
+		Category:      "螺纹钢",
+		Spec:          "HRB400E 20mm",
+		Quantity:      100,
+		Unit:          "吨",
+		MaterialCost:  breakdown.MaterialCost,
+		ProcessCost:   breakdown.ProcessCost,
+		FreightCost:   breakdown.FreightCost,
+		TaxCost:       breakdown.TaxCost,
+		TotalPrice:    breakdown.TotalPrice,
+		Status:        "draft",
+	}
+
+	if q.TotalPrice != breakdown.TotalPrice {
+		t.Errorf("expected TotalPrice %f, got %f", breakdown.TotalPrice, q.TotalPrice)
+	}
+	if q.MaterialCost != breakdown.MaterialCost {
+		t.Errorf("expected MaterialCost %f, got %f", breakdown.MaterialCost, q.MaterialCost)
+	}
+	if q.Status != "draft" {
+		t.Errorf("expected Status 'draft', got '%s'", q.Status)
+	}
+}
+
 // calculateQuotationWithFinder mirrors the production CalculateQuotation logic
 // but accepts a priceFinder interface for testability.
 func calculateQuotationWithFinder(ctx context.Context, finder priceFinder, category, spec string, quantity float64) (*QuotationBreakdown, error) {

@@ -2,7 +2,9 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"strconv"
+	"strings"
 
 	"steel-agent-backend/internal/model"
 	"steel-agent-backend/internal/service"
@@ -66,6 +68,15 @@ func (h *AdminLogHandler) GetByID(c *gin.Context) {
 	response.Success(c, log)
 }
 
+// csvEscape wraps a field in double quotes if it contains comma, double-quote, or newline,
+// and doubles any embedded double-quotes.
+func csvEscape(s string) string {
+	if strings.ContainsAny(s, ",\"\n") {
+		return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
+	}
+	return s
+}
+
 func (h *AdminLogHandler) Export(c *gin.Context) {
 	logs, err := h.adminLogService.List(c.Request.Context(), 10000)
 	if err != nil {
@@ -75,9 +86,21 @@ func (h *AdminLogHandler) Export(c *gin.Context) {
 
 	c.Header("Content-Type", "text/csv; charset=utf-8")
 	c.Header("Content-Disposition", "attachment; filename=operation_logs.csv")
-	c.String(200, "ID,管理员ID,操作类型,目标类型,目标ID,IP地址,操作时间\n")
+
+	// BOM for Excel UTF-8 compatibility
+	c.Writer.Write([]byte{0xEF, 0xBB, 0xBF})
+
+	fmt.Fprintf(c.Writer, "ID,管理员ID,操作类型,目标类型,目标ID,IP地址,操作时间\n")
 	for _, l := range logs {
-		c.String(200, "%d,%d,%s,%s,%d,%s,%s\n",
-			l.ID, l.AdminID, l.Action, l.TargetType, l.TargetID, l.IPAddress, l.CreatedAt.Format("2006-01-02 15:04:05"))
+		fmt.Fprintf(c.Writer, "%d,%d,%s,%s,%d,%s,%s\n",
+			l.ID,
+			l.AdminID,
+			csvEscape(l.Action),
+			csvEscape(l.TargetType),
+			l.TargetID,
+			csvEscape(l.IPAddress),
+			l.CreatedAt.Format("2006-01-02 15:04:05"),
+		)
 	}
+	c.Status(200)
 }

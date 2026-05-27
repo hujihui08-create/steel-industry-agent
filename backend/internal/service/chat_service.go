@@ -1258,6 +1258,14 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 	// Apply agent config from the database (so admin UI changes take effect immediately).
 	s.applyAgentConfig(ctx)
 
+	// Read ContextTurns from agent config, with a safe default of 5.
+	contextTurns := 5
+	if cfg, cfgErr := s.agentConfigService.GetAgentConfig(ctx); cfgErr == nil && cfg != nil {
+		if cfg.ContextTurns >= 1 && cfg.ContextTurns <= 10 {
+			contextTurns = cfg.ContextTurns
+		}
+	}
+
 	// Convert DB messages to OpenAI format.
 	openaiMessages := make([]openai.ChatCompletionMessage, 0, len(messages)+1)
 	for _, m := range messages {
@@ -1285,7 +1293,7 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 	)
 
 	// Apply context window (Task 4.1-4.2).
-	openaiMessages = applyContextWindow(openaiMessages, 5)
+	openaiMessages = applyContextWindow(openaiMessages, contextTurns)
 
 	var intentResult intentMatchResult
 	if len(messages) > 0 {

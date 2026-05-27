@@ -186,6 +186,7 @@ export function AgentConfigPage() {
   const [temperature, setTemperature] = useState(0.1);
   const [maxTokens, setMaxTokens] = useState(2048);
   const [timeout, setTimeout_] = useState(30);
+  const [contextTurns, setContextTurns] = useState(5);
   const [apiKey, setApiKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState("");
@@ -239,6 +240,7 @@ export function AgentConfigPage() {
         setTemperature(config.temperature ?? 0.1);
         setMaxTokens(config.maxTokens ?? 2048);
         setTimeout_(config.timeout ?? 30);
+        setContextTurns(config.contextTurns ?? 5);
         setApiKey(config.apiKey ?? "");
         setSystemPrompt(config.systemPrompt ?? "");
         setWelcomeMessage(config.welcomeMessage ?? "");
@@ -255,6 +257,7 @@ export function AgentConfigPage() {
           temperature: config.temperature,
           maxTokens: config.maxTokens,
           timeout: config.timeout,
+          contextTurns: config.contextTurns,
           apiKey: config.apiKey,
           systemPrompt: config.systemPrompt,
           welcomeMessage: config.welcomeMessage,
@@ -314,6 +317,7 @@ export function AgentConfigPage() {
       temperature,
       maxTokens,
       timeout,
+      contextTurns,
       apiKey,
       systemPrompt,
       welcomeMessage,
@@ -326,7 +330,7 @@ export function AgentConfigPage() {
     });
     setDirty(current !== originalValues.current);
   }, [
-    primaryModel, backupModel, temperature, maxTokens, timeout, apiKey,
+    primaryModel, backupModel, temperature, maxTokens, timeout, contextTurns, apiKey,
     systemPrompt, welcomeMessage, quickCommands, hallucinationRules,
     disclaimer, forceToolForData, useTemplateForChat, models,
   ]);
@@ -351,6 +355,7 @@ export function AgentConfigPage() {
     maxTokens,
     apiKey,
     timeout,
+    contextTurns,
     systemPrompt,
     welcomeMessage,
     quickCommands: quickCommands.map((qc, i) => ({ ...qc, order: i + 1 })),
@@ -361,6 +366,7 @@ export function AgentConfigPage() {
     models,
   }), [
     primaryModel, backupModel, temperature, maxTokens, apiKey, timeout,
+    contextTurns,
     systemPrompt, welcomeMessage, quickCommands, hallucinationRules,
     disclaimer, forceToolForData, useTemplateForChat, models,
   ]);
@@ -371,7 +377,7 @@ export function AgentConfigPage() {
     try {
       await saveAgentConfig(buildConfig());
       originalValues.current = JSON.stringify({
-        primaryModel, backupModel, temperature, maxTokens, timeout, apiKey,
+        primaryModel, backupModel, temperature, maxTokens, timeout, contextTurns, apiKey,
         systemPrompt, welcomeMessage, quickCommands, hallucinationRules,
         disclaimer, forceToolForData, useTemplateForChat, models,
       });
@@ -382,7 +388,7 @@ export function AgentConfigPage() {
     } finally {
       setSaving(false);
     }
-  }, [buildConfig, primaryModel, backupModel, temperature, maxTokens, timeout, apiKey, systemPrompt, welcomeMessage, quickCommands, hallucinationRules, disclaimer, forceToolForData, useTemplateForChat, models]);
+  }, [buildConfig, primaryModel, backupModel, temperature, maxTokens, timeout, contextTurns, apiKey, systemPrompt, welcomeMessage, quickCommands, hallucinationRules, disclaimer, forceToolForData, useTemplateForChat, models]);
 
   // ---------- 测试连接 ----------
   const handleTestConnection = useCallback(async () => {
@@ -631,14 +637,14 @@ export function AgentConfigPage() {
       ]}
       actions={
         <Button
-          onClick={dirty ? handleSave : undefined}
-          disabled={!dirty || saving}
+          onClick={handleSave}
+          disabled={saving}
           className={cn(
             "h-9 px-5 rounded-full text-[13px] leading-[1.5] font-medium",
             "transition-all duration-150",
             dirty
               ? "bg-[#0A0A0A] text-white hover:bg-[#404040]"
-              : "border border-[#E5E5E5] text-[#A3A3A3] bg-white cursor-not-allowed",
+              : "border border-[#E5E5E5] text-[#404040] bg-white hover:bg-[#FAFAFA]",
           )}
         >
           {saving ? (
@@ -649,7 +655,7 @@ export function AgentConfigPage() {
           ) : (
             <span className="flex items-center gap-2">
               <Save size={14} strokeWidth={1.75} />
-              {dirty ? "保存配置" : "已保存"}
+              保存配置
             </span>
           )}
         </Button>
@@ -791,6 +797,29 @@ export function AgentConfigPage() {
                 </button>
               </div>
             </div>
+          </div>
+
+          {/* 上下文轮数 */}
+          <div className="mb-4">
+            <FieldLabel htmlFor="contextTurns">上下文轮数</FieldLabel>
+            <p className="text-[11px] leading-[1.5] text-[#A3A3A3] mb-2">
+              控制每次对话携带的历史消息轮数，越大上下文越全但 Token 消耗越高
+            </p>
+            <Select
+              value={String(contextTurns)}
+              onValueChange={(v) => setContextTurns(Number(v))}
+            >
+              <SelectTrigger id="contextTurns" variant="filter" className="w-[140px]">
+                <SelectValue placeholder="选择轮数" />
+              </SelectTrigger>
+              <SelectContent variant="filter">
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                  <SelectItem key={n} value={String(n)} className="text-[13px]">
+                    {n} 轮
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* 测试连接 */}

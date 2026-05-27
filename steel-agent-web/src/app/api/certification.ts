@@ -1,4 +1,4 @@
-import apiClient from "./client";
+import { adminApiClient } from "./client";
 import type { ApiResponse } from "@/app/types/api";
 
 export interface CertificationData {
@@ -26,7 +26,7 @@ export interface CertificationListResponse {
 }
 
 export async function submitCertification(params: SubmitCertificationParams): Promise<CertificationData> {
-  const { data } = await apiClient.post<ApiResponse<CertificationData>>(
+  const { data } = await adminApiClient.post<ApiResponse<CertificationData>>(
     "/users/certification",
     params,
   );
@@ -35,7 +35,7 @@ export async function submitCertification(params: SubmitCertificationParams): Pr
 }
 
 export async function getMyCertification(): Promise<CertificationData | null> {
-  const { data } = await apiClient.get<ApiResponse<CertificationData | null>>(
+  const { data } = await adminApiClient.get<ApiResponse<CertificationData | null>>(
     "/users/certification",
   );
   return data.data;
@@ -46,7 +46,7 @@ export async function getCertificationList(
   limit = 20,
   offset = 0,
 ): Promise<CertificationListResponse> {
-  const { data } = await apiClient.get<ApiResponse<CertificationListResponse>>(
+  const { data } = await adminApiClient.get<ApiResponse<CertificationListResponse>>(
     "/admin/certifications",
     { params: { status, limit, offset } },
   );
@@ -55,13 +55,13 @@ export async function getCertificationList(
 }
 
 export async function approveCertification(id: number): Promise<void> {
-  await apiClient.put<ApiResponse<null>>(
+  await adminApiClient.put<ApiResponse<null>>(
     `/admin/certifications/${id}/approve`,
   );
 }
 
 export async function rejectCertification(id: number, remark: string): Promise<void> {
-  await apiClient.put<ApiResponse<null>>(
+  await adminApiClient.put<ApiResponse<null>>(
     `/admin/certifications/${id}/reject`,
     { remark },
   );

@@ -62,14 +62,13 @@ func (h *BackupHandler) Trigger(c *gin.Context) {
 
 func (h *BackupHandler) Restore(c *gin.Context) {
 	backupID := c.Param("backupId")
-	filePath := h.backupService.GetFilePath(backupID)
 
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		response.Error(c, errors.CodeNotFound, "备份文件不存在")
+	if err := h.backupService.RestoreBackup(backupID); err != nil {
+		response.Error(c, errors.CodeInternalError, fmt.Sprintf("恢复失败: %v", err))
 		return
 	}
 
-	response.Success(c, map[string]string{"message": "恢复功能需手动执行 pg_restore，备份文件路径: " + filePath})
+	response.Success(c, map[string]string{"message": "数据库恢复成功"})
 }
 
 func (h *BackupHandler) Download(c *gin.Context) {
@@ -89,13 +88,24 @@ func (h *BackupHandler) Download(c *gin.Context) {
 }
 
 func (h *BackupHandler) GetSettings(c *gin.Context) {
-	response.Success(c, map[string]interface{}{
-		"backup_time":    "03:00",
-		"retention_days": 30,
-		"storage_path":   "./backups",
-	})
+	settings, err := h.backupService.GetBackupSettings(c.Request.Context())
+	if err != nil {
+		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
+	response.Success(c, settings)
 }
 
 func (h *BackupHandler) UpdateSettings(c *gin.Context) {
+	var data map[string]interface{}
+	if err := c.ShouldBindJSON(&data); err != nil {
+		response.Error(c, errors.CodeParamError, "参数格式错误")
+		return
+	}
+
+	if err := h.backupService.SaveBackupSettings(c.Request.Context(), data); err != nil {
+		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
 	response.Success(c, nil)
 }

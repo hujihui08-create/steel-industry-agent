@@ -1425,6 +1425,184 @@ func TestPersistContext_UnknownTool(t *testing.T) {
 // set_price_alert SSE card emission tests
 // ---------------------------------------------------------------------------
 
+// TestChatService_CreateSession verifies session created with correct user ID.
+func TestChatService_CreateSession(t *testing.T) {
+	ctx := context.Background()
+	mock := newMockChatRepo()
+	svc := newTestableChatService(mock)
+
+	session, err := svc.createNewSession(ctx, 42, "测试会话")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if session.UserID != 42 {
+		t.Errorf("expected UserID 42, got %d", session.UserID)
+	}
+	if session.Model != "gpt-4o-mini" {
+		t.Errorf("expected model 'gpt-4o-mini', got '%s'", session.Model)
+	}
+
+	// Verify session was stored
+	stored, err := mock.FindSessionByID(ctx, session.ID)
+	if err != nil {
+		t.Fatalf("expected to find session by ID, got error: %v", err)
+	}
+	if stored.UserID != 42 {
+		t.Errorf("expected stored UserID 42, got %d", stored.UserID)
+	}
+}
+
+// TestChatService_AddMessage verifies user message is added to a session.
+func TestChatService_AddMessage(t *testing.T) {
+	ctx := context.Background()
+	mock := newMockChatRepo()
+	svc := newTestableChatService(mock)
+
+	session, err := svc.createNewSession(ctx, 1, "用户问题")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	err = mock.CreateMessage(ctx, &model.ChatMessage{
+		SessionID: session.ID,
+		Role:      "user",
+		Content:   "查询螺纹钢价格",
+	})
+	if err != nil {
+		t.Fatalf("expected no error creating message, got %v", err)
+	}
+
+	msgs, err := mock.FindMessagesBySessionID(ctx, session.ID)
+	if err != nil {
+		t.Fatalf("expected no error finding messages, got %v", err)
+	}
+	if len(msgs) != 1 {
+		t.Errorf("expected 1 message, got %d", len(msgs))
+	}
+	if msgs[0].Role != "user" {
+		t.Errorf("expected role 'user', got '%s'", msgs[0].Role)
+	}
+}
+
+// TestChatService_AddMessage_AI verifies AI assistant message is added.
+func TestChatService_AddMessage_AI(t *testing.T) {
+	ctx := context.Background()
+	mock := newMockChatRepo()
+	svc := newTestableChatService(mock)
+
+	session, err := svc.createNewSession(ctx, 1, "查询价格")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Add user message
+	err = mock.CreateMessage(ctx, &model.ChatMessage{
+		SessionID: session.ID,
+		Role:      "user",
+		Content:   "螺纹钢价格多少？",
+	})
+	if err != nil {
+		t.Fatalf("expected no error creating user message, got %v", err)
+	}
+
+	// Add AI assistant message
+	err = mock.CreateMessage(ctx, &model.ChatMessage{
+		SessionID: session.ID,
+		Role:      "assistant",
+		Content:   "当前螺纹钢价格为3850元/吨。",
+		Tokens:    120,
+	})
+	if err != nil {
+		t.Fatalf("expected no error creating AI message, got %v", err)
+	}
+
+	msgs, err := mock.FindMessagesBySessionID(ctx, session.ID)
+	if err != nil {
+		t.Fatalf("expected no error finding messages, got %v", err)
+	}
+	if len(msgs) != 2 {
+		t.Errorf("expected 2 messages, got %d", len(msgs))
+	}
+	if msgs[1].Role != "assistant" {
+		t.Errorf("expected second message role 'assistant', got '%s'", msgs[1].Role)
+	}
+	if msgs[1].Content != "当前螺纹钢价格为3850元/吨。" {
+		t.Errorf("expected AI message content '当前螺纹钢价格为3850元/吨。', got '%s'", msgs[1].Content)
+	}
+}
+
+// TestChatService_GetContextWindow verifies only last 5 turn messages are returned.
+func TestChatService_GetContextWindow(t *testing.T) {
+	// Create 7 turns (14 non-system messages) + system
+	messages := []openai.ChatCompletionMessage{
+		{Role: openai.ChatMessageRoleSystem, Content: "System prompt"},
+		{Role: openai.ChatMessageRoleUser, Content: "Q1"}, {Role: openai.ChatMessageRoleAssistant, Content: "A1"},
+		{Role: openai.ChatMessageRoleUser, Content: "Q2"}, {Role: openai.ChatMessageRoleAssistant, Content: "A2"},
+		{Role: openai.ChatMessageRoleUser, Content: "Q3"}, {Role: openai.ChatMessageRoleAssistant, Content: "A3"},
+		{Role: openai.ChatMessageRoleUser, Content: "Q4"}, {Role: openai.ChatMessageRoleAssistant, Content: "A4"},
+		{Role: openai.ChatMessageRoleUser, Content: "Q5"}, {Role: openai.ChatMessageRoleAssistant, Content: "A5"},
+		{Role: openai.ChatMessageRoleUser, Content: "Q6"}, {Role: openai.ChatMessageRoleAssistant, Content: "A6"},
+		{Role: openai.ChatMessageRoleUser, Content: "Q7"}, {Role: openai.ChatMessageRoleAssistant, Content: "A7"},
+	}
+
+	result := applyContextWindow(messages, 5)
+
+	// With 5 turn limit and 7 turns: system + summary + last 10 non-system = 12 messages
+	if len(result) != 12 {
+		t.Errorf("expected 12 messages (system + summary + last 10), got %d", len(result))
+	}
+
+	// First must be system prompt
+	if result[0].Role != openai.ChatMessageRoleSystem || result[0].Content != "System prompt" {
+		t.Errorf("expected first message to be original system prompt")
+	}
+
+	// Second should be summary
+	if result[1].Role != openai.ChatMessageRoleSystem {
+		t.Errorf("expected second message to be summary (system role)")
+	}
+
+	// The earliest messages (Q1, A1) should be dropped
+	for _, m := range result {
+		if m.Content == "Q1" && m.Role == openai.ChatMessageRoleUser {
+			t.Errorf("expected Q1 to be dropped (outside context window)")
+		}
+		if m.Content == "A1" && m.Role == openai.ChatMessageRoleAssistant {
+			t.Errorf("expected A1 to be dropped (outside context window)")
+		}
+	}
+
+	// Last messages (Q7, A7) should be present
+	lastTwo := result[len(result)-2:]
+	if lastTwo[0].Content != "Q7" || lastTwo[1].Content != "A7" {
+		t.Errorf("expected last messages to be Q7 and A7, got %s and %s", lastTwo[0].Content, lastTwo[1].Content)
+	}
+}
+
+// TestChatService_StopGeneration verifies stop flag is set when generation is stopped.
+func TestChatService_StopGeneration(t *testing.T) {
+	ctx := context.Background()
+	mock := newMockChatRepo()
+	mock.sessions[1] = &model.ChatSession{ID: 1, UserID: 10, Title: "测试"}
+	mock.findSessionByIDResult = &model.ChatSession{ID: 1, UserID: 10, Title: "测试"}
+	svc := newTestableChatService(mock)
+
+	// Stop generation for the correct user
+	err := svc.StopGeneration(ctx, 10, 1)
+	if err != nil {
+		t.Errorf("expected no error stopping generation for own session, got %v", err)
+	}
+
+	// Stop generation for wrong user should fail
+	err = svc.StopGeneration(ctx, 99, 1)
+	if err == nil {
+		t.Errorf("expected error stopping generation for wrong user's session, got nil")
+	}
+	if err.Error() != "session does not belong to user" {
+		t.Errorf("expected 'session does not belong to user', got '%s'", err.Error())
+	}
+}
+
 func TestSetPriceAlertCardFormat(t *testing.T) {
 	// Construct the alert result as it would come from executeSetPriceAlert.
 	alertResult := struct {

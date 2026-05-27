@@ -1,0 +1,3 @@
+rollupOptions.output type: object
+manualChunks type: function
+manualChunks present: true

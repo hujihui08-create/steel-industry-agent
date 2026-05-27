@@ -4,7 +4,71 @@ import (
 	"context"
 	"math"
 	"testing"
+
+	"github.com/glebarez/sqlite"
+	"gorm.io/gorm"
+
+	"steel-agent-backend/internal/model"
+	"steel-agent-backend/internal/repository"
 )
+
+func setupKnowledgeServiceTestDB(t *testing.T) (*gorm.DB, *repository.KnowledgeRepository) {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to connect database: %v", err)
+	}
+	if err := db.AutoMigrate(&model.Knowledge{}); err != nil {
+		t.Fatalf("failed to migrate: %v", err)
+	}
+	repo := repository.NewKnowledgeRepository(db)
+	return db, repo
+}
+
+// TestKnowledgeService_Search verifies search returns sorted results.
+func TestKnowledgeService_Search(t *testing.T) {
+	_, repo := setupKnowledgeServiceTestDB(t)
+	svc := NewKnowledgeService(repo, nil, nil)
+
+	ctx := context.Background()
+
+	entries := []*model.Knowledge{
+		{Type: "standard", Title: "螺纹钢标准", Keywords: "螺纹钢 HRB400E 标准 GB/T", Status: model.KnowledgeStatusVectorized},
+		{Type: "standard", Title: "热卷标准", Keywords: "热卷 Q235B 标准", Status: model.KnowledgeStatusVectorized},
+		{Type: "grade", Title: "冷轧牌号", Keywords: "冷轧 SPCC 牌号", Status: model.KnowledgeStatusVectorized},
+	}
+	for _, k := range entries {
+		if err := repo.Create(ctx, k); err != nil {
+			t.Fatalf("failed to seed knowledge: %v", err)
+		}
+	}
+
+	results, err := svc.SearchKnowledge(ctx, "螺纹钢", 10, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Errorf("expected 1 result for '螺纹钢', got %d", len(results))
+	}
+	if len(results) > 0 && results[0].Title != "螺纹钢标准" {
+		t.Errorf("expected title '螺纹钢标准', got '%s'", results[0].Title)
+	}
+}
+
+// TestKnowledgeService_SearchEmpty verifies empty results when no match.
+func TestKnowledgeService_SearchEmpty(t *testing.T) {
+	_, repo := setupKnowledgeServiceTestDB(t)
+	svc := NewKnowledgeService(repo, nil, nil)
+
+	ctx := context.Background()
+	results, err := svc.SearchKnowledge(ctx, "nonexistent_keyword_zzz", 10, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected 0 results for non-existent keyword, got %d", len(results))
+	}
+}
 
 func TestConvertUnit(t *testing.T) {
 	svc := NewKnowledgeService(nil, nil, nil)
@@ -45,7 +109,6 @@ func TestConvertUnit(t *testing.T) {
 				return
 			}
 
-			// Use epsilon comparison for floating point
 			const epsilon = 0.001
 			if math.Abs(result-tt.expected) > epsilon {
 				t.Errorf("ConvertUnit(%v, %q, %q) = %v, want %v",
@@ -70,7 +133,6 @@ func TestCalculateWeight(t *testing.T) {
 			category: "螺纹钢",
 			spec:     "HRB400E 20mm",
 			quantity: 1,
-			// 0.00617 * 20 * 20 * 12 * 1 = 29.616
 			expected: 29.616,
 		},
 		{
@@ -78,7 +140,6 @@ func TestCalculateWeight(t *testing.T) {
 			category: "螺纹钢",
 			spec:     "HRB400E 20mm",
 			quantity: 10,
-			// 0.00617 * 20 * 20 * 12 * 10 = 296.16
 			expected: 296.16,
 		},
 		{
@@ -86,7 +147,6 @@ func TestCalculateWeight(t *testing.T) {
 			category: "rebar",
 			spec:     "16mm",
 			quantity: 1,
-			// 0.00617 * 16 * 16 * 12 * 1 = 18.95424
 			expected: 0.00617 * 16 * 16 * 12,
 		},
 		{
@@ -94,7 +154,6 @@ func TestCalculateWeight(t *testing.T) {
 			category: "钢筋",
 			spec:     "25mm",
 			quantity: 5,
-			// 0.00617 * 25 * 25 * 12 * 5
 			expected: 0.00617 * 25 * 25 * 12 * 5,
 		},
 		{
@@ -102,7 +161,6 @@ func TestCalculateWeight(t *testing.T) {
 			category: "热卷",
 			spec:     "5.5mm",
 			quantity: 1,
-			// 7.85 * 5.5 * 1.5 * 10 * 1 = 647.625
 			expected: 7.85 * 5.5 * 1.5 * 10,
 		},
 		{
@@ -110,7 +168,6 @@ func TestCalculateWeight(t *testing.T) {
 			category: "热轧卷",
 			spec:     "3.0mm",
 			quantity: 1,
-			// 7.85 * 3.0 * 1.5 * 10 = 353.25
 			expected: 7.85 * 3.0 * 1.5 * 10,
 		},
 		{
@@ -118,7 +175,6 @@ func TestCalculateWeight(t *testing.T) {
 			category: "HRC",
 			spec:     "4.0mm",
 			quantity: 1,
-			// 7.85 * 4.0 * 1.5 * 10 = 471
 			expected: 7.85 * 4.0 * 1.5 * 10,
 		},
 		{
@@ -126,7 +182,6 @@ func TestCalculateWeight(t *testing.T) {
 			category: "未知品类",
 			spec:     "some spec",
 			quantity: 5,
-			// 7.85 * 1 * quantity = 7.85 * 5 = 39.25
 			expected: 7.85 * 5,
 		},
 		{
@@ -134,7 +189,6 @@ func TestCalculateWeight(t *testing.T) {
 			category: "螺纹钢",
 			spec:     "no number here",
 			quantity: 2,
-			// diameter==0, falls through to default: 7.85 * 1 * 2 = 15.7
 			expected: 7.85 * 2,
 		},
 		{
@@ -142,7 +196,6 @@ func TestCalculateWeight(t *testing.T) {
 			category: "热卷",
 			spec:     "no number",
 			quantity: 3,
-			// thickness==0, falls through to default: 7.85 * 1 * 3 = 23.55
 			expected: 7.85 * 3,
 		},
 	}

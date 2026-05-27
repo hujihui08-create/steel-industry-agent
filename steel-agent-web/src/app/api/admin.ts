@@ -3,7 +3,7 @@
 // 对应后端 /api/v1/admin/* 接口
 // ============================================================
 
-import apiClient from "./client";
+import { adminApiClient } from "./client";
 import type { ApiResponse } from "@/app/types/api";
 import type {
   CrawlerSource, CrawlerLog, CrawlStatus, CrawlerSourceFormData,
@@ -39,35 +39,58 @@ export function getDefaultToolHealthItems(): ToolHealth[] {
 // ============================================================
 
 export async function getBackupOverview(): Promise<BackupOverview> {
-  const { data } = await apiClient.get<ApiResponse<BackupOverview>>("/admin/backup/overview");
+  const { data } = await adminApiClient.get<ApiResponse<any>>("/admin/backup/overview");
   if (!data?.data) throw new Error(data?.message || "获取备份概览失败");
-  return data.data;
+  const raw = data.data;
+  return {
+    dbSize: raw.db_size ?? raw.dbSize ?? "0 B",
+    fileCount: raw.file_count ?? raw.fileCount ?? 0,
+    lastBackup: raw.last_backup ?? raw.lastBackup ?? "",
+    autoBackupEnabled: raw.auto_backup_enabled ?? raw.autoBackupEnabled ?? true,
+    autoBackupTime: raw.auto_backup_time ?? raw.autoBackupTime ?? "03:00",
+    retentionDays: raw.retention_days ?? raw.retentionDays ?? 30,
+  };
 }
 
 export async function getBackupRecords(
   page = 1,
   pageSize = 10,
 ): Promise<PaginatedResponse<BackupRecord>> {
-  const { data } = await apiClient.get<ApiResponse<PaginatedResponse<BackupRecord>>>(
+  const { data } = await adminApiClient.get<ApiResponse<any>>(
     "/admin/backup/records",
     { params: { page, page_size: pageSize } },
   );
   if (!data?.data) throw new Error(data?.message || "获取备份记录失败");
-  return data.data;
+  const raw = data.data;
+  const items = Array.isArray(raw.items ?? raw.list)
+    ? (raw.items ?? raw.list).map((item: any) => ({
+        id: item.id ?? item.filename ?? "",
+        timestamp: item.timestamp ?? item.created_at ?? "",
+        fileSize: item.file_size ?? item.fileSize ?? item.size ?? "0 B",
+        type: item.type ?? "manual",
+        status: item.status ?? "success",
+      }))
+    : [];
+  return {
+    items,
+    total: raw.total ?? 0,
+    page: raw.page ?? page,
+    pageSize: raw.page_size ?? raw.pageSize ?? pageSize,
+  };
 }
 
 export async function triggerBackup(): Promise<BackupRecord> {
-  const { data } = await apiClient.post<ApiResponse<BackupRecord>>("/admin/backup/trigger");
+  const { data } = await adminApiClient.post<ApiResponse<BackupRecord>>("/admin/backup/trigger");
   if (!data?.data) throw new Error(data?.message || "触发备份失败");
   return data.data;
 }
 
 export async function restoreBackup(backupId: string): Promise<void> {
-  await apiClient.post(`/admin/backup/restore/${backupId}`);
+  await adminApiClient.post(`/admin/backup/restore/${backupId}`);
 }
 
 export async function downloadBackup(backupId: string): Promise<Blob> {
-  const res = await apiClient.get(`/admin/backup/download/${backupId}`, {
+  const res = await adminApiClient.get(`/admin/backup/download/${backupId}`, {
     responseType: "blob",
   });
   return res.data;
@@ -78,7 +101,7 @@ export async function getAutoBackupSettings(): Promise<{
   retentionDays: number;
   storagePath: string;
 }> {
-  const { data } = await apiClient.get<ApiResponse<{
+  const { data } = await adminApiClient.get<ApiResponse<{
     backupTime: string;
     retentionDays: number;
     storagePath: string;
@@ -90,7 +113,7 @@ export async function getAutoBackupSettings(): Promise<{
 export async function saveAutoBackupSettings(
   settings: { backupTime: string; retentionDays: number; storagePath: string },
 ): Promise<void> {
-  await apiClient.put("/admin/backup/settings", settings);
+  await adminApiClient.put("/admin/backup/settings", settings);
 }
 
 // ============================================================
@@ -98,39 +121,39 @@ export async function saveAutoBackupSettings(
 // ============================================================
 
 export async function getCrawlerSources(): Promise<CrawlerSource[]> {
-  const { data } = await apiClient.get<ApiResponse<CrawlerSource[]>>("/admin/crawler/sources");
+  const { data } = await adminApiClient.get<ApiResponse<CrawlerSource[]>>("/admin/crawler/sources");
   return data.data ?? [];
 }
 
 export async function createCrawlerSource(form: CrawlerSourceFormData): Promise<CrawlerSource> {
-  const { data } = await apiClient.post<ApiResponse<CrawlerSource>>("/admin/crawler/sources", form);
+  const { data } = await adminApiClient.post<ApiResponse<CrawlerSource>>("/admin/crawler/sources", form);
   if (!data?.data) throw new Error(data?.message || "创建失败");
   return data.data;
 }
 
 export async function updateCrawlerSource(id: number, form: Partial<CrawlerSourceFormData>): Promise<CrawlerSource> {
-  const { data } = await apiClient.put<ApiResponse<CrawlerSource>>(`/admin/crawler/sources/${id}`, form);
+  const { data } = await adminApiClient.put<ApiResponse<CrawlerSource>>(`/admin/crawler/sources/${id}`, form);
   if (!data?.data) throw new Error(data?.message || "更新失败");
   return data.data;
 }
 
 export async function deleteCrawlerSource(id: number): Promise<void> {
-  await apiClient.delete(`/admin/crawler/sources/${id}`);
+  await adminApiClient.delete(`/admin/crawler/sources/${id}`);
 }
 
 export async function getCrawlerLogs(sourceId?: number, limit = 50): Promise<CrawlerLog[]> {
   const params: Record<string, string | number> = { limit };
   if (sourceId !== undefined) params.source_id = sourceId;
-  const { data } = await apiClient.get<ApiResponse<CrawlerLog[]>>("/admin/crawler/logs", { params });
+  const { data } = await adminApiClient.get<ApiResponse<CrawlerLog[]>>("/admin/crawler/logs", { params });
   return data.data ?? [];
 }
 
 export async function triggerCrawl(sourceId: number): Promise<void> {
-  await apiClient.post(`/admin/crawler/trigger/${sourceId}`);
+  await adminApiClient.post(`/admin/crawler/trigger/${sourceId}`);
 }
 
 export async function getCrawlStatus(): Promise<Record<number, CrawlStatus>> {
-  const { data } = await apiClient.get<ApiResponse<Record<number, CrawlStatus>>>("/admin/crawler/status");
+  const { data } = await adminApiClient.get<ApiResponse<Record<number, CrawlStatus>>>("/admin/crawler/status");
   return data.data ?? {};
 }
 
@@ -144,7 +167,7 @@ export async function getAdminPrices(params: {
   limit?: number;
   offset?: number;
 }): Promise<any[]> {
-  const { data } = await apiClient.get<ApiResponse<any[]>>("/admin/prices", { params });
+  const { data } = await adminApiClient.get<ApiResponse<any[]>>("/admin/prices", { params });
   return data.data ?? [];
 }
 
@@ -158,7 +181,7 @@ export async function createAdminPrice(data: {
   source: string;
   price_date: string;
 }): Promise<any> {
-  const { data: res } = await apiClient.post<ApiResponse<any>>("/admin/prices", data);
+  const { data: res } = await adminApiClient.post<ApiResponse<any>>("/admin/prices", data);
   if (!res?.data) throw new Error(res.message || "创建失败");
   return res.data;
 }
@@ -173,13 +196,13 @@ export async function updateAdminPrice(id: number, data: Partial<{
   source: string;
   price_date: string;
 }>): Promise<any> {
-  const { data: res } = await apiClient.put<ApiResponse<any>>(`/admin/prices/${id}`, data);
+  const { data: res } = await adminApiClient.put<ApiResponse<any>>(`/admin/prices/${id}`, data);
   if (!res?.data) throw new Error(res.message || "更新失败");
   return res.data;
 }
 
 export async function deleteAdminPrice(id: number): Promise<void> {
-  await apiClient.delete(`/admin/prices/${id}`);
+  await adminApiClient.delete(`/admin/prices/${id}`);
 }
 
 export async function batchImportPrices(prices: Array<{
@@ -192,7 +215,7 @@ export async function batchImportPrices(prices: Array<{
   source: string;
   price_date: string;
 }>): Promise<{ imported: number }> {
-  const { data: res } = await apiClient.post<ApiResponse<{ imported: number }>>("/admin/prices/batch-import", prices);
+  const { data: res } = await adminApiClient.post<ApiResponse<{ imported: number }>>("/admin/prices/batch-import", prices);
   if (!res?.data) throw new Error(res.message || "导入失败");
   return res.data;
 }
@@ -201,7 +224,7 @@ export async function getAdminNews(params: {
   limit?: number;
   offset?: number;
 }): Promise<any[]> {
-  const { data } = await apiClient.get<ApiResponse<any[]>>("/admin/news", { params });
+  const { data } = await adminApiClient.get<ApiResponse<any[]>>("/admin/news", { params });
   return data.data ?? [];
 }
 
@@ -212,7 +235,7 @@ export async function getAdminTenders(params: {
   limit?: number;
   offset?: number;
 }): Promise<any[]> {
-  const { data } = await apiClient.get<ApiResponse<any[]>>("/admin/tenders", { params });
+  const { data } = await adminApiClient.get<ApiResponse<any[]>>("/admin/tenders", { params });
   return data.data ?? [];
 }
 
@@ -222,7 +245,7 @@ export async function getAdminTenders(params: {
 
 // TODO: 后端暂不支持变化率数据，当前硬编码为0
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const { data } = await apiClient.get<ApiResponse<{
+  const { data } = await adminApiClient.get<ApiResponse<{
     user_count: number;
     quotation_count: number;
     tender_count: number;
@@ -267,7 +290,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 export async function getTrendData(
   period: "today" | "7days" | "30days",
 ): Promise<TrendDataPoint[]> {
-  const { data } = await apiClient.get<ApiResponse<TrendDataPoint[]>>(
+  const { data } = await adminApiClient.get<ApiResponse<TrendDataPoint[]>>(
     "/admin/dashboard/trend",
     { params: { period } },
   );
@@ -275,7 +298,7 @@ export async function getTrendData(
 }
 
 export async function getBadCaseStats(): Promise<BadCaseStats> {
-  const { data } = await apiClient.get<ApiResponse<BadCaseStatisticsResponse>>("/admin/bad-cases/statistics");
+  const { data } = await adminApiClient.get<ApiResponse<BadCaseStatisticsResponse>>("/admin/bad-cases/statistics");
   const raw = data.data;
   if (!raw) {
     return { pending: 0, fixing: 0, fixed: 0, verified: 0 };
@@ -300,7 +323,7 @@ export async function getBadCaseStats(): Promise<BadCaseStats> {
 }
 
 export async function getRecentLogs(): Promise<OperationLog[]> {
-  const { data } = await apiClient.get<ApiResponse<OperationLog[]>>(
+  const { data } = await adminApiClient.get<ApiResponse<OperationLog[]>>(
     "/admin/logs",
     { params: { page_size: 5 } },
   );
@@ -329,17 +352,17 @@ export async function getRecentLogs(): Promise<OperationLog[]> {
 // ============================================================
 
 export async function getAgentConfig(): Promise<AgentConfig> {
-  const res = await apiClient.get<ApiResponse<AgentConfig>>("/admin/agent-config");
+  const res = await adminApiClient.get<ApiResponse<AgentConfig>>("/admin/agent-config");
   if (!res.data?.data) throw new Error(res.data.message || "获取Agent配置失败");
   return res.data.data;
 }
 
 export async function saveAgentConfig(config: AgentConfig): Promise<void> {
-  await apiClient.put("/admin/agent-config", config);
+  await adminApiClient.put("/admin/agent-config", config);
 }
 
 export async function getPromptVersions(): Promise<PromptVersion[]> {
-  const res = await apiClient.get<ApiResponse<PromptVersion[]>>("/admin/agent-config/prompt-versions");
+  const res = await adminApiClient.get<ApiResponse<PromptVersion[]>>("/admin/agent-config/prompt-versions");
   if (!res.data?.data) throw new Error(res.data.message || "获取Prompt版本失败");
   return res.data.data;
 }
@@ -349,7 +372,7 @@ export async function testModelConnection(params: {
   baseUrl: string;
   model: string;
 }): Promise<{ success: boolean; message: string }> {
-  const res = await apiClient.post<ApiResponse<{ success: boolean; message: string }>>(
+  const res = await adminApiClient.post<ApiResponse<{ success: boolean; message: string }>>(
     "/admin/agent-config/test-connection",
     params,
   );
@@ -399,7 +422,7 @@ export async function getIntents(filter?: {
   keyword?: string;
   status?: string;
 }): Promise<PaginatedResponse<Intent>> {
-  const { data } = await apiClient.get<ApiResponse<unknown>>(
+  const { data } = await adminApiClient.get<ApiResponse<unknown>>(
     "/admin/intents",
     { params: { page: filter?.page, page_size: filter?.pageSize, keyword: filter?.keyword, status: filter?.status } },
   );
@@ -433,19 +456,19 @@ export async function getIntents(filter?: {
 }
 
 export async function createIntent(intent: Intent): Promise<void> {
-  await apiClient.post("/admin/intents", mapIntentToAPI(intent));
+  await adminApiClient.post("/admin/intents", mapIntentToAPI(intent));
 }
 
 export async function updateIntent(intent: Intent): Promise<void> {
-  await apiClient.put(`/admin/intents/${intent.id}`, mapIntentToAPI(intent));
+  await adminApiClient.put(`/admin/intents/${intent.id}`, mapIntentToAPI(intent));
 }
 
 export async function deleteIntent(id: string): Promise<void> {
-  await apiClient.delete(`/admin/intents/${id}`);
+  await adminApiClient.delete(`/admin/intents/${id}`);
 }
 
 export async function getIntentStats(): Promise<IntentStats[]> {
-  const { data } = await apiClient.get<ApiResponse<unknown>>("/admin/intents/stats");
+  const { data } = await adminApiClient.get<ApiResponse<unknown>>("/admin/intents/stats");
   const raw = data.data;
   if (!raw) return [];
   if (Array.isArray(raw)) {
@@ -487,7 +510,7 @@ function mapTestResultFromAPI(raw: Record<string, unknown>): IntentTestResult {
 }
 
 export async function testIntent(text: string): Promise<IntentTestResult> {
-  const { data } = await apiClient.post<ApiResponse<unknown>>(
+  const { data } = await adminApiClient.post<ApiResponse<unknown>>(
     "/admin/debug/intent",
     { text },
   );
@@ -507,7 +530,7 @@ export interface EntityConfig {
 }
 
 export async function getEntityConfigs(entityType: string = "region"): Promise<EntityConfig[]> {
-  const { data } = await apiClient.get<ApiResponse<unknown>>(
+  const { data } = await adminApiClient.get<ApiResponse<unknown>>(
     "/admin/entity-configs",
     { params: { entity_type: entityType } },
   );
@@ -524,14 +547,14 @@ export async function getEntityConfigs(entityType: string = "region"): Promise<E
 }
 
 export async function createEntityConfig(entityType: string, entityValue: string): Promise<void> {
-  await apiClient.post("/admin/entity-configs", {
+  await adminApiClient.post("/admin/entity-configs", {
     entity_type: entityType,
     entity_value: entityValue,
   });
 }
 
 export async function deleteEntityConfig(id: number): Promise<void> {
-  await apiClient.delete(`/admin/entity-configs/${id}`);
+  await adminApiClient.delete(`/admin/entity-configs/${id}`);
 }
 
 // ============================================================
@@ -539,7 +562,7 @@ export async function deleteEntityConfig(id: number): Promise<void> {
 // ============================================================
 
 export async function getBadCases(filter?: BadCaseFilter): Promise<PaginatedResponse<BadCase>> {
-  const { data } = await apiClient.get<ApiResponse<PaginatedResponse<BadCase>>>(
+  const { data } = await adminApiClient.get<ApiResponse<PaginatedResponse<BadCase>>>(
     "/admin/bad-cases",
     { params: filter },
   );
@@ -548,7 +571,7 @@ export async function getBadCases(filter?: BadCaseFilter): Promise<PaginatedResp
 }
 
 export async function getBadCaseDetail(id: string | number): Promise<BadCase> {
-  const { data } = await apiClient.get<ApiResponse<BadCase>>(`/admin/bad-cases/${id}`);
+  const { data } = await adminApiClient.get<ApiResponse<BadCase>>(`/admin/bad-cases/${id}`);
   if (!data?.data) throw new Error(data?.message || "获取Bad Case详情失败");
   return data.data;
 }
@@ -559,7 +582,7 @@ export async function createBadCase(params: {
   error_type: string;
   correct_response?: string;
 }): Promise<BadCase> {
-  const { data } = await apiClient.post<ApiResponse<BadCase>>("/admin/bad-cases", params);
+  const { data } = await adminApiClient.post<ApiResponse<BadCase>>("/admin/bad-cases", params);
   if (!data?.data) throw new Error(data?.message || "创建Bad Case失败");
   return data.data;
 }
@@ -568,17 +591,17 @@ export async function updateBadCase(
   id: string | number,
   params: Partial<BadCase>,
 ): Promise<void> {
-  await apiClient.put(`/admin/bad-cases/${id}`, params);
+  await adminApiClient.put(`/admin/bad-cases/${id}`, params);
 }
 
 export async function deleteBadCase(id: string | number): Promise<void> {
-  await apiClient.delete(`/admin/bad-cases/${id}`);
+  await adminApiClient.delete(`/admin/bad-cases/${id}`);
 }
 
 export async function importBadCases(file: File): Promise<BadCaseImportResult> {
   const formData = new FormData();
   formData.append("file", file);
-  const { data } = await apiClient.post<ApiResponse<BadCaseImportResult>>(
+  const { data } = await adminApiClient.post<ApiResponse<BadCaseImportResult>>(
     "/admin/bad-cases/import",
     formData,
     { headers: { "Content-Type": "multipart/form-data" } },
@@ -588,7 +611,7 @@ export async function importBadCases(file: File): Promise<BadCaseImportResult> {
 }
 
 export async function exportBadCases(filter?: BadCaseFilter): Promise<Blob> {
-  const res = await apiClient.get("/admin/bad-cases/export", {
+  const res = await adminApiClient.get("/admin/bad-cases/export", {
     params: filter,
     responseType: "blob",
   });
@@ -596,7 +619,7 @@ export async function exportBadCases(filter?: BadCaseFilter): Promise<Blob> {
 }
 
 export async function verifyBadCase(id: string | number): Promise<BadCaseVerifyResult> {
-  const { data } = await apiClient.post<ApiResponse<BadCaseVerifyResult>>(
+  const { data } = await adminApiClient.post<ApiResponse<BadCaseVerifyResult>>(
     `/admin/bad-cases/${id}/verify`,
   );
   if (!data?.data) throw new Error(data?.message || "验证Bad Case失败");
@@ -614,7 +637,7 @@ export async function getMobileUsers(filter?: {
   status?: string;
   role?: string;
 }): Promise<PaginatedResponse<MobileUser>> {
-  const { data } = await apiClient.get<ApiResponse<PaginatedResponse<MobileUser>>>(
+  const { data } = await adminApiClient.get<ApiResponse<PaginatedResponse<MobileUser>>>(
     "/admin/mobile-users",
     { params: { page: filter?.page, page_size: filter?.pageSize, keyword: filter?.keyword, status: filter?.status, role: filter?.role } },
   );
@@ -636,21 +659,21 @@ export async function getMobileUsers(filter?: {
 }
 
 export async function getMobileUserDetail(id: number): Promise<MobileUser> {
-  const { data } = await apiClient.get<ApiResponse<MobileUser>>(`/admin/mobile-users/${id}`);
+  const { data } = await adminApiClient.get<ApiResponse<MobileUser>>(`/admin/mobile-users/${id}`);
   if (!data?.data) throw new Error(data?.message || "获取用户详情失败");
   return data.data;
 }
 
 export async function disableMobileUser(id: number): Promise<void> {
-  await apiClient.put(`/admin/mobile-users/${id}/disable`);
+  await adminApiClient.put(`/admin/mobile-users/${id}/disable`);
 }
 
 export async function enableMobileUser(id: number): Promise<void> {
-  await apiClient.put(`/admin/mobile-users/${id}/enable`);
+  await adminApiClient.put(`/admin/mobile-users/${id}/enable`);
 }
 
 export async function exportMobileUsers(filter: any): Promise<Blob> {
-  const res = await apiClient.get("/admin/mobile-users/export", {
+  const res = await adminApiClient.get("/admin/mobile-users/export", {
     params: filter,
     responseType: "blob",
   });
@@ -662,7 +685,7 @@ export async function exportMobileUsers(filter: any): Promise<Blob> {
 // ============================================================
 
 export async function getAdminUsers(): Promise<AdminUser[]> {
-  const { data } = await apiClient.get<ApiResponse<AdminUser[]>>("/admin/users");
+  const { data } = await adminApiClient.get<ApiResponse<AdminUser[]>>("/admin/users");
   if (!data?.data) {
     throw new Error(data?.message || "获取管理员列表失败");
   }
@@ -675,7 +698,7 @@ export async function createAdminUser(params: {
   password: string;
   role: AdminRole;
 }): Promise<AdminUser> {
-  const { data } = await apiClient.post<ApiResponse<AdminUser>>("/admin/users", params);
+  const { data } = await adminApiClient.post<ApiResponse<AdminUser>>("/admin/users", params);
   if (!data?.data) {
     throw new Error(data?.message || "创建管理员失败");
   }
@@ -686,7 +709,7 @@ export async function updateAdminUser(
   id: number,
   params: { nickname?: string; role?: AdminRole; status?: AdminUserStatus },
 ): Promise<AdminUser> {
-  const { data } = await apiClient.put<ApiResponse<AdminUser>>(`/admin/users/${id}`, params);
+  const { data } = await adminApiClient.put<ApiResponse<AdminUser>>(`/admin/users/${id}`, params);
   if (!data?.data) {
     throw new Error(data?.message || "更新管理员失败");
   }
@@ -694,14 +717,14 @@ export async function updateAdminUser(
 }
 
 export async function deleteAdminUser(id: number): Promise<void> {
-  await apiClient.delete(`/admin/users/${id}`);
+  await adminApiClient.delete(`/admin/users/${id}`);
 }
 
 export async function getAdminNotifications(params?: {
   page?: number;
   page_size?: number;
 }): Promise<PaginatedResponse<{ id: number; title: string; content: string; type: string; is_read: boolean; created_at: string }>> {
-  const { data } = await apiClient.get<ApiResponse<PaginatedResponse<{ id: number; title: string; content: string; type: string; is_read: boolean; created_at: string }>>>("/admin/notifications", { params });
+  const { data } = await adminApiClient.get<ApiResponse<PaginatedResponse<{ id: number; title: string; content: string; type: string; is_read: boolean; created_at: string }>>>("/admin/notifications", { params });
   if (!data?.data) {
     throw new Error(data?.message || "获取通知列表失败");
   }
@@ -709,15 +732,15 @@ export async function getAdminNotifications(params?: {
 }
 
 export async function markNotificationRead(id: number): Promise<void> {
-  await apiClient.put(`/admin/notifications/${id}/read`);
+  await adminApiClient.put(`/admin/notifications/${id}/read`);
 }
 
 export async function markAllNotificationsRead(): Promise<void> {
-  await apiClient.put("/admin/notifications/read-all");
+  await adminApiClient.put("/admin/notifications/read-all");
 }
 
 export async function getUnreadCount(): Promise<{ count: number }> {
-  const { data } = await apiClient.get<ApiResponse<{ count: number }>>("/admin/notifications/unread-count");
+  const { data } = await adminApiClient.get<ApiResponse<{ count: number }>>("/admin/notifications/unread-count");
   if (!data?.data) {
     throw new Error(data?.message || "获取未读数量失败");
   }
@@ -749,7 +772,7 @@ export async function getOperationLogs(filter?: {
   startDate?: string;
   endDate?: string;
 }): Promise<PaginatedResponse<OperationLog>> {
-  const { data } = await apiClient.get<ApiResponse<PaginatedResponse<OperationLog>>>(
+  const { data } = await adminApiClient.get<ApiResponse<PaginatedResponse<OperationLog>>>(
     "/admin/logs",
     { params: { page: filter?.page, page_size: filter?.pageSize, operator: filter?.operator, action_type: filter?.actionType, start_date: filter?.startDate, end_date: filter?.endDate } },
   );
@@ -772,7 +795,7 @@ export async function getOperationLogs(filter?: {
 }
 
 export async function getOperationLogDetail(id: string): Promise<OperationLog> {
-  const { data } = await apiClient.get<ApiResponse<any>>(`/admin/logs/${id}`);
+  const { data } = await adminApiClient.get<ApiResponse<any>>(`/admin/logs/${id}`);
   if (!data?.data) throw new Error(data?.message || "获取日志详情失败");
   return mapAdminLogToOperationLog(data.data);
 }
@@ -783,7 +806,7 @@ export async function exportOperationLogs(filter?: {
   startDate?: string;
   endDate?: string;
 }): Promise<Blob> {
-  const res = await apiClient.get("/admin/logs/export", {
+  const res = await adminApiClient.get("/admin/logs/export", {
     params: filter,
     responseType: "blob",
   });
@@ -795,25 +818,34 @@ export async function exportOperationLogs(filter?: {
 // ============================================================
 
 export async function getSystemSettings(): Promise<SystemSettings> {
-  const { data } = await apiClient.get<ApiResponse<SystemSettings>>("/admin/settings");
+  const { data } = await adminApiClient.get<ApiResponse<SystemSettings>>("/admin/settings");
   if (!data?.data) throw new Error(data?.message || "获取系统设置失败");
   return data.data;
 }
 
 export async function saveSystemSettings(settings: SystemSettings): Promise<void> {
-  await apiClient.put("/admin/settings", settings);
+  await adminApiClient.put("/admin/settings", settings);
 }
 
 export async function uploadLogo(file: File): Promise<string> {
   const formData = new FormData();
   formData.append("file", file);
-  const { data } = await apiClient.post<ApiResponse<{ url: string }>>("/admin/settings/upload-logo", formData);
+  const { data } = await adminApiClient.post<ApiResponse<{ url: string }>>("/admin/settings/upload-logo", formData);
   if (!data?.data?.url) throw new Error(data?.message || "上传Logo失败");
   return data.data.url;
 }
 
-export async function testEmail(): Promise<{ success: boolean; message: string }> {
-  const { data } = await apiClient.post<ApiResponse<{ success: boolean; message: string }>>("/admin/settings/test-email");
+export async function testEmail(smtpConfig?: {
+  smtpServer: string;
+  smtpPort: number;
+  smtpEncryption: string;
+  smtpEmail: string;
+  smtpPassword: string;
+}): Promise<{ success: boolean; message: string }> {
+  const { data } = await adminApiClient.post<ApiResponse<{ success: boolean; message: string }>>(
+    "/admin/settings/test-email",
+    smtpConfig || {}
+  );
   if (!data?.data) throw new Error(data?.message || "邮件测试失败");
   return data.data;
 }
@@ -823,27 +855,27 @@ export async function testEmail(): Promise<{ success: boolean; message: string }
 // ============================================================
 
 export async function getCategories(params?: { type?: string; status?: string }): Promise<Category[]> {
-  const res = await apiClient.get<ApiResponse<Category[]>>("/admin/categories", { params });
+  const res = await adminApiClient.get<ApiResponse<Category[]>>("/admin/categories", { params });
   if (res.data.code !== 200) throw new Error(res.data.message || "加载失败");
   return res.data.data ?? [];
 }
 
 export async function createCategory(data: { name: string; type: string; sort_order: number; parent_id?: number }): Promise<Category> {
-  const res = await apiClient.post<ApiResponse<Category>>("/admin/categories", data);
+  const res = await adminApiClient.post<ApiResponse<Category>>("/admin/categories", data);
   if (!res.data?.data) throw new Error(res.data.message || "创建失败");
   return res.data.data;
 }
 
 export async function updateCategory(id: number, data: { name: string; type: string; status: string; sort_order: number; parent_id?: number }): Promise<void> {
-  await apiClient.put(`/admin/categories/${id}`, data);
+  await adminApiClient.put(`/admin/categories/${id}`, data);
 }
 
 export async function deleteCategory(id: number): Promise<void> {
-  await apiClient.delete(`/admin/categories/${id}`);
+  await adminApiClient.delete(`/admin/categories/${id}`);
 }
 
 export async function toggleCategory(id: number): Promise<Category> {
-  const res = await apiClient.patch<ApiResponse<Category>>(`/admin/categories/${id}/toggle`);
+  const res = await adminApiClient.patch<ApiResponse<Category>>(`/admin/categories/${id}/toggle`);
   if (!res.data?.data) throw new Error(res.data.message || "切换失败");
   return res.data.data;
 }
@@ -861,7 +893,7 @@ export async function getPublicCategories(): Promise<PublicCategories> {
 // ============================================================
 
 export async function getMobileRoles(): Promise<MobileRole[]> {
-  const { data } = await apiClient.get<ApiResponse<MobileRole[]>>('/admin/mobile-roles')
+  const { data } = await adminApiClient.get<ApiResponse<MobileRole[]>>('/admin/mobile-roles')
   if (!data?.data) throw new Error(data?.message || "获取角色列表失败");
   return data.data
 }
@@ -869,7 +901,7 @@ export async function getMobileRoles(): Promise<MobileRole[]> {
 export async function createMobileRole(
   params: { name: string; description?: string; status?: number },
 ): Promise<MobileRole> {
-  const { data } = await apiClient.post<ApiResponse<MobileRole>>('/admin/mobile-roles', params)
+  const { data } = await adminApiClient.post<ApiResponse<MobileRole>>('/admin/mobile-roles', params)
   if (!data?.data) throw new Error(data?.message || "创建角色失败");
   return data.data
 }
@@ -878,17 +910,17 @@ export async function updateMobileRole(
   id: number,
   params: { name?: string; description?: string; status?: number },
 ): Promise<MobileRole> {
-  const { data } = await apiClient.put<ApiResponse<MobileRole>>(`/admin/mobile-roles/${id}`, params)
+  const { data } = await adminApiClient.put<ApiResponse<MobileRole>>(`/admin/mobile-roles/${id}`, params)
   if (!data?.data) throw new Error(data?.message || "更新角色失败");
   return data.data
 }
 
 export async function deleteMobileRole(id: number): Promise<void> {
-  await apiClient.delete(`/admin/mobile-roles/${id}`)
+  await adminApiClient.delete(`/admin/mobile-roles/${id}`)
 }
 
 export async function getRolePermissions(): Promise<MobileRole[]> {
-  const { data } = await apiClient.get<ApiResponse<MobileRole[]>>('/admin/mobile-roles/permissions')
+  const { data } = await adminApiClient.get<ApiResponse<MobileRole[]>>('/admin/mobile-roles/permissions')
   if (!data?.data) throw new Error(data?.message || "获取权限失败");
   return data.data
 }
@@ -897,14 +929,14 @@ export async function saveRolePermissions(
   roleId: number,
   permissions: Record<string, boolean>,
 ): Promise<void> {
-  await apiClient.put('/admin/mobile-roles/permissions', {
+  await adminApiClient.put('/admin/mobile-roles/permissions', {
     role_id: roleId,
     permissions,
   })
 }
 
 export async function getRetentionStats(): Promise<RetentionStats> {
-  const { data } = await apiClient.get<ApiResponse<RetentionStats>>('/admin/mobile-users/retention')
+  const { data } = await adminApiClient.get<ApiResponse<RetentionStats>>('/admin/mobile-users/retention')
   if (!data?.data) throw new Error(data?.message || "获取留存统计失败");
   return data.data
 }
@@ -918,7 +950,7 @@ export async function getLoginLogs(params?: {
   page_size?: number;
   user_type?: string;
 }): Promise<PaginatedResponse<LoginLogEntry>> {
-  const { data } = await apiClient.get<ApiResponse<PaginatedResponse<LoginLogEntry>>>(
+  const { data } = await adminApiClient.get<ApiResponse<PaginatedResponse<LoginLogEntry>>>(
     "/admin/login-logs",
     { params }
   );
@@ -927,7 +959,7 @@ export async function getLoginLogs(params?: {
 }
 
 export async function getLoginLogStats(): Promise<LoginLogStats> {
-  const { data } = await apiClient.get<ApiResponse<LoginLogStats>>("/admin/login-logs/stats");
+  const { data } = await adminApiClient.get<ApiResponse<LoginLogStats>>("/admin/login-logs/stats");
   if (!data?.data) throw new Error(data?.message || "获取登录统计失败");
   return data.data;
 }
@@ -937,31 +969,31 @@ export async function getLoginLogStats(): Promise<LoginLogStats> {
 // ============================================================
 
 export async function getApiStatsOverview(): Promise<ApiCallOverview> {
-  const { data } = await apiClient.get<ApiResponse<ApiCallOverview>>("/admin/api-stats/overview");
+  const { data } = await adminApiClient.get<ApiResponse<ApiCallOverview>>("/admin/api-stats/overview");
   if (!data?.data) throw new Error(data?.message || "获取API统计概览失败");
   return data.data;
 }
 
 export async function getApiEndpointStats(): Promise<ApiEndpointStat[]> {
-  const { data } = await apiClient.get<ApiResponse<ApiEndpointStat[]>>("/admin/api-stats/endpoints");
+  const { data } = await adminApiClient.get<ApiResponse<ApiEndpointStat[]>>("/admin/api-stats/endpoints");
   if (!data?.data) throw new Error(data?.message || "获取端点统计失败");
   return data.data;
 }
 
 export async function getApiModelStats(): Promise<ApiModelStat[]> {
-  const { data } = await apiClient.get<ApiResponse<ApiModelStat[]>>("/admin/api-stats/models");
+  const { data } = await adminApiClient.get<ApiResponse<ApiModelStat[]>>("/admin/api-stats/models");
   if (!data?.data) throw new Error(data?.message || "获取模型统计失败");
   return data.data;
 }
 
 export async function getApiUserStats(): Promise<ApiUserStat[]> {
-  const { data } = await apiClient.get<ApiResponse<ApiUserStat[]>>("/admin/api-stats/users");
+  const { data } = await adminApiClient.get<ApiResponse<ApiUserStat[]>>("/admin/api-stats/users");
   if (!data?.data) throw new Error(data?.message || "获取用户统计失败");
   return data.data;
 }
 
 export async function getApiTrend(days: number = 7): Promise<ApiTrendPoint[]> {
-  const { data } = await apiClient.get<ApiResponse<ApiTrendPoint[]>>("/admin/api-stats/trend", {
+  const { data } = await adminApiClient.get<ApiResponse<ApiTrendPoint[]>>("/admin/api-stats/trend", {
     params: { days }
   });
   if (!data?.data) throw new Error(data?.message || "获取API趋势失败");
@@ -973,17 +1005,17 @@ export async function getApiTrend(days: number = 7): Promise<ApiTrendPoint[]> {
 // ============================================================
 
 export async function getScheduledTasks(): Promise<ScheduledTask[]> {
-  const { data } = await apiClient.get<ApiResponse<ScheduledTask[]>>("/admin/scheduled-tasks");
+  const { data } = await adminApiClient.get<ApiResponse<ScheduledTask[]>>("/admin/scheduled-tasks");
   if (!data?.data) throw new Error(data?.message || "获取定时任务列表失败");
   return data.data;
 }
 
 export async function triggerTask(taskName: string): Promise<void> {
-  await apiClient.post("/admin/scheduled-tasks/trigger", { task_name: taskName });
+  await adminApiClient.post("/admin/scheduled-tasks/trigger", { task_name: taskName });
 }
 
 export async function getTaskLogs(taskId: number): Promise<TaskExecutionLog[]> {
-  const { data } = await apiClient.get<ApiResponse<TaskExecutionLog[]>>("/admin/scheduled-tasks/logs", {
+  const { data } = await adminApiClient.get<ApiResponse<TaskExecutionLog[]>>("/admin/scheduled-tasks/logs", {
     params: { task_id: taskId }
   });
   if (!data?.data) throw new Error(data?.message || "获取任务日志失败");
@@ -991,7 +1023,7 @@ export async function getTaskLogs(taskId: number): Promise<TaskExecutionLog[]> {
 }
 
 export async function toggleTask(taskName: string): Promise<string> {
-  const { data } = await apiClient.post<ApiResponse<{ status: string }>>(
+  const { data } = await adminApiClient.post<ApiResponse<{ status: string }>>(
     "/admin/scheduled-tasks/toggle",
     { task_name: taskName }
   );
@@ -1004,21 +1036,21 @@ export async function toggleTask(taskName: string): Promise<string> {
 // ============================================================
 
 export async function getMenuTree(): Promise<MenuNode[]> {
-  const { data } = await apiClient.get<ApiResponse<MenuNode[]>>("/admin/menus/tree");
+  const { data } = await adminApiClient.get<ApiResponse<MenuNode[]>>("/admin/menus/tree");
   if (!data?.data) throw new Error(data?.message || "获取菜单树失败");
   return data.data;
 }
 
 export async function createMenu(menu: Partial<MenuNode>): Promise<MenuNode> {
-  const { data } = await apiClient.post<ApiResponse<MenuNode>>("/admin/menus", menu);
+  const { data } = await adminApiClient.post<ApiResponse<MenuNode>>("/admin/menus", menu);
   if (!data?.data) throw new Error(data?.message || "创建菜单失败");
   return data.data;
 }
 
 export async function updateMenu(id: number, menu: Partial<MenuNode>): Promise<void> {
-  await apiClient.put(`/admin/menus/${id}`, menu);
+  await adminApiClient.put(`/admin/menus/${id}`, menu);
 }
 
 export async function deleteMenu(id: number): Promise<void> {
-  await apiClient.delete(`/admin/menus/${id}`);
+  await adminApiClient.delete(`/admin/menus/${id}`);
 }

@@ -20,14 +20,5 @@ func (s *AdminLogService) List(ctx context.Context, limit int) ([]model.AdminLog
 }
 
 func (s *AdminLogService) GetByID(ctx context.Context, id uint) (*model.AdminLog, error) {
-	logs, err := s.adminLogRepo.FindRecent(ctx, 1000)
-	if err != nil {
-		return nil, err
-	}
-	for _, l := range logs {
-		if l.ID == id {
-			return &l, nil
-		}
-	}
-	return nil, nil
+	return s.adminLogRepo.FindByID(ctx, id)
 }

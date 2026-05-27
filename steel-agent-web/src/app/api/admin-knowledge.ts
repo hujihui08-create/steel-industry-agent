@@ -1,4 +1,4 @@
-import apiClient from "./client";
+import { adminApiClient } from "./client";
 import type { ApiResponse } from "@/app/types/api";
 import type {
   KnowledgeItem,
@@ -25,7 +25,7 @@ export interface KnowledgeListParams {
 }
 
 export async function adminListKnowledge(params: KnowledgeListParams): Promise<PaginatedResponse<KnowledgeItem>> {
-  const { data } = await apiClient.get<ApiResponse<PaginatedResponse<KnowledgeItem>>>("/admin/knowledge", { params });
+  const { data } = await adminApiClient.get<ApiResponse<PaginatedResponse<KnowledgeItem>>>("/admin/knowledge", { params });
   return data.data;
 }
 
@@ -38,7 +38,7 @@ export async function adminCreateKnowledge(body: {
   keywords?: string;
   vectorize?: boolean;
 }): Promise<KnowledgeItem> {
-  const { data } = await apiClient.post<ApiResponse<KnowledgeItem>>("/admin/knowledge", body);
+  const { data } = await adminApiClient.post<ApiResponse<KnowledgeItem>>("/admin/knowledge", body);
   return data.data;
 }
 
@@ -50,32 +50,32 @@ export async function adminUpdateKnowledge(id: number, body: {
   content?: string;
   keywords?: string;
 }): Promise<void> {
-  await apiClient.put(`/admin/knowledge/${id}`, body);
+  await adminApiClient.put(`/admin/knowledge/${id}`, body);
 }
 
 export async function adminDeleteKnowledge(id: number): Promise<void> {
-  await apiClient.delete(`/admin/knowledge/${id}`);
+  await adminApiClient.delete(`/admin/knowledge/${id}`);
 }
 
 export async function adminGetKnowledgeDetail(id: number): Promise<KnowledgeDetail> {
-  const { data } = await apiClient.get<ApiResponse<KnowledgeDetail>>(`/admin/knowledge/${id}`);
+  const { data } = await adminApiClient.get<ApiResponse<KnowledgeDetail>>(`/admin/knowledge/${id}`);
   return data.data;
 }
 
 export async function adminGetKnowledgeStats(): Promise<KnowledgeStats> {
-  const { data } = await apiClient.get<ApiResponse<KnowledgeStats>>("/admin/knowledge/stats");
+  const { data } = await adminApiClient.get<ApiResponse<KnowledgeStats>>("/admin/knowledge/stats");
   return data.data;
 }
 
 export async function adminTriggerVectorization(id: number): Promise<void> {
-  await apiClient.post(`/admin/knowledge/${id}/vectorize`);
+  await adminApiClient.post(`/admin/knowledge/${id}/vectorize`);
 }
 
 export async function adminBatchImport(body: {
   files: { file_name: string; content: string }[];
   auto_vectorize?: boolean;
 }): Promise<{ imported_ids: number[]; count: number }> {
-  const { data } = await apiClient.post<ApiResponse<{ imported_ids: number[]; count: number }>>(
+  const { data } = await adminApiClient.post<ApiResponse<{ imported_ids: number[]; count: number }>>(
     "/admin/knowledge/batch-import",
     body
   );
@@ -90,7 +90,7 @@ export async function adminUploadFiles(
   files.forEach((f) => formData.append("files", f));
   formData.append("auto_vectorize", String(autoVectorize));
 
-  const { data } = await apiClient.post<ApiResponse<{ imported_ids: number[]; count: number }>>(
+  const { data } = await adminApiClient.post<ApiResponse<{ imported_ids: number[]; count: number }>>(
     "/admin/knowledge/batch-import",
     formData,
     { headers: { "Content-Type": "multipart/form-data" } }
@@ -99,23 +99,23 @@ export async function adminUploadFiles(
 }
 
 export async function adminTestSearch(params: RAGSearchRequest): Promise<RAGSearchResult[]> {
-  const { data } = await apiClient.post<ApiResponse<RAGSearchResult[]>>("/admin/rag/test-search", params);
+  const { data } = await adminApiClient.post<ApiResponse<RAGSearchResult[]>>("/admin/rag/test-search", params);
   return data.data;
 }
 
 export async function adminGetSearchHistory(limit = 20, offset = 0): Promise<PaginatedResponse<RAGSearchHistory>> {
-  const { data } = await apiClient.get<ApiResponse<PaginatedResponse<RAGSearchHistory>>>("/admin/rag/search-history", {
+  const { data } = await adminApiClient.get<ApiResponse<PaginatedResponse<RAGSearchHistory>>>("/admin/rag/search-history", {
     params: { limit, offset },
   });
   return data.data;
 }
 
 export async function adminGetRAGConfig(): Promise<RAGConfig> {
-  const { data } = await apiClient.get<ApiResponse<RAGConfig>>("/admin/rag/config");
+  const { data } = await adminApiClient.get<ApiResponse<RAGConfig>>("/admin/rag/config");
   return data.data;
 }
 
 export async function adminUpdateRAGConfig(config: RAGConfig): Promise<RAGConfig> {
-  const { data } = await apiClient.put<ApiResponse<RAGConfig>>("/admin/rag/config", config);
+  const { data } = await adminApiClient.put<ApiResponse<RAGConfig>>("/admin/rag/config", config);
   return data.data;
 }

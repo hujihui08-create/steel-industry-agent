@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"steel-agent-backend/internal/model"
+	"steel-agent-backend/internal/service"
 	"steel-agent-backend/pkg/errors"
 	"steel-agent-backend/pkg/response"
 
@@ -23,8 +24,8 @@ type LoginLogHandler struct {
 }
 
 // NewLoginLogHandler creates a new LoginLogHandler with the given login log service.
-func NewLoginLogHandler(service interface{}) *LoginLogHandler {
-	return &LoginLogHandler{loginLogService: service.(loginLogService)}
+func NewLoginLogHandler(loginLogService *service.LoginLogService) *LoginLogHandler {
+	return &LoginLogHandler{loginLogService: loginLogService}
 }
 
 // List returns a paginated list of login logs.

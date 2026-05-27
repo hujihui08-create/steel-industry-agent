@@ -1,4 +1,4 @@
-import apiClient from "./client";
+import { adminApiClient } from "./client";
 import type { ApiResponse } from "@/app/types/api";
 
 export interface FeedbackData {
@@ -23,7 +23,7 @@ export interface FeedbackListResponse {
 }
 
 export async function submitFeedback(params: SubmitFeedbackParams): Promise<FeedbackData> {
-  const { data } = await apiClient.post<ApiResponse<FeedbackData>>(
+  const { data } = await adminApiClient.post<ApiResponse<FeedbackData>>(
     "/feedback",
     params,
   );
@@ -36,7 +36,7 @@ export async function getFeedbackList(
   limit = 20,
   offset = 0,
 ): Promise<FeedbackListResponse> {
-  const { data } = await apiClient.get<ApiResponse<FeedbackListResponse>>(
+  const { data } = await adminApiClient.get<ApiResponse<FeedbackListResponse>>(
     "/admin/feedbacks",
     { params: { type, limit, offset } },
   );
@@ -45,7 +45,7 @@ export async function getFeedbackList(
 }
 
 export async function getFeedbackDetail(id: number): Promise<FeedbackData> {
-  const { data } = await apiClient.get<ApiResponse<FeedbackData>>(
+  const { data } = await adminApiClient.get<ApiResponse<FeedbackData>>(
     `/admin/feedbacks/${id}`,
   );
   if (data.code !== 200) throw new Error(data.message || "获取反馈详情失败");

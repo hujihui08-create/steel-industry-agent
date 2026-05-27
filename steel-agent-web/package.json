@@ -10,6 +10,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
     "docker:rebuild-backend": "docker compose -f ../docker-compose.yml build backend --no-cache && docker compose -f ../docker-compose.yml up backend -d --force-recreate"
   },
   "dependencies": {

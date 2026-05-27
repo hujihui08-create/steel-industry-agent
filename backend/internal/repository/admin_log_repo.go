@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"gorm.io/gorm"
 
@@ -21,6 +22,20 @@ func NewAdminLogRepository(db *gorm.DB) *AdminLogRepository {
 // Create inserts a new admin log entry.
 func (r *AdminLogRepository) Create(ctx context.Context, log *model.AdminLog) error {
 	return r.db.WithContext(ctx).Create(log).Error
+}
+
+// FindByID retrieves a single admin log by its primary key.
+// Returns nil, nil when the record is not found.
+func (r *AdminLogRepository) FindByID(ctx context.Context, id uint) (*model.AdminLog, error) {
+	var log model.AdminLog
+	err := r.db.WithContext(ctx).First(&log, id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &log, nil
 }
 
 // FindByAdminID retrieves audit logs for a specific admin, ordered by created_at descending.

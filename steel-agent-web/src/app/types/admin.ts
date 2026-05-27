@@ -108,6 +108,7 @@ export interface AgentConfig {
   maxTokens: number;
   apiKey: string;
   timeout: number;
+  contextTurns: number;
   systemPrompt: string;
   welcomeMessage: string;
   quickCommands: QuickCommand[];

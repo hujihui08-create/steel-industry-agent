@@ -189,7 +189,8 @@ export function DataBackup() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `backup-${record.timestamp.replace(/[: ]/g, "-")}.sql`;
+      const safeTimestamp = (record.timestamp || "").replace(/[: ]/g, "-");
+      a.download = `backup-${safeTimestamp}.sql`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

@@ -31,6 +31,7 @@ type AgentConfigDO struct {
 	Disclaimer         string                `json:"disclaimer"`
 	ForceToolForData   bool                  `json:"forceToolForData"`
 	UseTemplateForChat bool                  `json:"useTemplateForChat"`
+	ContextTurns       int                   `json:"contextTurns"`
 	Models             []ModelConfigDO       `json:"models"`
 }
 
@@ -362,6 +363,7 @@ func (s *AgentConfigService) defaultConfig(ctx context.Context) *AgentConfigDO {
 		Disclaimer:         "以上数据仅供参考，实际价格以交易时为准。数据来源于公开市场信息，不构成投资建议。",
 		ForceToolForData:   true,
 		UseTemplateForChat: false,
+		ContextTurns:       5,
 		Models: []ModelConfigDO{
 			{ID: "m-1", Name: "GPT-4o-mini", BaseURL: "https://api.openai.com/v1", APIKey: ""},
 			{ID: "m-2", Name: "GPT-4o", BaseURL: "https://api.openai.com/v1", APIKey: ""},

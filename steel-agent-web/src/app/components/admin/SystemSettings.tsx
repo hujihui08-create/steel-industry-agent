@@ -236,14 +236,20 @@ export default function SystemSettingsPage() {
   async function handleTestEmail() {
     setTestingEmail(true);
     try {
-      const result = await testEmail();
+      const result = await testEmail({
+        smtpServer: form.smtpServer,
+        smtpPort: form.smtpPort,
+        smtpEncryption: form.smtpEncryption,
+        smtpEmail: form.smtpEmail,
+        smtpPassword: form.smtpPassword,
+      });
       if (result.success) {
         showSuccessToast(result.message);
       } else {
         showErrorToast(result.message || "测试邮件发送失败");
       }
     } catch {
-      showErrorToast("测试邮件发送失败，请检查配置");
+      showErrorToast("邮件测试请求失败");
     } finally {
       setTestingEmail(false);
     }

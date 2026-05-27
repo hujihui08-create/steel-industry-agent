@@ -81,7 +81,7 @@ func main() {
 	// --- Core Services ---
 	cacheService := service.NewCacheService(db, redisClient)
 	cleanupService := service.NewCleanupService(db)
-	backupService := service.NewBackupService("/app/backups")
+	backupService := service.NewBackupService("/app/backups", adminSettingsRepo)
 
 	// --- Business Services ---
 	authService := service.NewAuthService(userRepo, redisClient)
@@ -201,13 +201,17 @@ func main() {
 	}
 
 	// --- HTTP Server ---
+	port := os.Getenv("APP_PORT")
+	if port == "" {
+		port = "8080"
+	}
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    ":" + port,
 		Handler: r,
 	}
 
 	go func() {
-		log.Printf("Server starting on :8080 (env=%s)", cfg.APPEnv)
+		log.Printf("Server starting on :%s (env=%s)", port, cfg.APPEnv)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed: %v", err)
 		}
