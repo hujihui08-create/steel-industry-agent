@@ -169,7 +169,7 @@ func TestAuth_InvalidToken(t *testing.T) {
 func TestAuth_ValidToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	token, err := jwt.GenerateAccessToken(42, 0)
+	token, err := jwt.GenerateAccessToken(42, "user", 0)
 	if err != nil {
 		t.Fatalf("failed to generate token: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestAuth_ValidToken(t *testing.T) {
 func TestAuth_ValidToken_DifferentUser(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	token, err := jwt.GenerateAccessToken(7, 0)
+	token, err := jwt.GenerateAccessToken(7, "user", 0)
 	if err != nil {
 		t.Fatalf("failed to generate token: %v", err)
 	}
@@ -231,6 +231,54 @@ func TestAuth_ValidToken_DifferentUser(t *testing.T) {
 
 	if uid != 7 {
 		t.Errorf("expected user_id 7, got %d", uid)
+	}
+}
+
+func TestAuth_ValidToken_RoleExtraction(t *testing.T) {
+	tests := []struct {
+		name         string
+		userID       uint
+		role         string
+		expectedRole string
+	}{
+		{"admin role", 42, "admin", "admin"},
+		{"user role", 7, "user", "user"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+
+			token, err := jwt.GenerateAccessToken(tt.userID, tt.role, 0)
+			if err != nil {
+				t.Fatalf("failed to generate token: %v", err)
+			}
+
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest("GET", "/test", nil)
+			c.Request.Header.Set("Authorization", "Bearer "+token)
+
+			Auth()(c)
+
+			if c.IsAborted() {
+				t.Error("expected request NOT to be aborted")
+			}
+
+			roleVal, exists := c.Get("role")
+			if !exists {
+				t.Error("expected role to be set in context")
+			}
+
+			role, ok := roleVal.(string)
+			if !ok {
+				t.Fatalf("expected role to be string, got %T", roleVal)
+			}
+
+			if role != tt.expectedRole {
+				t.Errorf("expected role '%s', got '%s'", tt.expectedRole, role)
+			}
+		})
 	}
 }
 
