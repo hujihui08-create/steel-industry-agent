@@ -10,6 +10,7 @@ type User struct {
 	Nickname     string    `gorm:"column:nickname" json:"nickname"`
 	Company      string    `gorm:"column:company" json:"company"`
 	Role         string    `gorm:"column:role" json:"role"`
+	RoleID       uint      `gorm:"column:role_id;index" json:"role_id"`
 	Region       string    `gorm:"column:region" json:"region"`
 	Status       int       `gorm:"column:status;default:1" json:"status"`
 	IsVerified   bool      `gorm:"column:is_verified;default:false" json:"is_verified"`
