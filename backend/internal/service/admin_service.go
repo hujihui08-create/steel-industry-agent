@@ -231,7 +231,7 @@ func (s *AdminService) ListAdmins(ctx context.Context) ([]model.Admin, error) {
 	return s.adminRepo.ListAll(ctx)
 }
 
-func (s *AdminService) CreateAdmin(ctx context.Context, username, nickname, password, role string) (*model.Admin, error) {
+func (s *AdminService) CreateAdmin(ctx context.Context, username, nickname, password, role string, status int) (*model.Admin, error) {
 	if !validAdminRoles[role] {
 		return nil, errors.New("无效的角色")
 	}
@@ -249,12 +249,16 @@ func (s *AdminService) CreateAdmin(ctx context.Context, username, nickname, pass
 		return nil, err
 	}
 
+	if status <= 0 {
+		status = 1
+	}
+
 	admin := &model.Admin{
 		Username:     username,
 		PasswordHash: string(hashedPassword),
 		Nickname:     nickname,
 		Role:         role,
-		Status:       1,
+		Status:       status,
 	}
 
 	if err := s.adminRepo.Create(ctx, admin); err != nil {
@@ -306,6 +310,50 @@ func (s *AdminService) DeleteAdmin(ctx context.Context, id uint) error {
 	return s.adminRepo.Delete(ctx, id)
 }
 
+// GetAdminDetail returns admin details by ID.
+func (s *AdminService) GetAdminDetail(ctx context.Context, id uint) (*model.Admin, error) {
+	admin, err := s.adminRepo.FindByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("管理员不存在")
+		}
+		return nil, err
+	}
+	return admin, nil
+}
+
+// DisableAdmin disables an admin account by setting status to 0.
+func (s *AdminService) DisableAdmin(ctx context.Context, id uint) error {
+	admin, err := s.adminRepo.FindByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("管理员不存在")
+		}
+		return err
+	}
+
+	if admin.Role == "super_admin" {
+		return errors.New("超级管理员不可禁用")
+	}
+
+	admin.Status = 0
+	return s.adminRepo.Update(ctx, admin)
+}
+
+// EnableAdmin enables an admin account by setting status to 1.
+func (s *AdminService) EnableAdmin(ctx context.Context, id uint) error {
+	admin, err := s.adminRepo.FindByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("管理员不存在")
+		}
+		return err
+	}
+
+	admin.Status = 1
+	return s.adminRepo.Update(ctx, admin)
+}
+
 func (s *AdminService) UpdateProfile(ctx context.Context, adminID uint, nickname string) error {
 	admin, err := s.adminRepo.FindByID(ctx, adminID)
 	if err != nil {
@@ -318,10 +366,10 @@ func (s *AdminService) UpdateProfile(ctx context.Context, adminID uint, nickname
 	return s.adminRepo.UpdateProfile(ctx, admin.ID, nickname)
 }
 
-func (s *AdminService) ListMobileUsers(ctx context.Context, keyword string, page, pageSize int) ([]model.User, int64, error) {
+func (s *AdminService) ListMobileUsers(ctx context.Context, keyword, status string, roleID uint, dateStart, dateEnd string, page, pageSize int) ([]model.User, int64, error) {
 	limit := pageSize
 	offset := (page - 1) * pageSize
-	return s.userRepo.FindAll(ctx, keyword, limit, offset)
+	return s.userRepo.FindAll(ctx, keyword, status, roleID, dateStart, dateEnd, limit, offset)
 }
 
 func (s *AdminService) GetMobileUserDetail(ctx context.Context, id uint) (*model.User, error) {

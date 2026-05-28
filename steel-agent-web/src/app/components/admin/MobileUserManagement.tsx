@@ -67,6 +67,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -106,9 +107,13 @@ const STATUS_FILTER_OPTIONS: { label: string; value: string }[] = [
 ];
 
 /** 将 API 状态映射为 AdminStatusBadge status */
-function mapStatus(status: string): AdminStatusBadgeStatus {
-  return status === "active" ? "active" : "disabled";
+function mapStatus(status: number | string): AdminStatusBadgeStatus {
+  const s = typeof status === 'string' ? parseInt(status) : status;
+  return s === 1 ? "active" : "disabled";
 }
+
+const normalizeStatus = (s: unknown): 'active' | 'disabled' =>
+  typeof s === 'number' ? (s === 1 ? 'active' : 'disabled') : (s === 'active' || s === 'disabled' ? s : 'active');
 
 // ============================================================
 // 工具函数
@@ -151,6 +156,7 @@ interface MobileUserFormData {
   roleId: number | null;
   region: string;
   password: string;
+  status: number;
 }
 
 const EMPTY_FORM: MobileUserFormData = {
@@ -160,6 +166,7 @@ const EMPTY_FORM: MobileUserFormData = {
   roleId: null,
   region: "",
   password: "",
+  status: 1,
 };
 
 // ============================================================
@@ -205,76 +212,11 @@ interface QuotationRecord {
 }
 
 function generateMockConversations(): ConversationRecord[] {
-  return [
-    {
-      id: "conv-001",
-      date: "2026-05-17 10:12",
-      question: "螺纹钢HRB400E 20mm 上海今日报价？",
-      intent: "查询价格",
-      feedback: "up",
-    },
-    {
-      id: "conv-002",
-      date: "2026-05-17 09:05",
-      question: "热卷Q235B最近一周走势怎么样？",
-      intent: "价格走势",
-      feedback: "up",
-    },
-    {
-      id: "conv-003",
-      date: "2026-05-16 15:30",
-      question: "帮我计算100吨螺纹钢送到杭州的报价",
-      intent: "计算报价",
-      feedback: "down",
-    },
-    {
-      id: "conv-004",
-      date: "2026-05-16 11:00",
-      question: "Q345B和Q355B的区别是什么？",
-      intent: "知识查询",
-      feedback: "up",
-    },
-    {
-      id: "conv-005",
-      date: "2026-05-15 16:20",
-      question: "最近有没有上海的螺纹钢招标？",
-      intent: "招标查询",
-      feedback: "up",
-    },
-    {
-      id: "conv-006",
-      date: "2026-05-15 09:45",
-      question: "帮我设置螺纹钢价格预警",
-      intent: "设置预警",
-      feedback: "down",
-    },
-  ];
+  return [];
 }
 
 function generateMockQuotations(): QuotationRecord[] {
-  return [
-    {
-      id: "quo-001",
-      date: "2026-05-16 14:20",
-      spec: "螺纹钢 HRB400E 20mm × 100吨",
-      totalPrice: "¥385,000",
-      status: "已发送",
-    },
-    {
-      id: "quo-002",
-      date: "2026-05-10 09:30",
-      spec: "热卷 Q235B 5.75mm × 50吨",
-      totalPrice: "¥207,500",
-      status: "已接受",
-    },
-    {
-      id: "quo-003",
-      date: "2026-05-03 11:15",
-      spec: "冷轧 DC01 1.0mm × 30吨",
-      totalPrice: "¥162,000",
-      status: "草稿",
-    },
-  ];
+  return [];
 }
 
 // ============================================================
@@ -329,6 +271,7 @@ export function MobileUserManagement() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formSubmitting, setFormSubmitting] = useState(false);
   const formFieldRefs = useRef<Record<string, HTMLInputElement | HTMLSelectElement | HTMLButtonElement | null>>({});
+  const editUserRoleRef = useRef<string | null>(null);
 
   // ---- 角色列表 ----
   const [roles, setRoles] = useState<MobileRole[]>([]);
@@ -351,17 +294,18 @@ export function MobileUserManagement() {
         keyword: filters.phone || filters.company || undefined,
         status: filters.status || undefined,
         role: filters.role || undefined,
+        dateStart: filters.dateStart || undefined,
+        dateEnd: filters.dateEnd || undefined,
       });
 
       setUsers(result.items);
       setTotal(result.total);
 
-      // 模拟统计值（后端 API 暂不返回 stats 汇总）
       setStats({
         totalRegistered: result.total,
-        todayNew: 12,
-        dailyActive: 847,
-        monthlyActive: 2156,
+        todayNew: 0,
+        dailyActive: 0,
+        monthlyActive: 0,
       });
     } catch (err) {
       setError("加载用户数据失败，请重试");
@@ -526,12 +470,12 @@ export function MobileUserManagement() {
         roleId: null, // 由 fetchRoles 完成后在 useEffect 中设置
         region: user.region,
         password: "",
+        status: normalizeStatus(user.status) === 'active' ? 1 : 0,
       });
       setFormErrors({});
       fetchRoles();
       setFormOpen(true);
-      // 暂存 user role 字符串，等 roles 加载后匹配
-      sessionStorage.setItem("_editUserRole", user.role);
+      editUserRoleRef.current = user.role;
     },
     [fetchRoles],
   );
@@ -539,13 +483,13 @@ export function MobileUserManagement() {
   /** 当 roles 加载完成后，自动匹配编辑时的 roleId */
   useEffect(() => {
     if (isEditing && roles.length > 0) {
-      const roleStr = sessionStorage.getItem("_editUserRole");
+      const roleStr = editUserRoleRef.current;
       if (roleStr) {
         const matched = roles.find((r) => r.name === roleStr);
         if (matched) {
           setFormData((prev) => ({ ...prev, roleId: matched.id }));
         }
-        sessionStorage.removeItem("_editUserRole");
+        editUserRoleRef.current = null;
       }
     }
   }, [roles, isEditing]);
@@ -591,6 +535,7 @@ export function MobileUserManagement() {
           company: formData.company.trim(),
           role_id: formData.roleId!,
           region: formData.region.trim(),
+          status: formData.status,
         });
         showSuccessToast("用户信息已更新");
       } else {
@@ -601,6 +546,7 @@ export function MobileUserManagement() {
           role_id: formData.roleId!,
           region: formData.region.trim() || undefined,
           password: formData.password,
+          status: formData.status,
         });
         showSuccessToast("用户已创建");
       }
@@ -745,7 +691,7 @@ export function MobileUserManagement() {
         render: (_: unknown, row: MobileUser) => (
           <AdminStatusBadge
             status={mapStatus(row.status)}
-            label={row.status === "active" ? "正常" : "禁用"}
+            label={mapStatus(row.status) === "active" ? "正常" : "禁用"}
           />
         ),
       },
@@ -876,22 +822,16 @@ export function MobileUserManagement() {
             icon={<UserPlus size={20} strokeWidth={1.75} />}
             label="今日新增"
             value={stats.todayNew}
-            change={3}
-            changePct={33.33}
           />
           <AdminStatCard
             icon={<Activity size={20} strokeWidth={1.75} />}
             label="日活跃"
             value={stats.dailyActive.toLocaleString()}
-            change={-23}
-            changePct={-2.64}
           />
           <AdminStatCard
             icon={<TrendingUp size={20} strokeWidth={1.75} />}
             label="月活跃"
             value={stats.monthlyActive.toLocaleString()}
-            change={156}
-            changePct={7.8}
           />
         </div>
 
@@ -1209,9 +1149,6 @@ export function MobileUserManagement() {
         open={formOpen}
         onOpenChange={(open) => {
           if (!open && formSubmitting) return;
-          if (!open) {
-            sessionStorage.removeItem("_editUserRole");
-          }
           setFormOpen(open);
         }}
       >
@@ -1484,6 +1421,21 @@ export function MobileUserManagement() {
                 )}
               </div>
             )}
+
+            {/* 启用/停用（仅编辑时显示） */}
+            {isEditing && (
+              <div className="flex items-center justify-between py-1">
+                <Label className="text-[13px] leading-[1.5] text-[#404040]">
+                  {formData.status === 1 ? "账号已启用" : "账号已停用"}
+                </Label>
+                <Switch
+                  checked={formData.status === 1}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, status: checked ? 1 : 0 }))
+                  }
+                />
+              </div>
+            )}
           </div>
 
           {/* 底部按钮 */}
@@ -1492,7 +1444,6 @@ export function MobileUserManagement() {
               type="button"
               disabled={formSubmitting}
               onClick={() => {
-                sessionStorage.removeItem("_editUserRole");
                 setFormOpen(false);
               }}
               className={cn(
@@ -1609,7 +1560,7 @@ interface UserDetailContentProps {
 }
 
 function UserDetailContent({ user, onToggleStatus }: UserDetailContentProps) {
-  const isDisabled = user.status === "disabled";
+  const isDisabled = normalizeStatus(user.status) === "disabled";
   const conversations = React.useMemo(() => generateMockConversations(), []);
   const quotations = React.useMemo(() => generateMockQuotations(), []);
 
@@ -1821,63 +1772,72 @@ function UserDetailContent({ user, onToggleStatus }: UserDetailContentProps) {
               最近对话记录
             </h3>
           </div>
-          <button
-            type="button"
-            className={cn(
-              "inline-flex items-center gap-1",
-              "text-[12px] leading-[1.5] text-[#737373]",
-              "hover:text-[#0A0A0A]",
-              "transition-colors duration-150",
-            )}
-          >
-            查看全部
-            <ChevronRight size={14} strokeWidth={1.75} />
-          </button>
-        </div>
-
-        <div
-          className={cn(
-            "border border-[#E5E5E5] rounded-lg overflow-hidden",
-            "divide-y divide-[#E5E5E5]",
-          )}
-        >
-          {conversations.slice(0, 4).map((conv, idx) => (
-            <div
-              key={conv.id}
+          {conversations.length > 0 && (
+            <button
+              type="button"
               className={cn(
-                "px-4 py-3",
-                idx % 2 === 0 ? "bg-white" : "bg-[#FAFAFA]",
+                "inline-flex items-center gap-1",
+                "text-[12px] leading-[1.5] text-[#737373]",
+                "hover:text-[#0A0A0A]",
+                "transition-colors duration-150",
               )}
             >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] text-[#A3A3A3] tabular-nums">
-                  {conv.date}
-                </span>
-                <span className="text-[11px] text-[#737373] bg-[#FAFAFA] border border-[#E5E5E5] rounded-sm px-1.5 py-0.5">
-                  {conv.intent}
-                </span>
-              </div>
-              <p className="text-[13px] leading-[1.5] text-[#404040] truncate">
-                {conv.question}
-              </p>
-              <div className="mt-1">
-                {conv.feedback === "up" ? (
-                  <ThumbsUp
-                    size={12}
-                    strokeWidth={1.75}
-                    className="text-[#1F7A4D]"
-                  />
-                ) : (
-                  <ThumbsDown
-                    size={12}
-                    strokeWidth={1.75}
-                    className="text-[#B42318]"
-                  />
-                )}
-              </div>
-            </div>
-          ))}
+              查看全部
+              <ChevronRight size={14} strokeWidth={1.75} />
+            </button>
+          )}
         </div>
+
+        {conversations.length === 0 ? (
+          <div className="border border-[#E5E5E5] rounded-lg py-10 text-center">
+            <MessageSquare size={24} strokeWidth={1.75} className="text-[#E5E5E5] mx-auto mb-2" />
+            <p className="text-[13px] leading-[1.5] text-[#A3A3A3]">暂无对话记录</p>
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "border border-[#E5E5E5] rounded-lg overflow-hidden",
+              "divide-y divide-[#E5E5E5]",
+            )}
+          >
+            {conversations.slice(0, 4).map((conv, idx) => (
+              <div
+                key={conv.id}
+                className={cn(
+                  "px-4 py-3",
+                  idx % 2 === 0 ? "bg-white" : "bg-[#FAFAFA]",
+                )}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] text-[#A3A3A3] tabular-nums">
+                    {conv.date}
+                  </span>
+                  <span className="text-[11px] text-[#737373] bg-[#FAFAFA] border border-[#E5E5E5] rounded-sm px-1.5 py-0.5">
+                    {conv.intent}
+                  </span>
+                </div>
+                <p className="text-[13px] leading-[1.5] text-[#404040] truncate">
+                  {conv.question}
+                </p>
+                <div className="mt-1">
+                  {conv.feedback === "up" ? (
+                    <ThumbsUp
+                      size={12}
+                      strokeWidth={1.75}
+                      className="text-[#1F7A4D]"
+                    />
+                  ) : (
+                    <ThumbsDown
+                      size={12}
+                      strokeWidth={1.75}
+                      className="text-[#B42318]"
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ============================================================ */}
@@ -1899,62 +1859,71 @@ function UserDetailContent({ user, onToggleStatus }: UserDetailContentProps) {
               报价记录
             </h3>
           </div>
-          <button
-            type="button"
-            className={cn(
-              "inline-flex items-center gap-1",
-              "text-[12px] leading-[1.5] text-[#737373]",
-              "hover:text-[#0A0A0A]",
-              "transition-colors duration-150",
-            )}
-          >
-            查看全部
-            <ChevronRight size={14} strokeWidth={1.75} />
-          </button>
-        </div>
-
-        <div
-          className={cn(
-            "border border-[#E5E5E5] rounded-lg overflow-hidden",
-            "divide-y divide-[#E5E5E5]",
-          )}
-        >
-          {quotations.slice(0, 2).map((quo, idx) => (
-            <div
-              key={quo.id}
+          {quotations.length > 0 && (
+            <button
+              type="button"
               className={cn(
-                "flex items-center justify-between px-4 py-3",
-                idx % 2 === 0 ? "bg-white" : "bg-[#FAFAFA]",
+                "inline-flex items-center gap-1",
+                "text-[12px] leading-[1.5] text-[#737373]",
+                "hover:text-[#0A0A0A]",
+                "transition-colors duration-150",
               )}
             >
-              <div className="min-w-0 flex-1">
-                <span className="text-[11px] text-[#A3A3A3] tabular-nums block mb-0.5">
-                  {quo.date}
-                </span>
-                <p className="text-[13px] leading-[1.5] text-[#404040] truncate">
-                  {quo.spec}
-                </p>
-              </div>
-              <div className="text-right shrink-0 ml-4">
-                <p className="text-[15px] leading-[1.6] font-medium text-[#0A0A0A] tabular-nums">
-                  {quo.totalPrice}
-                </p>
-                <span
-                  className={cn(
-                    "inline-block text-[11px] leading-[1.5] px-1.5 py-0.5 rounded-sm mt-0.5",
-                    quo.status === "已接受"
-                      ? "bg-[#ECFDF5] text-[#1F7A4D]"
-                      : quo.status === "已发送"
-                        ? "bg-[#FFFBEB] text-[#B45309]"
-                        : "bg-[#FAFAFA] text-[#737373]",
-                  )}
-                >
-                  {quo.status}
-                </span>
-              </div>
-            </div>
-          ))}
+              查看全部
+              <ChevronRight size={14} strokeWidth={1.75} />
+            </button>
+          )}
         </div>
+
+        {quotations.length === 0 ? (
+          <div className="border border-[#E5E5E5] rounded-lg py-10 text-center">
+            <FileText size={24} strokeWidth={1.75} className="text-[#E5E5E5] mx-auto mb-2" />
+            <p className="text-[13px] leading-[1.5] text-[#A3A3A3]">暂无报价记录</p>
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "border border-[#E5E5E5] rounded-lg overflow-hidden",
+              "divide-y divide-[#E5E5E5]",
+            )}
+          >
+            {quotations.slice(0, 2).map((quo, idx) => (
+              <div
+                key={quo.id}
+                className={cn(
+                  "flex items-center justify-between px-4 py-3",
+                  idx % 2 === 0 ? "bg-white" : "bg-[#FAFAFA]",
+                )}
+              >
+                <div className="min-w-0 flex-1">
+                  <span className="text-[11px] text-[#A3A3A3] tabular-nums block mb-0.5">
+                    {quo.date}
+                  </span>
+                  <p className="text-[13px] leading-[1.5] text-[#404040] truncate">
+                    {quo.spec}
+                  </p>
+                </div>
+                <div className="text-right shrink-0 ml-4">
+                  <p className="text-[15px] leading-[1.6] font-medium text-[#0A0A0A] tabular-nums">
+                    {quo.totalPrice}
+                  </p>
+                  <span
+                    className={cn(
+                      "inline-block text-[11px] leading-[1.5] px-1.5 py-0.5 rounded-sm mt-0.5",
+                      quo.status === "已接受"
+                        ? "bg-[#ECFDF5] text-[#1F7A4D]"
+                        : quo.status === "已发送"
+                          ? "bg-[#FFFBEB] text-[#B45309]"
+                          : "bg-[#FAFAFA] text-[#737373]",
+                    )}
+                  >
+                    {quo.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

@@ -55,6 +55,8 @@ import {
   createAdminUser,
   updateAdminUser,
   deleteAdminUser,
+  enableAdminUser,
+  disableAdminUser,
   getMobileRoles,
 } from "@/app/api/admin";
 import type { AdminUser, AdminRole, AdminUserStatus, MobileRole } from "@/app/types/admin";
@@ -78,11 +80,6 @@ const ROLE_ICONS: Record<AdminRole, React.ReactNode> = {
   data_admin: <ShieldAlert size={14} strokeWidth={1.75} className="text-[#737373] shrink-0" />,
   viewer: <ShieldQuestion size={14} strokeWidth={1.75} className="text-[#A3A3A3] shrink-0" />,
 };
-
-/** 角色 → 代码反向映射（用于从 API 返回的中文名查找 AdminRole 代码） */
-const ROLE_NAME_TO_CODE: Record<string, AdminRole> = Object.fromEntries(
-  Object.entries(ROLE_LABELS).map(([code, label]) => [label, code as AdminRole]),
-);
 
 /** 角色说明数据 */
 const ROLE_DESCRIPTIONS = [
@@ -125,7 +122,7 @@ interface AdminUserFormData {
   nickname: string;
   password: string;
   role: AdminRole | "";
-  status: AdminUserStatus;
+  status: number;
 }
 
 const EMPTY_FORM: AdminUserFormData = {
@@ -133,12 +130,25 @@ const EMPTY_FORM: AdminUserFormData = {
   nickname: "",
   password: "",
   role: "operator",
-  status: "active",
+  status: 1,
 };
 
 // ============================================================
 // 工具函数
 // ============================================================
+
+const normalizeStatus = (s: any): 'active' | 'disabled' => typeof s === 'number' ? (s === 1 ? 'active' : 'disabled') : s;
+
+function mapRoleToCode(name: string): AdminRole | null {
+  const lower = name.toLowerCase();
+  const validCodes: AdminRole[] = ["super_admin", "operator", "data_admin", "viewer"];
+  if (validCodes.includes(name as AdminRole)) return name as AdminRole;
+  if (lower.includes("super") || lower.includes("admin")) return "super_admin";
+  if (lower.includes("operator") || lower.includes("运营")) return "operator";
+  if (lower.includes("data") || lower.includes("数据")) return "data_admin";
+  if (lower.includes("viewer") || lower.includes("只读") || lower.includes("观察")) return "viewer";
+  return null;
+}
 
 /** 生成 12 位随机密码（包含大小写字母、数字） */
 function generatePassword(): string {
@@ -270,7 +280,7 @@ export function AdminUserManagement() {
       nickname: user.nickname,
       password: "",
       role: user.role,
-      status: user.status as AdminUserStatus || "active",
+      status: normalizeStatus(user.status) === "active" ? 1 : 0,
     });
     setFormErrors({});
     setFormOpen(true);
@@ -302,6 +312,7 @@ export function AdminUserManagement() {
           nickname: formData.nickname.trim() || formData.username.trim(),
           password: formData.password,
           role: formData.role as AdminRole,
+          status: 1,
         });
         showSuccessToast(`管理员"${formData.username}"已创建`);
       }
@@ -332,6 +343,28 @@ export function AdminUserManagement() {
       setDeleteLoading(false);
     }
   }, [deleteTarget, loadUsers]);
+
+  const handleEnableUser = useCallback(async (user: AdminUser) => {
+    try {
+      await enableAdminUser(user.id);
+      showSuccessToast(`管理员"${user.username}"已启用`);
+      await loadUsers();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "启用管理员失败，请重试";
+      showErrorToast(message);
+    }
+  }, [loadUsers]);
+
+  const handleDisableUser = useCallback(async (user: AdminUser) => {
+    try {
+      await disableAdminUser(user.id);
+      showSuccessToast(`管理员"${user.username}"已禁用`);
+      await loadUsers();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "禁用管理员失败，请重试";
+      showErrorToast(message);
+    }
+  }, [loadUsers]);
 
   // ============================================================
   // 密码操作
@@ -416,8 +449,8 @@ export function AdminUserManagement() {
         title: "状态",
         render: (_, row) => (
           <AdminStatusBadge
-            status={row.status === "active" ? "active" : "disabled"}
-            label={row.status === "active" ? "正常" : "已停用"}
+            status={normalizeStatus(row.status)}
+            label={normalizeStatus(row.status) === "active" ? "正常" : "已停用"}
           />
         ),
       },
@@ -433,9 +466,37 @@ export function AdminUserManagement() {
       {
         key: "actions",
         title: "操作",
-        width: "100px",
+        width: "160px",
         render: (_, row) => (
           <div className="flex items-center gap-1">
+            {row.role !== "super_admin" && normalizeStatus(row.status) === "active" && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDisableUser(row);
+                }}
+                className={ghostIconBtnClass}
+                aria-label={`禁用管理员 ${row.username}`}
+                title="禁用"
+              >
+                <ShieldAlert size={14} strokeWidth={1.75} />
+              </button>
+            )}
+            {row.role !== "super_admin" && normalizeStatus(row.status) === "disabled" && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEnableUser(row);
+                }}
+                className={ghostIconBtnClass}
+                aria-label={`启用管理员 ${row.username}`}
+                title="启用"
+              >
+                <ShieldCheck size={14} strokeWidth={1.75} />
+              </button>
+            )}
             <button
               type="button"
               onClick={(e) => {
@@ -466,7 +527,7 @@ export function AdminUserManagement() {
         ),
       },
     ],
-    [openEditForm],
+    [openEditForm, handleEnableUser, handleDisableUser],
   );
 
   // ============================================================
@@ -791,9 +852,8 @@ export function AdminUserManagement() {
                     </SelectItem>
                   ) : (
                     adminRoles.map((r) => {
-                      const roleCode = ROLE_NAME_TO_CODE[r.name];
+                      const roleCode = mapRoleToCode(r.name);
                       if (!roleCode) return null;
-                      // 新增时不显示超级管理员选项
                       if (roleCode === "super_admin" && !isEditing) return null;
                       return (
                         <SelectItem key={r.id} value={roleCode}>
@@ -820,12 +880,12 @@ export function AdminUserManagement() {
             {isEditing && (
               <div className="flex items-center justify-between py-1">
                 <Label className="text-[13px] leading-[1.5] text-[#404040]">
-                  {formData.status === "active" ? "账号已启用" : "账号已停用"}
+                  {formData.status === 1 ? "账号已启用" : "账号已停用"}
                 </Label>
                 <Switch
-                  checked={formData.status === "active"}
+                  checked={formData.status === 1}
                   onCheckedChange={(checked) =>
-                    setFormData((prev) => ({ ...prev, status: checked ? "active" : "disabled" }))
+                    setFormData((prev) => ({ ...prev, status: checked ? 1 : 0 }))
                   }
                 />
               </div>

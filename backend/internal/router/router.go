@@ -215,8 +215,11 @@ func Setup(
 	{
 		adminUsers.GET("", adminHandler.ListAdmins)
 		adminUsers.POST("", adminHandler.CreateAdmin)
+		adminUsers.GET("/:id", adminHandler.GetAdminDetail)
 		adminUsers.PUT("/:id", adminHandler.UpdateAdmin)
 		adminUsers.DELETE("/:id", adminHandler.DeleteAdmin)
+		adminUsers.PUT("/:id/disable", adminHandler.DisableAdmin)
+		adminUsers.PUT("/:id/enable", adminHandler.EnableAdmin)
 	}
 
 	adminNotifs := api.Group("/admin/notifications")

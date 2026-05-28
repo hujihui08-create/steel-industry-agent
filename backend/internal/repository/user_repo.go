@@ -48,8 +48,8 @@ func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
 	return r.db.WithContext(ctx).Save(user).Error
 }
 
-// FindAll returns a paginated list of all users with optional keyword filter.
-func (r *UserRepository) FindAll(ctx context.Context, keyword string, limit, offset int) ([]model.User, int64, error) {
+// FindAll returns a paginated list of all users with optional keyword and filter conditions.
+func (r *UserRepository) FindAll(ctx context.Context, keyword, status string, roleID uint, dateStart, dateEnd string, limit, offset int) ([]model.User, int64, error) {
 	var users []model.User
 	var total int64
 
@@ -57,6 +57,18 @@ func (r *UserRepository) FindAll(ctx context.Context, keyword string, limit, off
 	if keyword != "" {
 		like := "%" + keyword + "%"
 		query = query.Where("nickname ILIKE ? OR phone ILIKE ? OR company ILIKE ?", like, like, like)
+	}
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if roleID > 0 {
+		query = query.Where("role_id = ?", roleID)
+	}
+	if dateStart != "" {
+		query = query.Where("created_at >= ?", dateStart)
+	}
+	if dateEnd != "" {
+		query = query.Where("created_at <= ?", dateEnd)
 	}
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err

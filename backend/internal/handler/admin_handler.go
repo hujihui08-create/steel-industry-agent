@@ -23,11 +23,14 @@ type adminService interface {
 	Dashboard(ctx context.Context) (map[string]int64, error)
 	DashboardTrend(ctx context.Context, days int) ([]service.TrendDataPoint, error)
 	ListAdmins(ctx context.Context) ([]model.Admin, error)
-	CreateAdmin(ctx context.Context, username, nickname, password, role string) (*model.Admin, error)
+	CreateAdmin(ctx context.Context, username, nickname, password, role string, status int) (*model.Admin, error)
 	UpdateAdmin(ctx context.Context, id uint, nickname, role string, status int) error
 	DeleteAdmin(ctx context.Context, id uint) error
+	GetAdminDetail(ctx context.Context, id uint) (*model.Admin, error)
+	DisableAdmin(ctx context.Context, id uint) error
+	EnableAdmin(ctx context.Context, id uint) error
 	UpdateProfile(ctx context.Context, adminID uint, nickname string) error
-	ListMobileUsers(ctx context.Context, keyword string, page, pageSize int) ([]model.User, int64, error)
+	ListMobileUsers(ctx context.Context, keyword, status string, roleID uint, dateStart, dateEnd string, page, pageSize int) ([]model.User, int64, error)
 	GetMobileUserDetail(ctx context.Context, id uint) (*model.User, error)
 	DisableMobileUser(ctx context.Context, id uint) error
 	EnableMobileUser(ctx context.Context, id uint) error
@@ -198,13 +201,14 @@ func (h *AdminHandler) CreateAdmin(c *gin.Context) {
 		Nickname string `json:"nickname" binding:"required"`
 		Password string `json:"password" binding:"required"`
 		Role     string `json:"role" binding:"required"`
+		Status   int    `json:"status"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, errors.CodeParamError, "参数错误")
 		return
 	}
 
-	admin, err := h.adminService.CreateAdmin(c.Request.Context(), req.Username, req.Nickname, req.Password, req.Role)
+	admin, err := h.adminService.CreateAdmin(c.Request.Context(), req.Username, req.Nickname, req.Password, req.Role, req.Status)
 	if err != nil {
 		response.Error(c, errors.CodeParamError, err.Error())
 		return
@@ -255,6 +259,55 @@ func (h *AdminHandler) DeleteAdmin(c *gin.Context) {
 	response.Success(c, nil)
 }
 
+// GetAdminDetail returns admin detail by ID.
+func (h *AdminHandler) GetAdminDetail(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：id格式不正确")
+		return
+	}
+
+	admin, err := h.adminService.GetAdminDetail(c.Request.Context(), uint(id))
+	if err != nil {
+		response.Error(c, errors.CodeNotFound, err.Error())
+		return
+	}
+
+	response.Success(c, admin)
+}
+
+// DisableAdmin disables an admin account by ID.
+func (h *AdminHandler) DisableAdmin(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：id格式不正确")
+		return
+	}
+
+	if err := h.adminService.DisableAdmin(c.Request.Context(), uint(id)); err != nil {
+		response.Error(c, errors.CodeForbidden, err.Error())
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// EnableAdmin enables an admin account by ID.
+func (h *AdminHandler) EnableAdmin(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：id格式不正确")
+		return
+	}
+
+	if err := h.adminService.EnableAdmin(c.Request.Context(), uint(id)); err != nil {
+		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
+
+	response.Success(c, nil)
+}
+
 // UpdateProfile updates the authenticated admin's profile information.
 func (h *AdminHandler) UpdateProfile(c *gin.Context) {
 	adminIDVal, exists := c.Get("user_id")
@@ -290,6 +343,10 @@ func (h *AdminHandler) ListMobileUsers(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "1")
 	pageSizeStr := c.DefaultQuery("page_size", "10")
 	keyword := c.Query("keyword")
+	status := c.Query("status")
+	roleIDStr := c.Query("role_id")
+	dateStart := c.Query("dateStart")
+	dateEnd := c.Query("dateEnd")
 
 	page, _ := strconv.Atoi(pageStr)
 	pageSize, _ := strconv.Atoi(pageSizeStr)
@@ -300,7 +357,9 @@ func (h *AdminHandler) ListMobileUsers(c *gin.Context) {
 		pageSize = 10
 	}
 
-	users, total, err := h.adminService.ListMobileUsers(c.Request.Context(), keyword, page, pageSize)
+	roleID, _ := strconv.ParseUint(roleIDStr, 10, 64)
+
+	users, total, err := h.adminService.ListMobileUsers(c.Request.Context(), keyword, status, uint(roleID), dateStart, dateEnd, page, pageSize)
 	if err != nil {
 		response.Error(c, errors.CodeInternalError, err.Error())
 		return
@@ -366,7 +425,14 @@ func (h *AdminHandler) EnableMobileUser(c *gin.Context) {
 // ExportMobileUsers exports mobile users as CSV.
 func (h *AdminHandler) ExportMobileUsers(c *gin.Context) {
 	keyword := c.Query("keyword")
-	users, _, err := h.adminService.ListMobileUsers(c.Request.Context(), keyword, 1, 10000)
+	status := c.Query("status")
+	roleIDStr := c.Query("role_id")
+	dateStart := c.Query("dateStart")
+	dateEnd := c.Query("dateEnd")
+
+	roleID, _ := strconv.ParseUint(roleIDStr, 10, 64)
+
+	users, _, err := h.adminService.ListMobileUsers(c.Request.Context(), keyword, status, uint(roleID), dateStart, dateEnd, 1, 10000)
 	if err != nil {
 		response.Error(c, errors.CodeInternalError, err.Error())
 		return

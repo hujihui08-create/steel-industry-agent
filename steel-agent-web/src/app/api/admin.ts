@@ -636,10 +636,12 @@ export async function getMobileUsers(filter?: {
   keyword?: string;
   status?: string;
   role?: string;
+  dateStart?: string;
+  dateEnd?: string;
 }): Promise<PaginatedResponse<MobileUser>> {
   const { data } = await adminApiClient.get<ApiResponse<PaginatedResponse<MobileUser>>>(
     "/admin/mobile-users",
-    { params: { page: filter?.page, page_size: filter?.pageSize, keyword: filter?.keyword, status: filter?.status, role: filter?.role } },
+    { params: { page: filter?.page, page_size: filter?.pageSize, keyword: filter?.keyword, status: filter?.status, role: filter?.role, date_start: filter?.dateStart, date_end: filter?.dateEnd } },
   );
   const raw = data.data;
   if (!raw) {
@@ -665,6 +667,7 @@ export async function createMobileUser(params: {
   role_id: number;
   region?: string;
   password: string;
+  status?: number;
 }): Promise<MobileUser> {
   const { data } = await adminApiClient.post<ApiResponse<MobileUser>>("/admin/mobile-users", params);
   if (!data?.data) throw new Error(data?.message || "创建用户失败");
@@ -684,7 +687,7 @@ export async function updateMobileUser(
     company?: string;
     role_id?: number;
     region?: string;
-    status?: string;
+    status?: number;
   },
 ): Promise<MobileUser> {
   const { data } = await adminApiClient.put<ApiResponse<MobileUser>>(`/admin/mobile-users/${id}`, params);
@@ -729,6 +732,7 @@ export async function createAdminUser(params: {
   nickname: string;
   password: string;
   role: AdminRole;
+  status?: number;
 }): Promise<AdminUser> {
   const { data } = await adminApiClient.post<ApiResponse<AdminUser>>("/admin/users", params);
   if (!data?.data) {
@@ -739,7 +743,7 @@ export async function createAdminUser(params: {
 
 export async function updateAdminUser(
   id: number,
-  params: { nickname?: string; role?: AdminRole; status?: AdminUserStatus },
+  params: { nickname?: string; role?: AdminRole; status?: number },
 ): Promise<AdminUser> {
   const { data } = await adminApiClient.put<ApiResponse<AdminUser>>(`/admin/users/${id}`, params);
   if (!data?.data) {
@@ -750,6 +754,14 @@ export async function updateAdminUser(
 
 export async function deleteAdminUser(id: number): Promise<void> {
   await adminApiClient.delete(`/admin/users/${id}`);
+}
+
+export async function enableAdminUser(id: number): Promise<void> {
+  await adminApiClient.put(`/admin/users/${id}/enable`);
+}
+
+export async function disableAdminUser(id: number): Promise<void> {
+  await adminApiClient.put(`/admin/users/${id}/disable`);
 }
 
 export async function getAdminNotifications(params?: {
