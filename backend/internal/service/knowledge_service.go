@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -15,6 +16,18 @@ import (
 
 	"gorm.io/gorm"
 )
+
+// ensureJSONB wraps a plain text string as a valid JSON value for JSONB storage.
+func ensureJSONB(s string) string {
+	if s == "" {
+		return "{}"
+	}
+	if json.Valid([]byte(s)) {
+		return s
+	}
+	b, _ := json.Marshal(s)
+	return string(b)
+}
 
 type KnowledgeService struct {
 	knowledgeRepo *repository.KnowledgeRepository
@@ -372,7 +385,7 @@ func (s *KnowledgeService) AdminBatchImport(ctx context.Context, files []struct 
 	for _, f := range files {
 		k := &model.Knowledge{
 			Title:    strings.TrimSuffix(f.FileName, ".md"),
-			Content:  f.Content,
+			Content:  ensureJSONB(f.Content),
 			Category: "imported",
 		}
 		if strings.Contains(strings.ToLower(f.Content), "标准") {

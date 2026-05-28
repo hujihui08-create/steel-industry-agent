@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"strconv"
 	"strings"
@@ -42,6 +43,20 @@ type AdminKnowledgeHandler struct {
 // NewAdminKnowledgeHandler creates a new AdminKnowledgeHandler with the given knowledge service.
 func NewAdminKnowledgeHandler(knowledgeService *service.KnowledgeService) *AdminKnowledgeHandler {
 	return &AdminKnowledgeHandler{knowledgeService: knowledgeService}
+}
+
+// ensureJSONB wraps a plain text string as a valid JSON value for JSONB storage.
+// If the string is already valid JSON (object/array), it is returned as-is.
+// Empty strings are returned as "{}" (empty JSON object).
+func ensureJSONB(s string) string {
+	if s == "" {
+		return "{}"
+	}
+	if json.Valid([]byte(s)) {
+		return s
+	}
+	b, _ := json.Marshal(s)
+	return string(b)
 }
 
 // === Knowledge Management ===
@@ -92,7 +107,7 @@ func (h *AdminKnowledgeHandler) CreateKnowledge(c *gin.Context) {
 		Title:      req.Title,
 		Category:   req.Category,
 		StandardNo: req.StandardNo,
-		Content:    req.Content,
+		Content:    ensureJSONB(req.Content),
 		Keywords:   req.Keywords,
 	}
 
@@ -135,7 +150,7 @@ func (h *AdminKnowledgeHandler) UpdateKnowledge(c *gin.Context) {
 		Title:      req.Title,
 		Category:   req.Category,
 		StandardNo: req.StandardNo,
-		Content:    req.Content,
+		Content:    ensureJSONB(req.Content),
 		Keywords:   req.Keywords,
 	}
 
