@@ -160,3 +160,38 @@ func (r *AdminRepository) UpdateProfile(ctx context.Context, adminID uint, nickn
 	return r.db.WithContext(ctx).Model(&model.Admin{}).Where("id = ?", adminID).
 		Update("nickname", nickname).Error
 }
+
+// CreateMobileUser inserts a new mobile user record into the users table.
+func (r *AdminRepository) CreateMobileUser(ctx context.Context, user *model.User) error {
+	return r.db.WithContext(ctx).Create(user).Error
+}
+
+// UpdateMobileUser saves changes to an existing mobile user record.
+func (r *AdminRepository) UpdateMobileUser(ctx context.Context, user *model.User) error {
+	return r.db.WithContext(ctx).Save(user).Error
+}
+
+// DeleteMobileUser removes a mobile user by primary key ID.
+func (r *AdminRepository) DeleteMobileUser(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Delete(&model.User{}, id).Error
+}
+
+// FindUserByPhone finds a mobile user by phone number.
+func (r *AdminRepository) FindUserByPhone(ctx context.Context, phone string) (*model.User, error) {
+	var user model.User
+	err := r.db.WithContext(ctx).Where("phone = ?", phone).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// FindMobileRoleByID finds a mobile role by primary key ID.
+func (r *AdminRepository) FindMobileRoleByID(ctx context.Context, id uint) (*model.MobileRole, error) {
+	var role model.MobileRole
+	err := r.db.WithContext(ctx).First(&role, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
