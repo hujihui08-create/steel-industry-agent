@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"mime/multipart"
 	"net/smtp"
 	"os"
@@ -13,6 +14,7 @@ import (
 
 	"steel-agent-backend/internal/model"
 	"steel-agent-backend/internal/repository"
+	"steel-agent-backend/pkg/sms"
 )
 
 // AdminSettingsService handles admin settings business logic.
@@ -210,4 +212,48 @@ func toInt(v interface{}) int {
 	default:
 		return 0
 	}
+}
+
+// TestSMS sends a test SMS verification code to the given phone number
+// using the configured SMS provider settings.
+func (s *AdminSettingsService) TestSMS(ctx context.Context, phone string) (bool, string, error) {
+	settings, err := s.GetSettings(ctx)
+	if err != nil {
+		return false, "获取配置失败", err
+	}
+
+	enabled, _ := settings["smsEnabled"].(bool)
+	if !enabled {
+		return false, "短信功能未启用，请先在系统设置中开启并保存配置", nil
+	}
+
+	accessKey, _ := settings["smsAccessKey"].(string)
+	accessSecret, _ := settings["smsAccessSecret"].(string)
+	signName, _ := settings["smsSignName"].(string)
+	templateCode, _ := settings["smsTemplateCode"].(string)
+
+	if accessKey == "" || accessSecret == "" {
+		return false, "短信配置不完整：缺少 AccessKey ID 或 AccessKey Secret", nil
+	}
+	if signName == "" {
+		return false, "短信配置不完整：缺少签名名称（SignName）", nil
+	}
+	if templateCode == "" {
+		return false, "短信配置不完整：缺少模板编号（TemplateCode）", nil
+	}
+
+	smsClient, err := sms.NewSMSService(accessKey, accessSecret)
+	if err != nil {
+		return false, fmt.Sprintf("短信服务初始化失败: %v", err), nil
+	}
+
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	code := fmt.Sprintf("%06d", rng.Intn(1000000))
+
+	_, err = smsClient.SendVerificationCode(phone, signName, templateCode, code)
+	if err != nil {
+		return false, fmt.Sprintf("短信发送失败: %v", err), nil
+	}
+
+	return true, "测试短信已成功发送", nil
 }

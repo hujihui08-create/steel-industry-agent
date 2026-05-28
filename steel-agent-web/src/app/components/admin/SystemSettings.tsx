@@ -49,6 +49,7 @@ import {
   saveSystemSettings,
   uploadLogo,
   testEmail,
+  testSms,
 } from "@/app/api/admin";
 import type { SystemSettings as SystemSettingsType, SmtpEncryption } from "@/app/types/admin";
 
@@ -69,9 +70,11 @@ const DEFAULT_FORM: SystemSettingsType = {
   smtpEmail: "",
   smtpPassword: "",
   smsEnabled: false,
-  smsProvider: "阿里云短信",
+  smsProvider: "阿里云号码认证（个人开发者）",
   smsAccessKey: "",
-  smsSignature: "",
+  smsAccessSecret: "",
+  smsSignName: "",
+  smsTemplateCode: "",
   sessionTimeout: 30,
   loginLockCount: 5,
   ipWhitelistEnabled: false,
@@ -79,7 +82,7 @@ const DEFAULT_FORM: SystemSettingsType = {
 };
 
 const SMS_PROVIDERS = [
-  { value: "阿里云短信", label: "阿里云短信" },
+  { value: "阿里云号码认证（个人开发者）", label: "阿里云号码认证（个人开发者）" },
   { value: "腾讯云短信", label: "腾讯云短信" },
   { value: "华为云短信", label: "华为云短信" },
 ];
@@ -136,6 +139,9 @@ export default function SystemSettingsPage() {
   // 密码可见性
   const [showSmtpPassword, setShowSmtpPassword] = useState(false);
   const [showSmsAccessKey, setShowSmsAccessKey] = useState(false);
+  const [showSmsAccessSecret, setShowSmsAccessSecret] = useState(false);
+  const [testingSms, setTestingSms] = useState(false);
+  const [testSmsPhone, setTestSmsPhone] = useState("");
 
   // IP 白名单输入
   const [newIp, setNewIp] = useState("");
@@ -751,7 +757,7 @@ export default function SystemSettingsPage() {
                       >
                         <SelectTrigger
                           variant="filter"
-                          className="h-9 w-[200px] text-[13px] leading-[1.5]"
+                          className="h-9 w-[280px] text-[13px] leading-[1.5]"
                         >
                           <SelectValue />
                         </SelectTrigger>
@@ -769,8 +775,8 @@ export default function SystemSettingsPage() {
                       </Select>
                     </FormRow>
 
-                    {/* AccessKey */}
-                    <FormRow label="AccessKey">
+                    {/* AccessKey ID */}
+                    <FormRow label="AccessKey ID">
                       <div className="relative">
                         <Input
                           type={showSmsAccessKey ? "text" : "password"}
@@ -778,7 +784,7 @@ export default function SystemSettingsPage() {
                           onChange={(e) =>
                             updateField("smsAccessKey", e.target.value)
                           }
-                          placeholder="输入 AccessKey"
+                          placeholder="输入 AccessKey ID"
                           className={cn(
                             "h-9 rounded-[10px] border-[#E5E5E5] bg-white pr-9",
                             "text-[13px] leading-[1.5] text-[#0A0A0A]",
@@ -796,7 +802,7 @@ export default function SystemSettingsPage() {
                             "p-1 rounded hover:bg-[#F5F5F5] transition-colors duration-150",
                           )}
                           aria-label={
-                            showSmsAccessKey ? "隐藏 AccessKey" : "显示 AccessKey"
+                            showSmsAccessKey ? "隐藏 AccessKey ID" : "显示 AccessKey ID"
                           }
                         >
                           {showSmsAccessKey ? (
@@ -816,14 +822,61 @@ export default function SystemSettingsPage() {
                       </div>
                     </FormRow>
 
-                    {/* 签名 */}
-                    <FormRow label="签名">
+                    {/* AccessKey Secret */}
+                    <FormRow label="AccessKey Secret">
+                      <div className="relative">
+                        <Input
+                          type={showSmsAccessSecret ? "text" : "password"}
+                          value={form.smsAccessSecret}
+                          onChange={(e) =>
+                            updateField("smsAccessSecret", e.target.value)
+                          }
+                          placeholder="输入 AccessKey Secret"
+                          className={cn(
+                            "h-9 rounded-[10px] border-[#E5E5E5] bg-white pr-9",
+                            "text-[13px] leading-[1.5] text-[#0A0A0A]",
+                            "placeholder:text-[#A3A3A3]",
+                            "focus-visible:border-[#0A0A0A] focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/5",
+                          )}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowSmsAccessSecret(!showSmsAccessSecret)
+                          }
+                          className={cn(
+                            "absolute right-2 top-1/2 -translate-y-1/2",
+                            "p-1 rounded hover:bg-[#F5F5F5] transition-colors duration-150",
+                          )}
+                          aria-label={
+                            showSmsAccessSecret ? "隐藏 AccessKey Secret" : "显示 AccessKey Secret"
+                          }
+                        >
+                          {showSmsAccessSecret ? (
+                            <EyeOff
+                              size={16}
+                              strokeWidth={1.75}
+                              className="text-[#737373]"
+                            />
+                          ) : (
+                            <Eye
+                              size={16}
+                              strokeWidth={1.75}
+                              className="text-[#737373]"
+                            />
+                          )}
+                        </button>
+                      </div>
+                    </FormRow>
+
+                    {/* 签名名称 */}
+                    <FormRow label="签名名称（SignName）">
                       <Input
-                        value={form.smsSignature}
+                        value={form.smsSignName}
                         onChange={(e) =>
-                          updateField("smsSignature", e.target.value)
+                          updateField("smsSignName", e.target.value)
                         }
-                        placeholder="短信签名"
+                        placeholder="阿里云控制台中的签名名称"
                         className={cn(
                           "h-9 rounded-[10px] border-[#E5E5E5] bg-white",
                           "text-[13px] leading-[1.5] text-[#0A0A0A]",
@@ -832,6 +885,69 @@ export default function SystemSettingsPage() {
                         )}
                       />
                     </FormRow>
+
+                    {/* 模板编号 */}
+                    <FormRow label="模板编号（TemplateCode）">
+                      <Input
+                        value={form.smsTemplateCode}
+                        onChange={(e) =>
+                          updateField("smsTemplateCode", e.target.value)
+                        }
+                        placeholder="阿里云控制台中的模板编号"
+                        className={cn(
+                          "h-9 rounded-[10px] border-[#E5E5E5] bg-white",
+                          "text-[13px] leading-[1.5] text-[#0A0A0A]",
+                          "placeholder:text-[#A3A3A3]",
+                          "focus-visible:border-[#0A0A0A] focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/5",
+                        )}
+                      />
+                    </FormRow>
+
+                    {/* 测试短信发送 */}
+                    <div className="py-3">
+                      <span className="block text-[13px] leading-[1.5] text-[#404040] font-medium mb-2">
+                        测试发送
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={testSmsPhone}
+                          onChange={(e) => setTestSmsPhone(e.target.value)}
+                          placeholder="输入测试手机号"
+                          className={cn(
+                            "h-9 rounded-[10px] border-[#E5E5E5] bg-white flex-1 max-w-[200px]",
+                            "text-[13px] leading-[1.5] text-[#0A0A0A]",
+                            "placeholder:text-[#A3A3A3]",
+                            "focus-visible:border-[#0A0A0A] focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/5",
+                          )}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={testingSms || !testSmsPhone}
+                          onClick={async () => {
+                            setTestingSms(true);
+                            try {
+                              const result = await testSms(testSmsPhone);
+                              if (result.success) {
+                                showSuccessToast(result.message);
+                              } else {
+                                showErrorToast(result.message);
+                              }
+                            } catch {
+                              showErrorToast("短信测试发送失败");
+                            } finally {
+                              setTestingSms(false);
+                            }
+                          }}
+                          className="h-9 rounded-[10px] bg-[#0A0A0A] text-white hover:bg-[#404040] text-[13px] px-4"
+                        >
+                          {testingSms ? (
+                            <Loader2 size={14} strokeWidth={1.75} className="animate-spin mr-1" />
+                          ) : null}
+                          发送测试短信
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

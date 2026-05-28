@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"steel-agent-backend/internal/model"
 
@@ -19,9 +20,14 @@ func NewMobileRoleRepository(db *gorm.DB) *MobileRoleRepository {
 }
 
 // FindAll returns all mobile roles ordered by ID, with user counts populated.
-func (r *MobileRoleRepository) FindAll(ctx context.Context) ([]model.MobileRole, error) {
+// If roleType is not empty, results are filtered by role_type = roleType.
+func (r *MobileRoleRepository) FindAll(ctx context.Context, roleType string) ([]model.MobileRole, error) {
 	var roles []model.MobileRole
-	if err := r.db.WithContext(ctx).Order("id ASC").Find(&roles).Error; err != nil {
+	db := r.db.WithContext(ctx)
+	if roleType != "" {
+		db = db.Where("role_type = ?", roleType)
+	}
+	if err := db.Order("id ASC").Find(&roles).Error; err != nil {
 		return nil, err
 	}
 	for i := range roles {
@@ -61,7 +67,22 @@ func (r *MobileRoleRepository) Update(ctx context.Context, role *model.MobileRol
 }
 
 // Delete removes a mobile role by primary key ID.
+// If the role has role_type='admin', it checks whether any admin is assigned
+// to this role before allowing deletion.
 func (r *MobileRoleRepository) Delete(ctx context.Context, id uint) error {
+	role, err := r.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if role.RoleType == "admin" {
+		var count int64
+		if err := r.db.WithContext(ctx).Model(&model.Admin{}).Where("role = ?", role.Name).Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return fmt.Errorf("该角色下有关联管理员，无法删除")
+		}
+	}
 	return r.db.WithContext(ctx).Delete(&model.MobileRole{}, id).Error
 }
 

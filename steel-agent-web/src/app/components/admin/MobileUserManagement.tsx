@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Users,
   UserPlus,
@@ -25,9 +25,15 @@ import {
   Star,
   Bell,
   Zap,
+  Plus,
+  Pencil,
+  Trash2,
+  Copy,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { MobileUser, PaginatedResponse, RetentionStats } from "@/app/types/admin";
+import type { MobileUser, MobileRole, PaginatedResponse, RetentionStats } from "@/app/types/admin";
 import {
   getMobileUsers,
   getMobileUserDetail,
@@ -35,6 +41,10 @@ import {
   enableMobileUser,
   exportMobileUsers,
   getRetentionStats,
+  createMobileUser,
+  updateMobileUser,
+  deleteMobileUser,
+  getMobileRoles,
 } from "@/app/api/admin";
 import { AdminPageShell } from "./AdminPageShell";
 import { AdminStatCard } from "./AdminStatCard";
@@ -50,6 +60,21 @@ import {
   showWarningToast,
 } from "./AdminToast";
 import { maskPhone } from "@/app/utils/mask";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 // ============================================================
 // 常量
@@ -84,6 +109,58 @@ const STATUS_FILTER_OPTIONS: { label: string; value: string }[] = [
 function mapStatus(status: string): AdminStatusBadgeStatus {
   return status === "active" ? "active" : "disabled";
 }
+
+// ============================================================
+// 工具函数
+// ============================================================
+
+/** 生成 12 位随机密码（包含大小写字母、数字） */
+function generatePassword(): string {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let result = "";
+  for (let i = 0; i < 12; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+/** 复制文本到剪贴板 */
+async function copyToClipboard(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textarea);
+  }
+}
+
+// ============================================================
+// 表单类型
+// ============================================================
+
+interface MobileUserFormData {
+  phone: string;
+  nickname: string;
+  company: string;
+  roleId: number | null;
+  region: string;
+  password: string;
+}
+
+const EMPTY_FORM: MobileUserFormData = {
+  phone: "",
+  nickname: "",
+  company: "",
+  roleId: null,
+  region: "",
+  password: "",
+};
 
 // ============================================================
 // 筛选栏本地状态类型
@@ -244,6 +321,22 @@ export function MobileUserManagement() {
   // ---- 导出 ----
   const [exporting, setExporting] = useState(false);
 
+  // ---- 添加/编辑表单 ----
+  const [formOpen, setFormOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [formData, setFormData] = useState<MobileUserFormData>({ ...EMPTY_FORM });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const formFieldRefs = useRef<Record<string, HTMLInputElement | HTMLSelectElement | HTMLButtonElement | null>>({});
+
+  // ---- 角色列表 ----
+  const [roles, setRoles] = useState<MobileRole[]>([]);
+
+  // ---- 删除确认 ----
+  const [deleteTarget, setDeleteTarget] = useState<MobileUser | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   // ============================================================
   // 数据获取
   // ============================================================
@@ -396,10 +489,205 @@ export function MobileUserManagement() {
   }, [filters]);
 
   // ============================================================
+  // 角色获取 & CRUD 操作
+  // ============================================================
+
+  /** 获取移动端角色列表 */
+  const fetchRoles = useCallback(async () => {
+    try {
+      const data = await getMobileRoles({ roleType: "mobile" });
+      setRoles(data);
+    } catch {
+      // 角色获取失败不影响主要流程
+    }
+  }, []);
+
+  /** 打开添加表单 -- 同时预生成密码并获取角色列表 */
+  const openAddForm = useCallback(() => {
+    setIsEditing(false);
+    setEditingUserId(null);
+    setFormData({ ...EMPTY_FORM, password: generatePassword() });
+    setFormErrors({});
+    fetchRoles();
+    setFormOpen(true);
+  }, [fetchRoles]);
+
+  /** 打开编辑表单 -- 预填用户数据并获取角色列表 */
+  const openEditForm = useCallback(
+    (user: MobileUser) => {
+      setIsEditing(true);
+      setEditingUserId(user.id);
+      // 从角色列表中匹配 roleId（通过 role 字符串匹配）
+      // 角色列表会在 fetchRoles 完成后更新
+      setFormData({
+        phone: user.phone,
+        nickname: user.nickname,
+        company: user.company,
+        roleId: null, // 由 fetchRoles 完成后在 useEffect 中设置
+        region: user.region,
+        password: "",
+      });
+      setFormErrors({});
+      fetchRoles();
+      setFormOpen(true);
+      // 暂存 user role 字符串，等 roles 加载后匹配
+      sessionStorage.setItem("_editUserRole", user.role);
+    },
+    [fetchRoles],
+  );
+
+  /** 当 roles 加载完成后，自动匹配编辑时的 roleId */
+  useEffect(() => {
+    if (isEditing && roles.length > 0) {
+      const roleStr = sessionStorage.getItem("_editUserRole");
+      if (roleStr) {
+        const matched = roles.find((r) => r.name === roleStr);
+        if (matched) {
+          setFormData((prev) => ({ ...prev, roleId: matched.id }));
+        }
+        sessionStorage.removeItem("_editUserRole");
+      }
+    }
+  }, [roles, isEditing]);
+
+  /** 表单校验 */
+  const validateForm = useCallback(
+    (data: MobileUserFormData): Record<string, string> => {
+      const errors: Record<string, string> = {};
+      if (!isEditing) {
+        if (!data.phone.trim()) {
+          errors.phone = "请输入手机号";
+        } else if (!/^1[3-9]\d{9}$/.test(data.phone.trim())) {
+          errors.phone = "请输入正确的11位手机号";
+        }
+      }
+      if (!data.roleId) {
+        errors.role = "请选择角色";
+      }
+      if (!isEditing && !data.password) {
+        errors.password = "请输入初始密码";
+      }
+      return errors;
+    },
+    [isEditing],
+  );
+
+  /** 提交表单（创建/编辑） */
+  const handleFormSubmit = useCallback(async () => {
+    const errors = validateForm(formData);
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      const firstErrorKey = Object.keys(errors)[0];
+      const el = formFieldRefs.current[firstErrorKey];
+      el?.focus();
+      return;
+    }
+
+    setFormSubmitting(true);
+    try {
+      if (isEditing && editingUserId !== null) {
+        await updateMobileUser(editingUserId, {
+          nickname: formData.nickname.trim(),
+          company: formData.company.trim(),
+          role_id: formData.roleId!,
+          region: formData.region.trim(),
+        });
+        showSuccessToast("用户信息已更新");
+      } else {
+        await createMobileUser({
+          phone: formData.phone.trim(),
+          nickname: formData.nickname.trim() || undefined,
+          company: formData.company.trim() || undefined,
+          role_id: formData.roleId!,
+          region: formData.region.trim() || undefined,
+          password: formData.password,
+        });
+        showSuccessToast("用户已创建");
+      }
+
+      setFormOpen(false);
+      await fetchUsers();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : isEditing
+            ? "更新用户失败，请重试"
+            : "创建用户失败，请重试";
+      showErrorToast(message);
+    } finally {
+      setFormSubmitting(false);
+    }
+  }, [formData, isEditing, editingUserId, validateForm, fetchUsers]);
+
+  /** 删除用户 */
+  const handleDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      await deleteMobileUser(deleteTarget.id);
+      showSuccessToast("用户已删除");
+      setDeleteTarget(null);
+      // 如果当前抽屉正在展示被删除的用户，关闭抽屉
+      if (selectedUser?.id === deleteTarget.id) {
+        setDrawerOpen(false);
+        setSelectedUser(null);
+      }
+      await fetchUsers();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "删除用户失败，请重试";
+      showErrorToast(message);
+    } finally {
+      setDeleteLoading(false);
+    }
+  }, [deleteTarget, selectedUser, fetchUsers]);
+
+  // ---- 密码操作 ----
+  const handleGeneratePassword = useCallback(() => {
+    setFormData((prev) => ({ ...prev, password: generatePassword() }));
+  }, []);
+
+  const handleCopyPassword = useCallback(async () => {
+    if (!formData.password) return;
+    await copyToClipboard(formData.password);
+    showSuccessToast("密码已复制到剪贴板");
+  }, [formData.password]);
+
+  // ============================================================
+  // 样式类
+  // ============================================================
+
+  const primaryBtnClass = cn(
+    "inline-flex items-center gap-1.5",
+    "h-8 px-3.5 rounded-full",
+    "bg-[#0A0A0A] text-white",
+    "text-[13px] leading-[1.5] font-medium",
+    "hover:bg-[#404040]",
+    "transition-colors duration-150",
+    "focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10",
+  );
+
+  const ghostIconBtnClass = cn(
+    "flex items-center justify-center",
+    "w-7 h-7 rounded-md",
+    "text-[#737373] hover:text-[#0A0A0A] hover:bg-[#FAFAFA]",
+    "transition-colors duration-150",
+    "focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10",
+  );
+
+  const dangerIconBtnClass = cn(
+    "flex items-center justify-center",
+    "w-7 h-7 rounded-md",
+    "text-[#737373] hover:text-[#B42318] hover:bg-[#FEF2F2]",
+    "transition-colors duration-150",
+    "focus-visible:ring-2 focus-visible:ring-[#B42318]/10",
+  );
+
+  // ============================================================
   // 表格列定义
   // ============================================================
 
-  const columns: TableColumn<MobileUser>[] = React.useMemo(
+  const columns: TableColumn<MobileUser>[] = useMemo(
     () => [
       {
         key: "phone",
@@ -475,29 +763,55 @@ export function MobileUserManagement() {
       {
         key: "operations",
         title: "操作",
-        width: "80px",
+        width: "130px",
         render: (_: unknown, row: MobileUser) => (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleViewDetail(row);
-            }}
-            className={cn(
-              "inline-flex items-center gap-1",
-              "text-[13px] leading-[1.5] text-[#0A0A0A]",
-              "hover:text-[#404040]",
-              "transition-colors duration-150",
-              "outline-none focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10 rounded-sm",
-            )}
-          >
-            <Eye size={14} strokeWidth={1.75} />
-            详情
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewDetail(row);
+              }}
+              className={cn(
+                "inline-flex items-center gap-1",
+                "text-[13px] leading-[1.5] text-[#0A0A0A]",
+                "hover:text-[#404040]",
+                "transition-colors duration-150",
+                "outline-none focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10 rounded-sm",
+              )}
+            >
+              <Eye size={14} strokeWidth={1.75} />
+              详情
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                openEditForm(row);
+              }}
+              className={ghostIconBtnClass}
+              aria-label="编辑用户"
+              title="编辑"
+            >
+              <Pencil size={14} strokeWidth={1.75} />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteTarget(row);
+              }}
+              className={dangerIconBtnClass}
+              aria-label="删除用户"
+              title="删除"
+            >
+              <Trash2 size={14} strokeWidth={1.75} />
+            </button>
+          </div>
         ),
       },
     ],
-    [handleViewDetail],
+    [handleViewDetail, openEditForm, ghostIconBtnClass, dangerIconBtnClass],
   );
 
   // ============================================================
@@ -514,7 +828,12 @@ export function MobileUserManagement() {
           { label: "移动端用户" },
         ]}
         actions={
-          <button
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={openAddForm} className={primaryBtnClass}>
+              <Plus size={14} strokeWidth={1.75} />
+              添加用户
+            </button>
+            <button
             type="button"
             disabled={exporting}
             onClick={handleExport}
@@ -541,6 +860,7 @@ export function MobileUserManagement() {
               </>
             )}
           </button>
+          </div>
         }
       >
         {/* ============================================================ */}
@@ -883,6 +1203,335 @@ export function MobileUserManagement() {
       </AdminPageShell>
 
       {/* ============================================================ */}
+      {/* 4a. 添加/编辑用户表单弹窗 */}
+      {/* ============================================================ */}
+      <Dialog
+        open={formOpen}
+        onOpenChange={(open) => {
+          if (!open && formSubmitting) return;
+          if (!open) {
+            sessionStorage.removeItem("_editUserRole");
+          }
+          setFormOpen(open);
+        }}
+      >
+        <DialogContent
+          className={cn(
+            "bg-white border border-[#E5E5E5] rounded-lg",
+            "shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
+            "p-6 max-w-[440px]",
+            "gap-0",
+          )}
+        >
+          {/* 标题栏 */}
+          <DialogHeader className="mb-5 p-0">
+            <DialogTitle className="text-[16px] leading-[1.4] font-medium text-[#0A0A0A]">
+              {isEditing ? "编辑用户" : "添加用户"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* 表单 */}
+          <div className="flex flex-col gap-4">
+            {/* 手机号 */}
+            <div className="flex flex-col gap-1.5">
+              <Label
+                className={cn(
+                  "text-[13px] leading-[1.5] text-[#404040]",
+                  !isEditing && "after:content-['_*'] after:text-[#B42318]",
+                )}
+                htmlFor="field-phone"
+              >
+                手机号
+              </Label>
+              <Input
+                id="field-phone"
+                placeholder="请输入11位手机号"
+                value={formData.phone}
+                disabled={isEditing}
+                ref={(el) => {
+                  formFieldRefs.current["phone"] = el;
+                }}
+                onChange={(e) => {
+                  setFormData((prev) => ({ ...prev, phone: e.target.value }));
+                  if (formErrors.phone)
+                    setFormErrors((prev) => ({ ...prev, phone: "" }));
+                }}
+                className={cn(
+                  "h-10 px-3 rounded-[10px]",
+                  "border text-[14px] leading-[1.5]",
+                  formErrors.phone
+                    ? "border-[#B42318] focus-visible:ring-[#B42318]/10"
+                    : "border-[#E5E5E5] focus-visible:ring-[#0A0A0A]/10 focus-visible:border-[#0A0A0A]",
+                  isEditing && "bg-[#FAFAFA] text-[#A3A3A3] cursor-not-allowed",
+                  "placeholder:text-[#A3A3A3]",
+                  "transition-colors duration-200",
+                )}
+                aria-invalid={!!formErrors.phone}
+                aria-describedby={formErrors.phone ? "err-phone" : undefined}
+              />
+              {formErrors.phone && (
+                <p id="err-phone" className="text-[12px] leading-[1.5] text-[#B42318]">
+                  {formErrors.phone}
+                </p>
+              )}
+            </div>
+
+            {/* 昵称 */}
+            <div className="flex flex-col gap-1.5">
+              <Label
+                className="text-[13px] leading-[1.5] text-[#404040]"
+                htmlFor="field-nickname"
+              >
+                昵称
+              </Label>
+              <Input
+                id="field-nickname"
+                placeholder="请输入昵称"
+                value={formData.nickname}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, nickname: e.target.value }))
+                }
+                className={cn(
+                  "h-10 px-3 rounded-[10px]",
+                  "border border-[#E5E5E5]",
+                  "text-[14px] leading-[1.5] text-[#0A0A0A]",
+                  "placeholder:text-[#A3A3A3]",
+                  "focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10 focus-visible:border-[#0A0A0A]",
+                  "transition-colors duration-200",
+                )}
+              />
+            </div>
+
+            {/* 公司 */}
+            <div className="flex flex-col gap-1.5">
+              <Label
+                className="text-[13px] leading-[1.5] text-[#404040]"
+                htmlFor="field-company"
+              >
+                公司
+              </Label>
+              <Input
+                id="field-company"
+                placeholder="请输入公司名称"
+                value={formData.company}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, company: e.target.value }))
+                }
+                className={cn(
+                  "h-10 px-3 rounded-[10px]",
+                  "border border-[#E5E5E5]",
+                  "text-[14px] leading-[1.5] text-[#0A0A0A]",
+                  "placeholder:text-[#A3A3A3]",
+                  "focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10 focus-visible:border-[#0A0A0A]",
+                  "transition-colors duration-200",
+                )}
+              />
+            </div>
+
+            {/* 角色 */}
+            <div className="flex flex-col gap-1.5">
+              <Label
+                className={cn(
+                  "text-[13px] leading-[1.5] text-[#404040]",
+                  "after:content-['_*'] after:text-[#B42318]",
+                )}
+                htmlFor="field-role"
+              >
+                角色
+              </Label>
+              <Select
+                value={formData.roleId ? String(formData.roleId) : ""}
+                onValueChange={(value) => {
+                  setFormData((prev) => ({ ...prev, roleId: Number(value) }));
+                  if (formErrors.role)
+                    setFormErrors((prev) => ({ ...prev, role: "" }));
+                }}
+              >
+                <SelectTrigger
+                  id="field-role"
+                  ref={(el) => {
+                    formFieldRefs.current["role"] = el;
+                  }}
+                  variant="filter"
+                  className={cn(
+                    "px-3 leading-[1.5] transition-colors duration-200",
+                    formErrors.role && "border-[#B42318]",
+                  )}
+                  aria-invalid={!!formErrors.role}
+                  aria-describedby={formErrors.role ? "err-role" : undefined}
+                >
+                  <SelectValue placeholder="请选择角色" />
+                </SelectTrigger>
+                <SelectContent variant="filter">
+                  {roles.map((r) => (
+                    <SelectItem key={r.id} value={String(r.id)}>
+                      <span className="text-[13px] leading-[1.5]">{r.name}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {formErrors.role && (
+                <p id="err-role" className="text-[12px] leading-[1.5] text-[#B42318]">
+                  {formErrors.role}
+                </p>
+              )}
+            </div>
+
+            {/* 地区 */}
+            <div className="flex flex-col gap-1.5">
+              <Label
+                className="text-[13px] leading-[1.5] text-[#404040]"
+                htmlFor="field-region"
+              >
+                地区
+              </Label>
+              <Input
+                id="field-region"
+                placeholder="请输入地区（如上海）"
+                value={formData.region}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, region: e.target.value }))
+                }
+                className={cn(
+                  "h-10 px-3 rounded-[10px]",
+                  "border border-[#E5E5E5]",
+                  "text-[14px] leading-[1.5] text-[#0A0A0A]",
+                  "placeholder:text-[#A3A3A3]",
+                  "focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10 focus-visible:border-[#0A0A0A]",
+                  "transition-colors duration-200",
+                )}
+              />
+            </div>
+
+            {/* 初始密码（仅添加时显示） */}
+            {!isEditing && (
+              <div className="flex flex-col gap-1.5">
+                <Label
+                  className={cn(
+                    "text-[13px] leading-[1.5] text-[#404040]",
+                    "after:content-['_*'] after:text-[#B42318]",
+                  )}
+                  htmlFor="field-password"
+                >
+                  初始密码
+                </Label>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      id="field-password"
+                      type="password"
+                      placeholder="自动生成或手动输入"
+                      value={formData.password}
+                      ref={(el) => {
+                        formFieldRefs.current["password"] = el;
+                      }}
+                      onChange={(e) => {
+                        setFormData((prev) => ({ ...prev, password: e.target.value }));
+                        if (formErrors.password)
+                          setFormErrors((prev) => ({ ...prev, password: "" }));
+                      }}
+                      className={cn(
+                        "h-10 px-3 pr-10 rounded-[10px]",
+                        "border text-[14px] leading-[1.5]",
+                        formErrors.password
+                          ? "border-[#B42318] focus-visible:ring-[#B42318]/10"
+                          : "border-[#E5E5E5] focus-visible:ring-[#0A0A0A]/10 focus-visible:border-[#0A0A0A]",
+                        "placeholder:text-[#A3A3A3]",
+                        "transition-colors duration-200",
+                      )}
+                      aria-invalid={!!formErrors.password}
+                      aria-describedby={formErrors.password ? "err-password" : undefined}
+                    />
+                    {formData.password && (
+                      <button
+                        type="button"
+                        onClick={handleCopyPassword}
+                        className={cn(
+                          "absolute right-2 top-1/2 -translate-y-1/2",
+                          "flex items-center justify-center",
+                          "w-7 h-7 rounded-md",
+                          "text-[#737373] hover:text-[#0A0A0A] hover:bg-[#FAFAFA]",
+                          "transition-colors duration-150",
+                          "focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10",
+                        )}
+                        aria-label="复制密码"
+                      >
+                        <Copy size={14} strokeWidth={1.75} />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGeneratePassword}
+                    className={cn(
+                      "inline-flex items-center gap-1",
+                      "h-10 px-3 rounded-full shrink-0",
+                      "border border-[#E5E5E5] bg-white",
+                      "text-[13px] leading-[1.5] text-[#0A0A0A]",
+                      "hover:bg-[#FAFAFA]",
+                      "transition-colors duration-150",
+                      "focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10",
+                    )}
+                  >
+                    <RefreshCw size={14} strokeWidth={1.75} />
+                    生成
+                  </button>
+                </div>
+                {formErrors.password && (
+                  <p id="err-password" className="text-[12px] leading-[1.5] text-[#B42318]">
+                    {formErrors.password}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 底部按钮 */}
+          <div className="flex items-center justify-end gap-2 mt-6">
+            <button
+              type="button"
+              disabled={formSubmitting}
+              onClick={() => {
+                sessionStorage.removeItem("_editUserRole");
+                setFormOpen(false);
+              }}
+              className={cn(
+                "h-9 px-4 rounded-full",
+                "border border-[#E5E5E5] bg-white",
+                "text-[#0A0A0A] text-[13px] leading-[1.5] font-medium",
+                "hover:bg-[#FAFAFA]",
+                "transition-colors duration-150",
+                "focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
+              )}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              disabled={formSubmitting}
+              onClick={handleFormSubmit}
+              className={cn(
+                "inline-flex items-center gap-1.5",
+                "h-9 px-4 rounded-full",
+                "bg-[#0A0A0A] text-white",
+                "text-[13px] leading-[1.5] font-medium",
+                "hover:bg-[#404040]",
+                "transition-colors duration-150",
+                "focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
+              )}
+            >
+              {formSubmitting && (
+                <Loader2 size={14} strokeWidth={1.75} className="animate-spin" />
+              )}
+              确定
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
       {/* 4. 用户详情抽屉 */}
       {/* ============================================================ */}
       <AdminDrawer
@@ -928,6 +1577,23 @@ export function MobileUserManagement() {
         variant={modalAction === "disable" ? "destructive" : "default"}
         loading={modalLoading}
         onConfirm={handleConfirmToggle}
+      />
+
+      {/* ============================================================ */}
+      {/* 6. 删除用户确认弹窗 */}
+      {/* ============================================================ */}
+      <AdminModal
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteLoading) setDeleteTarget(null);
+        }}
+        title="确定删除该用户？"
+        description="删除后该用户数据将被清除"
+        confirmLabel="删除"
+        cancelLabel="取消"
+        variant="destructive"
+        loading={deleteLoading}
+        onConfirm={handleDelete}
       />
     </>
   );

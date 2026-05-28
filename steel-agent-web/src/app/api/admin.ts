@@ -658,10 +658,42 @@ export async function getMobileUsers(filter?: {
   return { items: [], total: 0, page: filter?.page ?? 1, pageSize: filter?.pageSize ?? 10 };
 }
 
+export async function createMobileUser(params: {
+  phone: string;
+  nickname?: string;
+  company?: string;
+  role_id: number;
+  region?: string;
+  password: string;
+}): Promise<MobileUser> {
+  const { data } = await adminApiClient.post<ApiResponse<MobileUser>>("/admin/mobile-users", params);
+  if (!data?.data) throw new Error(data?.message || "创建用户失败");
+  return data.data;
+}
+
 export async function getMobileUserDetail(id: number): Promise<MobileUser> {
   const { data } = await adminApiClient.get<ApiResponse<MobileUser>>(`/admin/mobile-users/${id}`);
   if (!data?.data) throw new Error(data?.message || "获取用户详情失败");
   return data.data;
+}
+
+export async function updateMobileUser(
+  id: number,
+  params: {
+    nickname?: string;
+    company?: string;
+    role_id?: number;
+    region?: string;
+    status?: string;
+  },
+): Promise<MobileUser> {
+  const { data } = await adminApiClient.put<ApiResponse<MobileUser>>(`/admin/mobile-users/${id}`, params);
+  if (!data?.data) throw new Error(data?.message || "更新用户失败");
+  return data.data;
+}
+
+export async function deleteMobileUser(id: number): Promise<void> {
+  await adminApiClient.delete(`/admin/mobile-users/${id}`);
 }
 
 export async function disableMobileUser(id: number): Promise<void> {
@@ -850,6 +882,15 @@ export async function testEmail(smtpConfig?: {
   return data.data;
 }
 
+export async function testSms(phone: string): Promise<{ success: boolean; message: string }> {
+  const { data } = await adminApiClient.post<ApiResponse<{ success: boolean; message: string }>>(
+    "/admin/settings/test-sms",
+    { phone }
+  );
+  if (!data?.data) throw new Error(data?.message || "短信测试失败");
+  return data.data;
+}
+
 // ============================================================
 // 品种管理（Category）
 // ============================================================
@@ -892,14 +933,16 @@ export async function getPublicCategories(): Promise<PublicCategories> {
 // 角色与权限管理
 // ============================================================
 
-export async function getMobileRoles(): Promise<MobileRole[]> {
-  const { data } = await adminApiClient.get<ApiResponse<MobileRole[]>>('/admin/mobile-roles')
+export async function getMobileRoles(params?: { roleType?: string }): Promise<MobileRole[]> {
+  const queryParams: Record<string, string> = {};
+  if (params?.roleType) queryParams.role_type = params.roleType;
+  const { data } = await adminApiClient.get<ApiResponse<MobileRole[]>>('/admin/mobile-roles', { params: queryParams })
   if (!data?.data) throw new Error(data?.message || "获取角色列表失败");
   return data.data
 }
 
 export async function createMobileRole(
-  params: { name: string; description?: string; status?: number },
+  params: { name: string; description?: string; status?: number; role_type?: string },
 ): Promise<MobileRole> {
   const { data } = await adminApiClient.post<ApiResponse<MobileRole>>('/admin/mobile-roles', params)
   if (!data?.data) throw new Error(data?.message || "创建角色失败");
@@ -908,7 +951,7 @@ export async function createMobileRole(
 
 export async function updateMobileRole(
   id: number,
-  params: { name?: string; description?: string; status?: number },
+  params: { name?: string; description?: string; status?: number; role_type?: string },
 ): Promise<MobileRole> {
   const { data } = await adminApiClient.put<ApiResponse<MobileRole>>(`/admin/mobile-roles/${id}`, params)
   if (!data?.data) throw new Error(data?.message || "更新角色失败");

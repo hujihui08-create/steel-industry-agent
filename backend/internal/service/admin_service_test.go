@@ -8,6 +8,7 @@ import (
 
 	"steel-agent-backend/internal/config"
 	"steel-agent-backend/internal/model"
+	"steel-agent-backend/pkg/validate"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -31,12 +32,22 @@ type mockAdminRepo struct {
 	countErr         error
 	findByIDCalled   bool
 	updateCalled     bool
+
+	// Mobile user CRUD support
+	users       map[uint]*model.User
+	mobileRoles map[uint]*model.MobileRole
+	byPhone     map[string]*model.User
+	nextUserID  uint
 }
 
 func newMockAdminRepo() *mockAdminRepo {
 	return &mockAdminRepo{
-		admins:     make(map[uint]*model.Admin),
-		byUsername: make(map[string]*model.Admin),
+		admins:      make(map[uint]*model.Admin),
+		byUsername:  make(map[string]*model.Admin),
+		users:       make(map[uint]*model.User),
+		mobileRoles: make(map[uint]*model.MobileRole),
+		byPhone:     make(map[string]*model.User),
+		nextUserID:  1,
 	}
 }
 
@@ -100,6 +111,48 @@ func (m *mockAdminRepo) CountAlerts(ctx context.Context) (int64, error) {
 	return m.alertCount, nil
 }
 
+func (m *mockAdminRepo) CreateMobileUser(ctx context.Context, user *model.User) error {
+	user.ID = m.nextUserID
+	m.nextUserID++
+	m.users[user.ID] = user
+	m.byPhone[user.Phone] = user
+	return nil
+}
+
+func (m *mockAdminRepo) UpdateMobileUser(ctx context.Context, user *model.User) error {
+	m.users[user.ID] = user
+	m.byPhone[user.Phone] = user
+	return nil
+}
+
+func (m *mockAdminRepo) DeleteMobileUser(ctx context.Context, id uint) error {
+	user := m.users[id]
+	delete(m.byPhone, user.Phone)
+	delete(m.users, id)
+	return nil
+}
+
+func (m *mockAdminRepo) FindUserByPhone(ctx context.Context, phone string) (*model.User, error) {
+	if user, ok := m.byPhone[phone]; ok {
+		return user, nil
+	}
+	return nil, gorm.ErrRecordNotFound
+}
+
+func (m *mockAdminRepo) FindMobileRoleByID(ctx context.Context, id uint) (*model.MobileRole, error) {
+	if role, ok := m.mobileRoles[id]; ok {
+		return role, nil
+	}
+	return nil, gorm.ErrRecordNotFound
+}
+
+func (m *mockAdminRepo) FindUserByID(ctx context.Context, id uint) (*model.User, error) {
+	if user, ok := m.users[id]; ok {
+		return user, nil
+	}
+	return nil, gorm.ErrRecordNotFound
+}
+
 type testableAdminService struct {
 	repo *mockAdminRepo
 }
@@ -153,6 +206,95 @@ func (s *testableAdminService) Dashboard(ctx context.Context) (map[string]int64,
 		"tender_count":    tenderCount,
 		"alert_count":     alertCount,
 	}, nil
+}
+
+func (s *testableAdminService) CreateMobileUser(ctx context.Context, phone, nickname, company, password string, roleID uint, region string) (*model.User, error) {
+	if !validate.ValidatePhone(phone) {
+		return nil, errors.New("手机号格式不正确")
+	}
+
+	existing, err := s.repo.FindUserByPhone(ctx, phone)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	if existing != nil {
+		return nil, errors.New("该手机号已注册")
+	}
+
+	role, err := s.repo.FindMobileRoleByID(ctx, roleID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("所选角色不存在")
+		}
+		return nil, err
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	user := &model.User{
+		Phone:        phone,
+		PasswordHash: string(hashedPassword),
+		Nickname:     nickname,
+		Company:      company,
+		Role:         role.Name,
+		RoleID:       roleID,
+		Region:       region,
+		Status:       1,
+	}
+
+	if err := s.repo.CreateMobileUser(ctx, user); err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (s *testableAdminService) UpdateMobileUser(ctx context.Context, id uint, nickname, company string, roleID uint, region string, status int) (*model.User, error) {
+	user, err := s.repo.FindUserByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("用户不存在")
+		}
+		return nil, err
+	}
+
+	user.Nickname = nickname
+	user.Company = company
+	user.Region = region
+	user.Status = status
+
+	if roleID > 0 {
+		role, err := s.repo.FindMobileRoleByID(ctx, roleID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, errors.New("所选角色不存在")
+			}
+			return nil, err
+		}
+		user.RoleID = roleID
+		user.Role = role.Name
+	}
+
+	if err := s.repo.UpdateMobileUser(ctx, user); err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (s *testableAdminService) DeleteMobileUser(ctx context.Context, id uint) error {
+	_, err := s.repo.FindUserByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("用户不存在")
+		}
+		return err
+	}
+
+	return s.repo.DeleteMobileUser(ctx, id)
 }
 
 func TestAdminLoginSuccess(t *testing.T) {
@@ -396,5 +538,196 @@ func TestAdminUpdatePassword(t *testing.T) {
 				t.Errorf("unexpected update error: %v", err)
 			}
 		})
+	}
+}
+
+// =============================================================================
+// CreateMobileUser Tests
+// =============================================================================
+
+func TestCreateMobileUser_Success(t *testing.T) {
+	ctx := context.Background()
+	mock := newMockAdminRepo()
+	// Seed a mobile role
+	mock.mobileRoles[1] = &model.MobileRole{ID: 1, Name: "采购员", RoleType: "mobile", Status: 1}
+	svc := newTestableAdminService(mock)
+
+	user, err := svc.CreateMobileUser(ctx, "13800138000", "测试用户", "测试公司", "password123", 1, "上海")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if user.Phone != "13800138000" {
+		t.Errorf("expected phone 13800138000, got %s", user.Phone)
+	}
+	if user.Nickname != "测试用户" {
+		t.Errorf("expected Nickname '测试用户', got '%s'", user.Nickname)
+	}
+	if user.Company != "测试公司" {
+		t.Errorf("expected Company '测试公司', got '%s'", user.Company)
+	}
+	if user.RoleID != 1 {
+		t.Errorf("expected RoleID 1, got %d", user.RoleID)
+	}
+	if user.Role != "采购员" {
+		t.Errorf("expected Role '采购员', got '%s'", user.Role)
+	}
+	if user.Region != "上海" {
+		t.Errorf("expected Region '上海', got '%s'", user.Region)
+	}
+	if user.Status != 1 {
+		t.Errorf("expected Status 1, got %d", user.Status)
+	}
+	if user.ID == 0 {
+		t.Error("expected user ID to be assigned")
+	}
+	// Verify password was hashed (not plaintext)
+	if user.PasswordHash == "password123" {
+		t.Error("password should be hashed, not stored as plaintext")
+	}
+}
+
+func TestCreateMobileUser_DuplicatePhone(t *testing.T) {
+	ctx := context.Background()
+	mock := newMockAdminRepo()
+	mock.mobileRoles[1] = &model.MobileRole{ID: 1, Name: "采购员", RoleType: "mobile", Status: 1}
+	// Pre-create a user with the same phone
+	mock.byPhone["13800138000"] = &model.User{ID: 1, Phone: "13800138000"}
+	svc := newTestableAdminService(mock)
+
+	_, err := svc.CreateMobileUser(ctx, "13800138000", "测试", "公司", "password", 1, "")
+	if err == nil {
+		t.Fatal("expected error for duplicate phone, got nil")
+	}
+	if err.Error() != "该手机号已注册" {
+		t.Errorf("expected '该手机号已注册', got '%s'", err.Error())
+	}
+}
+
+func TestCreateMobileUser_InvalidPhone(t *testing.T) {
+	ctx := context.Background()
+	mock := newMockAdminRepo()
+	svc := newTestableAdminService(mock)
+
+	testCases := []struct {
+		phone string
+		desc  string
+	}{
+		{"", "empty phone"},
+		{"12345", "too short"},
+		{"1380013800", "10 digits"},
+		{"23800138000", "doesn't start with 1"},
+		{"138001380001", "12 digits"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, err := svc.CreateMobileUser(ctx, tc.phone, "", "", "pass", 1, "")
+			if err == nil {
+				t.Errorf("expected error for %s, got nil", tc.desc)
+			}
+		})
+	}
+}
+
+func TestCreateMobileUser_RoleNotFound(t *testing.T) {
+	ctx := context.Background()
+	mock := newMockAdminRepo()
+	// Don't seed any roles
+	svc := newTestableAdminService(mock)
+
+	_, err := svc.CreateMobileUser(ctx, "13800138000", "", "", "pass", 999, "")
+	if err == nil {
+		t.Fatal("expected error for non-existent role, got nil")
+	}
+	if err.Error() != "所选角色不存在" {
+		t.Errorf("expected '所选角色不存在', got '%s'", err.Error())
+	}
+}
+
+// =============================================================================
+// UpdateMobileUser Tests
+// =============================================================================
+
+func TestUpdateMobileUser_Success(t *testing.T) {
+	ctx := context.Background()
+	mock := newMockAdminRepo()
+	mock.mobileRoles[2] = &model.MobileRole{ID: 2, Name: "销售经理", RoleType: "mobile", Status: 1}
+	existingUser := &model.User{
+		ID: 1, Phone: "13800138000", Nickname: "旧昵称", Company: "旧公司",
+		RoleID: 1, Role: "采购员", Region: "北京", Status: 1,
+	}
+	mock.users[1] = existingUser
+	mock.byPhone["13800138000"] = existingUser
+	svc := newTestableAdminService(mock)
+
+	updated, err := svc.UpdateMobileUser(ctx, 1, "新昵称", "新公司", 2, "上海", 1)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if updated.Nickname != "新昵称" {
+		t.Errorf("expected Nickname '新昵称', got '%s'", updated.Nickname)
+	}
+	if updated.Company != "新公司" {
+		t.Errorf("expected Company '新公司', got '%s'", updated.Company)
+	}
+	if updated.RoleID != 2 {
+		t.Errorf("expected RoleID 2, got %d", updated.RoleID)
+	}
+	if updated.Role != "销售经理" {
+		t.Errorf("expected Role '销售经理', got '%s'", updated.Role)
+	}
+	if updated.Region != "上海" {
+		t.Errorf("expected Region '上海', got '%s'", updated.Region)
+	}
+}
+
+func TestUpdateMobileUser_NotFound(t *testing.T) {
+	ctx := context.Background()
+	mock := newMockAdminRepo()
+	svc := newTestableAdminService(mock)
+
+	_, err := svc.UpdateMobileUser(ctx, 999, "昵称", "", 0, "", 1)
+	if err == nil {
+		t.Fatal("expected error for non-existent user, got nil")
+	}
+	if err.Error() != "用户不存在" {
+		t.Errorf("expected '用户不存在', got '%s'", err.Error())
+	}
+}
+
+// =============================================================================
+// DeleteMobileUser Tests
+// =============================================================================
+
+func TestDeleteMobileUser_Success(t *testing.T) {
+	ctx := context.Background()
+	mock := newMockAdminRepo()
+	mock.users[1] = &model.User{ID: 1, Phone: "13800138000"}
+	mock.byPhone["13800138000"] = mock.users[1]
+	svc := newTestableAdminService(mock)
+
+	err := svc.DeleteMobileUser(ctx, 1)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	// Verify user was deleted from repo
+	if _, exists := mock.users[1]; exists {
+		t.Error("user should have been deleted from users map")
+	}
+	if _, exists := mock.byPhone["13800138000"]; exists {
+		t.Error("user should have been deleted from byPhone map")
+	}
+}
+
+func TestDeleteMobileUser_NotFound(t *testing.T) {
+	ctx := context.Background()
+	mock := newMockAdminRepo()
+	svc := newTestableAdminService(mock)
+
+	err := svc.DeleteMobileUser(ctx, 999)
+	if err == nil {
+		t.Fatal("expected error for non-existent user, got nil")
+	}
+	if err.Error() != "用户不存在" {
+		t.Errorf("expected '用户不存在', got '%s'", err.Error())
 	}
 }

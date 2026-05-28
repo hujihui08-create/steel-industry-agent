@@ -40,6 +40,9 @@ type mockAdminService struct {
 	disableMobileUserFn   func(ctx context.Context, id uint) error
 	enableMobileUserFn    func(ctx context.Context, id uint) error
 	dashboardTrendFn      func(ctx context.Context, days int) ([]service.TrendDataPoint, error)
+	createMobileUserFn    func(ctx context.Context, phone, nickname, company, password string, roleID uint, region string) (*model.User, error)
+	updateMobileUserFn    func(ctx context.Context, id uint, nickname, company string, roleID uint, region string, status int) (*model.User, error)
+	deleteMobileUserFn    func(ctx context.Context, id uint) error
 }
 
 func (m *mockAdminService) Login(ctx context.Context, username, password string) (string, error) {
@@ -102,6 +105,18 @@ func (m *mockAdminService) DashboardTrend(ctx context.Context, days int) ([]serv
 	return m.dashboardTrendFn(ctx, days)
 }
 
+func (m *mockAdminService) CreateMobileUser(ctx context.Context, phone, nickname, company, password string, roleID uint, region string) (*model.User, error) {
+	return m.createMobileUserFn(ctx, phone, nickname, company, password, roleID, region)
+}
+
+func (m *mockAdminService) UpdateMobileUser(ctx context.Context, id uint, nickname, company string, roleID uint, region string, status int) (*model.User, error) {
+	return m.updateMobileUserFn(ctx, id, nickname, company, roleID, region, status)
+}
+
+func (m *mockAdminService) DeleteMobileUser(ctx context.Context, id uint) error {
+	return m.deleteMobileUserFn(ctx, id)
+}
+
 type mockLoginLogRecorder struct{}
 
 func (m *mockLoginLogRecorder) RecordLoginSuccess(_ context.Context, _ string, _, _ *uint, _, _ string) {
@@ -124,6 +139,12 @@ func setupAdminRouter(mock *mockAdminService) *gin.Engine {
 	router.GET("/api/v1/admin/auth/info", setUserID, handler.GetInfo)
 	router.PUT("/api/v1/admin/auth/password", setUserID, handler.UpdatePassword)
 	router.GET("/api/v1/admin/dashboard", handler.Dashboard)
+
+	adminMobileUsers := router.Group("/api/v1/admin/mobile-users")
+	adminMobileUsers.POST("", handler.CreateMobileUser)
+	adminMobileUsers.PUT("/:id", handler.UpdateMobileUser)
+	adminMobileUsers.DELETE("/:id", handler.DeleteMobileUser)
+
 	return router
 }
 
@@ -303,5 +324,172 @@ func TestAdminDashboard(t *testing.T) {
 	}
 	if resp.Data.UserCount != 100 {
 		t.Errorf("expected user_count 100, got %d", resp.Data.UserCount)
+	}
+}
+
+// ===================== Mobile User CRUD Tests =====================
+
+func TestCreateMobileUser_Success(t *testing.T) {
+	mock := &mockAdminService{
+		createMobileUserFn: func(ctx context.Context, phone, nickname, company, password string, roleID uint, region string) (*model.User, error) {
+			if phone != "13800138000" {
+				t.Errorf("expected phone '13800138000', got '%s'", phone)
+			}
+			return &model.User{
+				ID: 1, Phone: phone, Nickname: nickname, Company: company,
+				RoleID: roleID, Region: region, Status: 1,
+			}, nil
+		},
+	}
+	router := setupAdminRouter(mock)
+
+	body := `{"phone":"13800138000","nickname":"测试用户","company":"测试公司","role_id":1,"region":"上海","password":"password123"}`
+	req, _ := http.NewRequest("POST", "/api/v1/admin/mobile-users", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var resp struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp.Code != 200 {
+		t.Errorf("expected code 200, got %d: %s", resp.Code, resp.Message)
+	}
+}
+
+func TestCreateMobileUser_MissingPhone(t *testing.T) {
+	mock := &mockAdminService{}
+	router := setupAdminRouter(mock)
+
+	body := `{"nickname":"测试","password":"pass"}`
+	req, _ := http.NewRequest("POST", "/api/v1/admin/mobile-users", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var resp struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp.Code != errors.CodeParamError {
+		t.Errorf("expected code %d for missing phone, got %d", errors.CodeParamError, resp.Code)
+	}
+}
+
+func TestCreateMobileUser_ServiceError(t *testing.T) {
+	mock := &mockAdminService{
+		createMobileUserFn: func(ctx context.Context, phone, nickname, company, password string, roleID uint, region string) (*model.User, error) {
+			return nil, stderrors.New("该手机号已注册")
+		},
+	}
+	router := setupAdminRouter(mock)
+
+	body := `{"phone":"13800138000","nickname":"test","role_id":1,"password":"pass"}`
+	req, _ := http.NewRequest("POST", "/api/v1/admin/mobile-users", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var resp struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp.Code != errors.CodeParamError {
+		t.Errorf("expected code %d for service error, got %d", errors.CodeParamError, resp.Code)
+	}
+	if resp.Message != "该手机号已注册" {
+		t.Errorf("expected '该手机号已注册', got '%s'", resp.Message)
+	}
+}
+
+func TestUpdateMobileUser_Success(t *testing.T) {
+	mock := &mockAdminService{
+		updateMobileUserFn: func(ctx context.Context, id uint, nickname, company string, roleID uint, region string, status int) (*model.User, error) {
+			return &model.User{ID: id, Nickname: nickname, Company: company, RoleID: roleID, Region: region}, nil
+		},
+	}
+	router := setupAdminRouter(mock)
+
+	body := `{"nickname":"新昵称","company":"新公司","role_id":2,"region":"北京","status":1}`
+	req, _ := http.NewRequest("PUT", "/api/v1/admin/mobile-users/1", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var resp struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp.Code != 200 {
+		t.Errorf("expected code 200, got %d", resp.Code)
+	}
+}
+
+func TestUpdateMobileUser_InvalidID(t *testing.T) {
+	mock := &mockAdminService{}
+	router := setupAdminRouter(mock)
+
+	body := `{"nickname":"test"}`
+	req, _ := http.NewRequest("PUT", "/api/v1/admin/mobile-users/abc", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var resp struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp.Code != errors.CodeParamError {
+		t.Errorf("expected code %d for invalid ID, got %d", errors.CodeParamError, resp.Code)
+	}
+}
+
+func TestDeleteMobileUser_Success(t *testing.T) {
+	mock := &mockAdminService{
+		deleteMobileUserFn: func(ctx context.Context, id uint) error {
+			return nil
+		},
+	}
+	router := setupAdminRouter(mock)
+
+	req, _ := http.NewRequest("DELETE", "/api/v1/admin/mobile-users/1", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var resp struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp.Code != 200 {
+		t.Errorf("expected code 200, got %d", resp.Code)
+	}
+}
+
+func TestDeleteMobileUser_ServiceError(t *testing.T) {
+	mock := &mockAdminService{
+		deleteMobileUserFn: func(ctx context.Context, id uint) error {
+			return stderrors.New("用户不存在")
+		},
+	}
+	router := setupAdminRouter(mock)
+
+	req, _ := http.NewRequest("DELETE", "/api/v1/admin/mobile-users/999", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var resp struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp.Code != errors.CodeParamError {
+		t.Errorf("expected code %d, got %d", errors.CodeParamError, resp.Code)
 	}
 }

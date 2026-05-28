@@ -305,7 +305,9 @@ export interface SystemSettings {
   smsEnabled: boolean;
   smsProvider: string;
   smsAccessKey: string;
-  smsSignature: string;
+  smsAccessSecret: string;
+  smsSignName: string;
+  smsTemplateCode: string;
   sessionTimeout: number;
   loginLockCount: number;
   ipWhitelistEnabled: boolean;
@@ -446,6 +448,7 @@ export interface MobileRole {
   description: string
   permissions: Record<string, boolean>
   status: number
+  role_type: 'admin' | 'mobile'
   user_count: number
   created_at: string
   updated_at: string

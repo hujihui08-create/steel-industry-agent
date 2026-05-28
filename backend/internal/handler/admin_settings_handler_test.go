@@ -23,6 +23,7 @@ type mockAdminSettingsService struct {
 	getPublicConfigFn func(ctx context.Context) (map[string]interface{}, error)
 	uploadLogoFn     func(ctx context.Context, file *multipart.FileHeader) (string, error)
 	testEmailFn      func(ctx context.Context, smtpConfig map[string]interface{}) (bool, string, error)
+	testSmsFn        func(ctx context.Context, phone string) (bool, string, error)
 }
 
 func (m *mockAdminSettingsService) GetSettings(ctx context.Context) (map[string]interface{}, error) {
@@ -45,6 +46,10 @@ func (m *mockAdminSettingsService) TestEmail(ctx context.Context, smtpConfig map
 	return m.testEmailFn(ctx, smtpConfig)
 }
 
+func (m *mockAdminSettingsService) TestSMS(ctx context.Context, phone string) (bool, string, error) {
+	return m.testSmsFn(ctx, phone)
+}
+
 func setupAdminSettingsRouter(mock *mockAdminSettingsService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	handler := &AdminSettingsHandler{adminSettingsService: mock}
@@ -54,6 +59,7 @@ func setupAdminSettingsRouter(mock *mockAdminSettingsService) *gin.Engine {
 	router.GET("/public/config", handler.GetPublicConfig)
 	router.POST("/admin/settings/upload-logo", handler.UploadLogo)
 	router.POST("/admin/settings/test-email", handler.TestEmail)
+	router.POST("/admin/settings/test-sms", handler.TestSMS)
 	return router
 }
 
@@ -160,6 +166,110 @@ func TestUpdateSettings_InvalidJSON(t *testing.T) {
 	router := setupAdminSettingsRouter(mock)
 
 	req, _ := http.NewRequest("PUT", "/admin/settings", strings.NewReader(`{broken`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var resp struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp.Code != errors.CodeParamError {
+		t.Errorf("expected code %d, got %d", errors.CodeParamError, resp.Code)
+	}
+}
+
+func TestTestSMS_Success(t *testing.T) {
+	mock := &mockAdminSettingsService{
+		testSmsFn: func(ctx context.Context, phone string) (bool, string, error) {
+			return true, "测试短信已成功发送", nil
+		},
+	}
+	router := setupAdminSettingsRouter(mock)
+
+	body := `{"phone":"13800138000"}`
+	req, _ := http.NewRequest("POST", "/admin/settings/test-sms", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var resp struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Data    struct {
+			Success bool   `json:"success"`
+			Message string `json:"message"`
+		} `json:"data"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp.Code != 200 {
+		t.Errorf("expected code 200, got %d", resp.Code)
+	}
+	if !resp.Data.Success {
+		t.Error("expected data.success to be true")
+	}
+	if resp.Data.Message != "测试短信已成功发送" {
+		t.Errorf("expected message '测试短信已成功发送', got '%s'", resp.Data.Message)
+	}
+}
+
+func TestTestSMS_NotEnabled(t *testing.T) {
+	mock := &mockAdminSettingsService{
+		testSmsFn: func(ctx context.Context, phone string) (bool, string, error) {
+			return false, "短信功能未启用，请先在系统设置中开启并保存配置", nil
+		},
+	}
+	router := setupAdminSettingsRouter(mock)
+
+	body := `{"phone":"13800138000"}`
+	req, _ := http.NewRequest("POST", "/admin/settings/test-sms", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var resp struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Data    struct {
+			Success bool   `json:"success"`
+			Message string `json:"message"`
+		} `json:"data"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp.Code != 200 {
+		t.Errorf("expected code 200, got %d", resp.Code)
+	}
+	if resp.Data.Success {
+		t.Error("expected data.success to be false when SMS not enabled")
+	}
+}
+
+func TestTestSMS_MissingPhone(t *testing.T) {
+	mock := &mockAdminSettingsService{}
+	router := setupAdminSettingsRouter(mock)
+
+	body := `{}`
+	req, _ := http.NewRequest("POST", "/admin/settings/test-sms", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var resp struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp.Code != errors.CodeParamError {
+		t.Errorf("expected code %d, got %d", errors.CodeParamError, resp.Code)
+	}
+}
+
+func TestTestSMS_InvalidJSON(t *testing.T) {
+	mock := &mockAdminSettingsService{}
+	router := setupAdminSettingsRouter(mock)
+
+	req, _ := http.NewRequest("POST", "/admin/settings/test-sms", strings.NewReader(`{broken`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)

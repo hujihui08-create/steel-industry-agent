@@ -54,8 +54,9 @@ import {
   createAdminUser,
   updateAdminUser,
   deleteAdminUser,
+  getMobileRoles,
 } from "@/app/api/admin";
-import type { AdminUser, AdminRole, AdminUserStatus } from "@/app/types/admin";
+import type { AdminUser, AdminRole, AdminUserStatus, MobileRole } from "@/app/types/admin";
 
 // ============================================================
 // 常量
@@ -77,12 +78,10 @@ const ROLE_ICONS: Record<AdminRole, React.ReactNode> = {
   viewer: <ShieldQuestion size={14} strokeWidth={1.75} className="text-[#A3A3A3] shrink-0" />,
 };
 
-/** 添加/编辑时可选的角�（不包含 super_admin，仅现有 super_admin 编辑时显示） */
-const ALLOWED_ROLES: { value: AdminRole | ""; label: string }[] = [
-  { value: "operator", label: "运营管理员" },
-  { value: "data_admin", label: "数据管理员" },
-  { value: "viewer", label: "只读观察员" },
-];
+/** 角色 → 代码反向映射（用于从 API 返回的中文名查找 AdminRole 代码） */
+const ROLE_NAME_TO_CODE: Record<string, AdminRole> = Object.fromEntries(
+  Object.entries(ROLE_LABELS).map(([code, label]) => [label, code as AdminRole]),
+);
 
 /** 角色说明数据 */
 const ROLE_DESCRIPTIONS = [
@@ -188,6 +187,9 @@ export function AdminUserManagement() {
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // ---- 动态角色 ----
+  const [adminRoles, setAdminRoles] = useState<MobileRole[]>([]);
+
   // ============================================================
   // 数据加载
   // ============================================================
@@ -208,6 +210,19 @@ export function AdminUserManagement() {
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  // ---- 加载管理员角色 ----
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        const roles = await getMobileRoles({ roleType: "admin" });
+        setAdminRoles(roles);
+      } catch {
+        // silently fail, adminRoles will be empty and dropdown shows nothing
+      }
+    };
+    loadRoles();
+  }, []);
 
   // ============================================================
   // 表单校验
@@ -761,7 +776,7 @@ export function AdminUserManagement() {
                   <SelectValue placeholder="请选择角色" />
                 </SelectTrigger>
                 <SelectContent variant="filter">
-                  {/* 超级管理员仅编辑时显示 */}
+                  {/* 超级管理员仅编辑时显示（且该管理员本身就是 super_admin） */}
                   {isEditing && formData.role === "super_admin" ? (
                     <SelectItem value="super_admin">
                       <span className="inline-flex items-center gap-2">
@@ -770,14 +785,22 @@ export function AdminUserManagement() {
                       </span>
                     </SelectItem>
                   ) : (
-                    ALLOWED_ROLES.map((r) => (
-                      <SelectItem key={r.value} value={r.value}>
-                        <span className="inline-flex items-center gap-2">
-                          {ROLE_ICONS[r.value as AdminRole]}
-                          {r.label}
-                        </span>
-                      </SelectItem>
-                    ))
+                    adminRoles.map((r) => {
+                      const roleCode = ROLE_NAME_TO_CODE[r.name];
+                      if (!roleCode) return null;
+                      // 新增时不显示超级管理员选项
+                      if (roleCode === "super_admin" && !isEditing) return null;
+                      return (
+                        <SelectItem key={r.id} value={roleCode}>
+                          <span className="inline-flex items-center gap-2">
+                            {ROLE_ICONS[roleCode] ?? (
+                              <ShieldQuestion size={14} strokeWidth={1.75} className="text-[#A3A3A3] shrink-0" />
+                            )}
+                            {r.name}
+                          </span>
+                        </SelectItem>
+                      );
+                    })
                   )}
                 </SelectContent>
               </Select>

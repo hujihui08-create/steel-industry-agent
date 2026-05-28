@@ -20,6 +20,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // ============================================================
 // 常量
@@ -50,12 +57,14 @@ type TabType = "roles" | "permissions";
 // ============================================================
 
 interface RoleFormData {
+  role_type: 'admin' | 'mobile';
   name: string;
   description: string;
   status: boolean;
 }
 
 const EMPTY_FORM: RoleFormData = {
+  role_type: 'mobile',
   name: "",
   description: "",
   status: true,
@@ -184,7 +193,7 @@ export function RolePermissionManagement() {
   const openAddForm = useCallback(() => {
     setIsEditing(false);
     setEditingRoleId(null);
-    setFormData({ ...EMPTY_FORM });
+    setFormData({ ...EMPTY_FORM, role_type: 'mobile' });
     setFormErrors({});
     setFormOpen(true);
   }, []);
@@ -193,6 +202,7 @@ export function RolePermissionManagement() {
     setIsEditing(true);
     setEditingRoleId(role.id);
     setFormData({
+      role_type: role.role_type || 'mobile',
       name: role.name,
       description: role.description || "",
       status: role.status === 1,
@@ -213,6 +223,7 @@ export function RolePermissionManagement() {
           name: formData.name.trim(),
           description: formData.description.trim(),
           status: formData.status ? 1 : 0,
+          role_type: formData.role_type,
         });
         showSuccessToast("角色已更新");
       } else {
@@ -220,6 +231,7 @@ export function RolePermissionManagement() {
           name: formData.name.trim(),
           description: formData.description.trim(),
           status: formData.status ? 1 : 0,
+          role_type: formData.role_type,
         });
         showSuccessToast("角色已创建");
       }
@@ -322,9 +334,20 @@ export function RolePermissionManagement() {
         title: "角色名称",
         width: "140px",
         render: (_: unknown, row: MobileRole) => (
-          <span className="text-[13px] text-[#0A0A0A] font-medium">
-            {row.name}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "inline-flex items-center px-2 py-0.5 rounded-full",
+              "text-[11px] leading-[1.5] font-medium",
+              row.role_type === 'admin'
+                ? "bg-[#0A0A0A]/5 text-[#404040]"
+                : "bg-[#FAFAFA] border border-[#E5E5E5] text-[#737373]"
+            )}>
+              {row.role_type === 'admin' ? '管理员' : '移动端'}
+            </span>
+            <span className="text-[13px] text-[#0A0A0A] font-medium">
+              {row.name}
+            </span>
+          </div>
         ),
       },
       {
@@ -708,6 +731,45 @@ export function RolePermissionManagement() {
           </DialogHeader>
 
           <div className="flex flex-col gap-4">
+            {/* 角色类型 */}
+            <div className="flex flex-col gap-1.5">
+              <Label
+                className={cn(
+                  "text-[13px] leading-[1.5] text-[#404040]",
+                  "after:content-['_*'] after:text-[#B42318]",
+                )}
+                htmlFor="field-role-type"
+              >
+                角色类型
+              </Label>
+              <Select
+                value={formData.role_type}
+                onValueChange={(v) =>
+                  setFormData((prev) => ({ ...prev, role_type: v as 'admin' | 'mobile' }))
+                }
+              >
+                <SelectTrigger
+                  id="field-role-type"
+                  className={cn(
+                    "h-10 px-3 rounded-[10px]",
+                    "border border-[#E5E5E5] text-[14px] leading-[1.5]",
+                    "focus:ring-[#0A0A0A]/10 focus:border-[#0A0A0A]",
+                    "transition-colors duration-200",
+                  )}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mobile" className="text-[13px]">
+                    移动端角色
+                  </SelectItem>
+                  <SelectItem value="admin" className="text-[13px]">
+                    管理员角色
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* 角色名称 */}
             <div className="flex flex-col gap-1.5">
               <Label

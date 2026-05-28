@@ -9,6 +9,7 @@ import (
 	"steel-agent-backend/internal/model"
 	"steel-agent-backend/internal/repository"
 	"steel-agent-backend/pkg/jwt"
+	"steel-agent-backend/pkg/validate"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -330,4 +331,96 @@ func (s *AdminService) DisableMobileUser(ctx context.Context, id uint) error {
 
 func (s *AdminService) EnableMobileUser(ctx context.Context, id uint) error {
 	return s.userRepo.UpdateStatus(ctx, id, 1)
+}
+
+// CreateMobileUser creates a new mobile user with validation.
+func (s *AdminService) CreateMobileUser(ctx context.Context, phone, nickname, company, password string, roleID uint, region string) (*model.User, error) {
+	if !validate.ValidatePhone(phone) {
+		return nil, errors.New("手机号格式不正确")
+	}
+
+	existing, err := s.adminRepo.FindUserByPhone(ctx, phone)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	if existing != nil {
+		return nil, errors.New("该手机号已注册")
+	}
+
+	role, err := s.adminRepo.FindMobileRoleByID(ctx, roleID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("所选角色不存在")
+		}
+		return nil, err
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	user := &model.User{
+		Phone:        phone,
+		PasswordHash: string(hashedPassword),
+		Nickname:     nickname,
+		Company:      company,
+		Role:         role.Name,
+		RoleID:       roleID,
+		Region:       region,
+		Status:       1,
+	}
+
+	if err := s.adminRepo.CreateMobileUser(ctx, user); err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+// UpdateMobileUser updates an existing mobile user's fields.
+func (s *AdminService) UpdateMobileUser(ctx context.Context, id uint, nickname, company string, roleID uint, region string, status int) (*model.User, error) {
+	user, err := s.userRepo.FindByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("用户不存在")
+		}
+		return nil, err
+	}
+
+	user.Nickname = nickname
+	user.Company = company
+	user.Region = region
+	user.Status = status
+
+	if roleID > 0 {
+		role, err := s.adminRepo.FindMobileRoleByID(ctx, roleID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, errors.New("所选角色不存在")
+			}
+			return nil, err
+		}
+		user.RoleID = roleID
+		user.Role = role.Name
+	}
+
+	if err := s.adminRepo.UpdateMobileUser(ctx, user); err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+// DeleteMobileUser deletes a mobile user by ID.
+func (s *AdminService) DeleteMobileUser(ctx context.Context, id uint) error {
+	_, err := s.userRepo.FindByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("用户不存在")
+		}
+		return err
+	}
+
+	return s.adminRepo.DeleteMobileUser(ctx, id)
 }

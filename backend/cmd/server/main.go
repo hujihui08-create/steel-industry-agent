@@ -84,7 +84,7 @@ func main() {
 	backupService := service.NewBackupService("/app/backups", adminSettingsRepo)
 
 	// --- Business Services ---
-	authService := service.NewAuthService(userRepo, redisClient)
+	authService := service.NewAuthService(userRepo, redisClient, adminSettingsRepo)
 	userService := service.NewUserService(userRepo)
 	loginLogService := service.NewLoginLogService(loginLogRepo)
 	priceService := service.NewPriceService(steelPriceRepo, newsRepo, cacheService)

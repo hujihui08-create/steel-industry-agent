@@ -31,6 +31,9 @@ type adminService interface {
 	GetMobileUserDetail(ctx context.Context, id uint) (*model.User, error)
 	DisableMobileUser(ctx context.Context, id uint) error
 	EnableMobileUser(ctx context.Context, id uint) error
+	CreateMobileUser(ctx context.Context, phone, nickname, company, password string, roleID uint, region string) (*model.User, error)
+	UpdateMobileUser(ctx context.Context, id uint, nickname, company string, roleID uint, region string, status int) (*model.User, error)
+	DeleteMobileUser(ctx context.Context, id uint) error
 }
 
 // AdminHandler handles admin management HTTP requests.
@@ -375,6 +378,75 @@ func (h *AdminHandler) ExportMobileUsers(c *gin.Context) {
 		c.String(200, "%d,%s,%s,%s,%s,%s,%s\n",
 			u.ID, u.Phone, u.Nickname, u.Company, u.Role, u.Region, u.CreatedAt.Format("2006-01-02 15:04:05"))
 	}
+}
+
+// CreateMobileUser creates a new mobile user from admin backend.
+func (h *AdminHandler) CreateMobileUser(c *gin.Context) {
+	var req struct {
+		Phone    string `json:"phone" binding:"required"`
+		Nickname string `json:"nickname" binding:"required"`
+		Company  string `json:"company"`
+		Password string `json:"password" binding:"required"`
+		RoleID   uint   `json:"role_id" binding:"required"`
+		Region   string `json:"region"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误")
+		return
+	}
+
+	user, err := h.adminService.CreateMobileUser(c.Request.Context(), req.Phone, req.Nickname, req.Company, req.Password, req.RoleID, req.Region)
+	if err != nil {
+		response.Error(c, errors.CodeParamError, err.Error())
+		return
+	}
+
+	response.Success(c, user)
+}
+
+// UpdateMobileUser updates an existing mobile user from admin backend.
+func (h *AdminHandler) UpdateMobileUser(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：id格式不正确")
+		return
+	}
+
+	var req struct {
+		Nickname string `json:"nickname" binding:"required"`
+		Company  string `json:"company"`
+		RoleID   uint   `json:"role_id"`
+		Region   string `json:"region"`
+		Status   int    `json:"status"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误")
+		return
+	}
+
+	user, err := h.adminService.UpdateMobileUser(c.Request.Context(), uint(id), req.Nickname, req.Company, req.RoleID, req.Region, req.Status)
+	if err != nil {
+		response.Error(c, errors.CodeParamError, err.Error())
+		return
+	}
+
+	response.Success(c, user)
+}
+
+// DeleteMobileUser deletes a mobile user from admin backend.
+func (h *AdminHandler) DeleteMobileUser(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：id格式不正确")
+		return
+	}
+
+	if err := h.adminService.DeleteMobileUser(c.Request.Context(), uint(id)); err != nil {
+		response.Error(c, errors.CodeParamError, err.Error())
+		return
+	}
+
+	response.Success(c, nil)
 }
 
 // DashboardTrend returns trend data for dashboard.

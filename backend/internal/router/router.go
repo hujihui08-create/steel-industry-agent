@@ -331,8 +331,11 @@ func Setup(
 	adminMobileUsers.Use(middleware.RequireRole(adminRepo, "super_admin", "operator"))
 	{
 		adminMobileUsers.GET("", adminHandler.ListMobileUsers)
+		adminMobileUsers.POST("", adminHandler.CreateMobileUser)
 		adminMobileUsers.GET("/retention", mobileRoleHandler.GetRetentionStats)
 		adminMobileUsers.GET("/:id", adminHandler.GetMobileUserDetail)
+		adminMobileUsers.PUT("/:id", adminHandler.UpdateMobileUser)
+		adminMobileUsers.DELETE("/:id", adminHandler.DeleteMobileUser)
 		adminMobileUsers.PUT("/:id/disable", adminHandler.DisableMobileUser)
 		adminMobileUsers.PUT("/:id/enable", adminHandler.EnableMobileUser)
 		adminMobileUsers.GET("/export", adminHandler.ExportMobileUsers)
@@ -399,6 +402,7 @@ func Setup(
 		adminSettings.PUT("", adminSettingsHandler.UpdateSettings)
 		adminSettings.POST("/upload-logo", adminSettingsHandler.UploadLogo)
 		adminSettings.POST("/test-email", adminSettingsHandler.TestEmail)
+		adminSettings.POST("/test-sms", adminSettingsHandler.TestSMS)
 	}
 
 	adminCategories := api.Group("/admin/categories")

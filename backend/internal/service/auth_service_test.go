@@ -7,8 +7,10 @@ import (
 
 	"steel-agent-backend/internal/config"
 	"steel-agent-backend/internal/model"
+	"steel-agent-backend/internal/repository"
 	"steel-agent-backend/pkg/jwt"
 
+	"github.com/glebarez/sqlite"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -484,5 +486,85 @@ func TestAuthService_TokenExpiry(t *testing.T) {
 	}
 	if err.Error() != "令牌无效或已过期" {
 		t.Errorf("expected '令牌无效或已过期', got '%s'", err.Error())
+	}
+}
+
+func setupSMSTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to connect database: %v", err)
+	}
+	if err := db.AutoMigrate(&model.AdminSettings{}); err != nil {
+		t.Fatalf("failed to migrate: %v", err)
+	}
+	return db
+}
+
+func TestAuthService_SendSMSCode_NilAdminSettingsRepo(t *testing.T) {
+	ctx := context.Background()
+	svc := NewAuthService(nil, nil, nil)
+
+	err := svc.SendSMSCode(ctx, "13800138000")
+	if err != nil {
+		t.Errorf("SendSMSCode with nil adminSettingsRepo should not error, got: %v", err)
+	}
+}
+
+func TestAuthService_SendSMSCode_SMSDisabled(t *testing.T) {
+	ctx := context.Background()
+	db := setupSMSTestDB(t)
+	settingsRepo := repository.NewAdminSettingsRepository(db)
+
+	settings := &model.AdminSettings{
+		SettingsData: model.SettingsMap{
+			"smsEnabled": false,
+		},
+	}
+	if err := settingsRepo.Save(ctx, settings); err != nil {
+		t.Fatalf("failed to save settings: %v", err)
+	}
+
+	svc := NewAuthService(nil, nil, settingsRepo)
+	err := svc.SendSMSCode(ctx, "13800138000")
+	if err != nil {
+		t.Errorf("SendSMSCode with smsEnabled=false should not error, got: %v", err)
+	}
+}
+
+func TestAuthService_SendSMSCode_MissingSMSConfig(t *testing.T) {
+	ctx := context.Background()
+	db := setupSMSTestDB(t)
+	settingsRepo := repository.NewAdminSettingsRepository(db)
+
+	settings := &model.AdminSettings{
+		SettingsData: model.SettingsMap{
+			"smsEnabled":      true,
+			"smsAccessKey":    "",
+			"smsAccessSecret": "",
+			"smsSignName":     "",
+			"smsTemplateCode": "",
+		},
+	}
+	if err := settingsRepo.Save(ctx, settings); err != nil {
+		t.Fatalf("failed to save settings: %v", err)
+	}
+
+	svc := NewAuthService(nil, nil, settingsRepo)
+	err := svc.SendSMSCode(ctx, "13800138000")
+	if err != nil {
+		t.Errorf("SendSMSCode with incomplete config should not crash, got: %v", err)
+	}
+}
+
+func TestAuthService_SendSMSCode_NoSettingsInDB(t *testing.T) {
+	ctx := context.Background()
+	db := setupSMSTestDB(t)
+	settingsRepo := repository.NewAdminSettingsRepository(db)
+
+	svc := NewAuthService(nil, nil, settingsRepo)
+	err := svc.SendSMSCode(ctx, "13800138000")
+	if err != nil {
+		t.Errorf("SendSMSCode with empty DB should not error, got: %v", err)
 	}
 }
