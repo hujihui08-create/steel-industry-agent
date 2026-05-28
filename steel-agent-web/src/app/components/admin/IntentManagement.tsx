@@ -911,16 +911,16 @@ export function IntentManagement() {
                 关联工具
               </label>
               <Select
-                value={formData.toolName}
+                value={formData.toolName || "__none__"}
                 onValueChange={(v) =>
-                  setFormData((prev) => ({ ...prev, toolName: v }))
+                  setFormData((prev) => ({ ...prev, toolName: v === "__none__" ? "" : v }))
                 }
               >
                 <SelectTrigger variant="filter" className="h-9 text-[13px] leading-[1.5]">
                   <SelectValue placeholder="无（AI 自行判断）" />
                 </SelectTrigger>
                 <SelectContent variant="filter">
-                  <SelectItem value="">无（AI 自行判断）</SelectItem>
+                  <SelectItem value="__none__">无（AI 自行判断）</SelectItem>
                   <SelectItem value="query_steel_price">query_steel_price</SelectItem>
                   <SelectItem value="get_price_trend">get_price_trend</SelectItem>
                   <SelectItem value="calculate_quotation">calculate_quotation</SelectItem>

@@ -496,11 +496,11 @@ export default function CategoryManage() {
                 父品类
               </label>
               <Select
-                value={formData.parent_id != null ? String(formData.parent_id) : ""}
+                value={formData.parent_id != null ? String(formData.parent_id) : "__none__"}
                 onValueChange={(v) =>
                   setFormData((prev) => ({
                     ...prev,
-                    parent_id: v ? Number(v) : null,
+                    parent_id: v === "__none__" ? null : Number(v),
                   }))
                 }
               >
@@ -508,7 +508,7 @@ export default function CategoryManage() {
                   <SelectValue placeholder="无（顶级品类）" />
                 </SelectTrigger>
                 <SelectContent variant="filter">
-                  <SelectItem value="" className="text-[13px]">无（顶级品类）</SelectItem>
+                  <SelectItem value="__none__" className="text-[13px]">无（顶级品类）</SelectItem>
                   {categories
                     .filter(
                       (c) =>
