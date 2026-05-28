@@ -7,7 +7,7 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss: https://api.openai.com https://dashscope.aliyuncs.com https://api.deepseek.com; font-src 'self'; media-src 'self';" />
     <meta name="theme-color" content="#0A0A0A" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <link rel="icon" type="image/svg+xml" href="/icons/icon-192x192.png" />
+    <link rel="icon" type="image/png" href="/icons/icon-192x192.png" />
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
     <link rel="dns-prefetch" href="https://api.openai.com" />
     <link rel="preconnect" href="https://api.openai.com" crossorigin />
@@ -38,13 +38,6 @@
   <body>
     <a href="#main-content" class="skip-link">跳转到主要内容</a>
     <div id="root"></div>
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(regs) {
-          regs.forEach(function(r) { r.unregister(); });
-        });
-      }
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
