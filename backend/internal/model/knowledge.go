@@ -17,7 +17,7 @@ type Knowledge struct {
 	Keywords   string    `gorm:"column:keywords" json:"keywords"`
 	StandardNo string    `gorm:"column:standard_no" json:"standard_no"`
 	Category   string    `gorm:"column:category" json:"category"`
-	Embedding  string    `gorm:"column:embedding" json:"embedding"`
+	Embedding  *string  `gorm:"column:embedding" json:"embedding"`
 	Status     string    `gorm:"column:status;default:pending" json:"status"`
 	VectorID   string    `gorm:"column:vector_id" json:"vector_id"`
 	ChunkCount int       `gorm:"column:chunk_count;default:0" json:"chunk_count"`
