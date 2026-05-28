@@ -24,7 +24,7 @@ type adminService interface {
 	DashboardTrend(ctx context.Context, days int) ([]service.TrendDataPoint, error)
 	ListAdmins(ctx context.Context) ([]model.Admin, error)
 	CreateAdmin(ctx context.Context, username, nickname, password, role string) (*model.Admin, error)
-	UpdateAdmin(ctx context.Context, id uint, nickname, role string) error
+	UpdateAdmin(ctx context.Context, id uint, nickname, role string, status int) error
 	DeleteAdmin(ctx context.Context, id uint) error
 	UpdateProfile(ctx context.Context, adminID uint, nickname string) error
 	ListMobileUsers(ctx context.Context, keyword string, page, pageSize int) ([]model.User, int64, error)
@@ -224,13 +224,14 @@ func (h *AdminHandler) UpdateAdmin(c *gin.Context) {
 	var req struct {
 		Nickname string `json:"nickname" binding:"required"`
 		Role     string `json:"role" binding:"required"`
+		Status   int    `json:"status"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, errors.CodeParamError, "参数错误")
 		return
 	}
 
-	if err := h.adminService.UpdateAdmin(c.Request.Context(), uint(id), req.Nickname, req.Role); err != nil {
+	if err := h.adminService.UpdateAdmin(c.Request.Context(), uint(id), req.Nickname, req.Role, req.Status); err != nil {
 		response.Error(c, errors.CodeParamError, err.Error())
 		return
 	}

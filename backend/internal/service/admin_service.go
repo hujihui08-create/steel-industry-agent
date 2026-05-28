@@ -264,7 +264,7 @@ func (s *AdminService) CreateAdmin(ctx context.Context, username, nickname, pass
 	return admin, nil
 }
 
-func (s *AdminService) UpdateAdmin(ctx context.Context, id uint, nickname, role string) error {
+func (s *AdminService) UpdateAdmin(ctx context.Context, id uint, nickname, role string, status int) error {
 	if !validAdminRoles[role] {
 		return errors.New("无效的角色")
 	}
@@ -283,6 +283,9 @@ func (s *AdminService) UpdateAdmin(ctx context.Context, id uint, nickname, role 
 
 	admin.Nickname = nickname
 	admin.Role = role
+	if status > 0 {
+		admin.Status = status
+	}
 
 	return s.adminRepo.Update(ctx, admin)
 }
