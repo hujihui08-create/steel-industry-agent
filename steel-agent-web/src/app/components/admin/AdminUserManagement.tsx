@@ -41,6 +41,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -124,6 +125,7 @@ interface AdminUserFormData {
   nickname: string;
   password: string;
   role: AdminRole | "";
+  status: AdminUserStatus;
 }
 
 const EMPTY_FORM: AdminUserFormData = {
@@ -131,6 +133,7 @@ const EMPTY_FORM: AdminUserFormData = {
   nickname: "",
   password: "",
   role: "operator",
+  status: "active",
 };
 
 // ============================================================
@@ -267,6 +270,7 @@ export function AdminUserManagement() {
       nickname: user.nickname,
       password: "",
       role: user.role,
+      status: user.status as AdminUserStatus || "active",
     });
     setFormErrors({});
     setFormOpen(true);
@@ -289,6 +293,7 @@ export function AdminUserManagement() {
         await updateAdminUser(editingUserId, {
           nickname: formData.nickname.trim(),
           role: formData.role as AdminRole,
+          status: formData.status,
         });
         showSuccessToast(`管理员"${formData.username}"已更新`);
       } else {
@@ -810,6 +815,21 @@ export function AdminUserManagement() {
                 </p>
               )}
             </div>
+
+            {/* 启用/停用（仅编辑时显示） */}
+            {isEditing && (
+              <div className="flex items-center justify-between py-1">
+                <Label className="text-[13px] leading-[1.5] text-[#404040]">
+                  {formData.status === "active" ? "账号已启用" : "账号已停用"}
+                </Label>
+                <Switch
+                  checked={formData.status === "active"}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, status: checked ? "active" : "disabled" }))
+                  }
+                />
+              </div>
+            )}
           </div>
 
           {/* 底部按钮 */}
