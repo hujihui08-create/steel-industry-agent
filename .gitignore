@@ -87,6 +87,9 @@ Untitled/
 # TypeScript build info
 *.tsbuildinfo
 
+# Server info dump
+server_info.json
+
 # Temp files
 temp_response.html
 file_list.txt

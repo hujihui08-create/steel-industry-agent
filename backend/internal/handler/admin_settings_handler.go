@@ -18,6 +18,7 @@ type adminSettingsService interface {
 	GetPublicConfig(ctx context.Context) (map[string]interface{}, error)
 	UploadLogo(ctx context.Context, file *multipart.FileHeader) (string, error)
 	TestEmail(ctx context.Context, smtpConfig map[string]interface{}) (bool, string, error)
+	TestSMS(ctx context.Context, phone string) (bool, string, error)
 }
 
 // AdminSettingsHandler handles HTTP requests for admin system settings.
@@ -91,6 +92,23 @@ func (h *AdminSettingsHandler) TestEmail(c *gin.Context) {
 	}
 
 	success, msg, _ := h.adminSettingsService.TestEmail(c.Request.Context(), smtpConfig)
+	response.Success(c, map[string]interface{}{
+		"success": success,
+		"message": msg,
+	})
+}
+
+// TestSMS sends a test SMS using the configured SMS provider.
+func (h *AdminSettingsHandler) TestSMS(c *gin.Context) {
+	var req struct {
+		Phone string `json:"phone" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误")
+		return
+	}
+
+	success, msg, _ := h.adminSettingsService.TestSMS(c.Request.Context(), req.Phone)
 	response.Success(c, map[string]interface{}{
 		"success": success,
 		"message": msg,

@@ -1,0 +1,8 @@
+ALTER TABLE mobile_roles ADD COLUMN role_type VARCHAR(20) NOT NULL DEFAULT 'mobile';
+
+-- Seed 4 admin roles with default permissions
+INSERT INTO mobile_roles (name, description, permissions, status, role_type, created_at, updated_at) VALUES
+('超级管理员', '全部功能访问权限', '{"view_price":true,"price_trend":true,"calc_quotation":true,"query_tender":true,"search_knowledge":true,"query_standard":true,"compare_grade":true,"query_term":true,"calc_weight":true,"convert_unit":true,"set_alert":true,"ai_chat":true,"export_quotation":true,"export_report":true,"dashboard":true}', 1, 'admin', NOW(), NOW()),
+('运营管理员', 'Agent配置、数据管理、用户管理、质量管理', '{"view_price":true,"price_trend":true,"calc_quotation":true,"query_tender":true,"search_knowledge":true,"query_standard":true,"compare_grade":true,"query_term":true,"calc_weight":true,"convert_unit":true,"set_alert":true,"ai_chat":true,"export_quotation":true,"export_report":true,"dashboard":true}', 1, 'admin', NOW(), NOW()),
+('数据管理员', '数据爬虫、采集任务、数据源管理', '{"view_price":true,"price_trend":true,"calc_quotation":false,"query_tender":false,"search_knowledge":true,"query_standard":true,"compare_grade":true,"query_term":true,"calc_weight":true,"convert_unit":true,"set_alert":false,"ai_chat":false,"export_quotation":true,"export_report":true,"dashboard":true}', 1, 'admin', NOW(), NOW()),
+('只读观察员', '仅可查看数据，不可修改', '{"view_price":true,"price_trend":true,"calc_quotation":false,"query_tender":false,"search_knowledge":false,"query_standard":false,"compare_grade":false,"query_term":false,"calc_weight":false,"convert_unit":false,"set_alert":false,"ai_chat":false,"export_quotation":false,"export_report":false,"dashboard":false}', 1, 'admin', NOW(), NOW());

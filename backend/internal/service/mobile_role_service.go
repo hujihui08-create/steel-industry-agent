@@ -22,12 +22,13 @@ func NewMobileRoleService(roleRepo *repository.MobileRoleRepository, userRepo *r
 }
 
 // ListRoles returns all mobile roles with associated user counts.
-func (s *MobileRoleService) ListRoles(ctx context.Context) ([]model.MobileRole, error) {
-	return s.roleRepo.FindAll(ctx)
+// If roleType is not empty, results are filtered by role_type.
+func (s *MobileRoleService) ListRoles(ctx context.Context, roleType string) ([]model.MobileRole, error) {
+	return s.roleRepo.FindAll(ctx, roleType)
 }
 
 // CreateRole creates a new mobile role. Name must be unique.
-func (s *MobileRoleService) CreateRole(ctx context.Context, name, description string, status int) (*model.MobileRole, error) {
+func (s *MobileRoleService) CreateRole(ctx context.Context, name, description, roleType string, status int) (*model.MobileRole, error) {
 	if name == "" {
 		return nil, errors.New("角色名称不能为空")
 	}
@@ -41,6 +42,7 @@ func (s *MobileRoleService) CreateRole(ctx context.Context, name, description st
 		Description: description,
 		Permissions: make(model.PermissionMap),
 		Status:      status,
+		RoleType:    roleType,
 	}
 	if err := s.roleRepo.Create(ctx, role); err != nil {
 		return nil, err

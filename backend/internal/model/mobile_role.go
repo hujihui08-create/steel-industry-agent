@@ -32,6 +32,7 @@ type MobileRole struct {
 	Description string        `gorm:"type:varchar(200)" json:"description"`
 	Permissions PermissionMap `gorm:"type:jsonb;default:'{}'" json:"permissions"`
 	Status      int           `gorm:"type:smallint;default:1" json:"status"`
+	RoleType    string        `gorm:"type:varchar(20);default:mobile" json:"role_type"`
 	UserCount   int           `gorm:"-" json:"user_count"`
 	CreatedAt   time.Time     `json:"created_at"`
 	UpdatedAt   time.Time     `json:"updated_at"`

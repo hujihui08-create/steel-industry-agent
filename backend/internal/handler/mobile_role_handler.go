@@ -13,8 +13,8 @@ import (
 
 // mobileRoleService defines the service contract for mobile role operations.
 type mobileRoleService interface {
-	ListRoles(ctx context.Context) ([]model.MobileRole, error)
-	CreateRole(ctx context.Context, name, description string, status int) (*model.MobileRole, error)
+	ListRoles(ctx context.Context, roleType string) ([]model.MobileRole, error)
+	CreateRole(ctx context.Context, name, description, roleType string, status int) (*model.MobileRole, error)
 	UpdateRole(ctx context.Context, id uint, name, description string, status int) (*model.MobileRole, error)
 	DeleteRole(ctx context.Context, id uint) error
 	GetPermissions(ctx context.Context) ([]model.MobileRole, error)
@@ -33,8 +33,10 @@ func NewMobileRoleHandler(roleService mobileRoleService) *MobileRoleHandler {
 }
 
 // ListRoles returns all mobile roles.
+// Accepts optional query parameter: role_type (e.g. "admin", "mobile").
 func (h *MobileRoleHandler) ListRoles(c *gin.Context) {
-	roles, err := h.roleService.ListRoles(c.Request.Context())
+	roleType := c.Query("role_type")
+	roles, err := h.roleService.ListRoles(c.Request.Context(), roleType)
 	if err != nil {
 		response.Error(c, errors.CodeInternalError, err.Error())
 		return
@@ -45,6 +47,7 @@ func (h *MobileRoleHandler) ListRoles(c *gin.Context) {
 type createRoleReq struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	RoleType    string `json:"role_type"`
 	Status      int    `json:"status"`
 }
 
@@ -62,7 +65,7 @@ func (h *MobileRoleHandler) CreateRole(c *gin.Context) {
 	if req.Status == 0 {
 		req.Status = 1
 	}
-	role, err := h.roleService.CreateRole(c.Request.Context(), req.Name, req.Description, req.Status)
+	role, err := h.roleService.CreateRole(c.Request.Context(), req.Name, req.Description, req.RoleType, req.Status)
 	if err != nil {
 		response.Error(c, errors.CodeParamError, err.Error())
 		return
