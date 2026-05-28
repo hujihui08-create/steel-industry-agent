@@ -163,10 +163,17 @@ export function ChatSidebar({
     });
   }, [onNewSession, isMobile, onToggle, requireAuth]);
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = useCallback(async () => {
     if (!deleteTarget) return;
-    onDeleteSession(deleteTarget.id);
-    setDeleteTarget(null);
+    const sessionTitle = deleteTarget.title;
+    try {
+      await onDeleteSession(deleteTarget.id);
+      toast.success(`已删除「${sessionTitle}」`);
+    } catch {
+      toast.error("删除失败，请稍后重试");
+    } finally {
+      setDeleteTarget(null);
+    }
   }, [deleteTarget, onDeleteSession]);
 
   // ---- long press (mobile) -----------------------------------
