@@ -59,7 +59,14 @@ func (r *UserRepository) FindAll(ctx context.Context, keyword, status string, ro
 		query = query.Where("nickname ILIKE ? OR phone ILIKE ? OR company ILIKE ?", like, like, like)
 	}
 	if status != "" {
-		query = query.Where("status = ?", status)
+		switch status {
+		case "active":
+			query = query.Where("status = ?", 1)
+		case "disabled":
+			query = query.Where("status = ?", 0)
+		default:
+			query = query.Where("status = ?", status)
+		}
 	}
 	if roleID > 0 {
 		query = query.Where("role_id = ?", roleID)
