@@ -326,8 +326,8 @@ export default function PriceBoard() {
 
   // ---- 本地筛选状态 ----
   const [activeCategory, setActiveCategory] = useState<string>("");
-  const [parentCategory, setParentCategory] = useState<string>("");
-  const [region, setRegion] = useState("");
+  const [parentCategory, setParentCategory] = useState<string>("__all__");
+  const [region, setRegion] = useState("__all__");
   const [spec, setSpec] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [trendDays, setTrendDays] = useState<number>(30);
@@ -362,7 +362,7 @@ export default function PriceBoard() {
 
   // 根据筛选的品类，生成可显示的 Tab 列表
   const categories = useMemo(() => {
-    if (!parentCategory) return allCategoryNames;
+    if (parentCategory === "__all__") return allCategoryNames;
     // 找到选中的父品类，展示其子品种名
     for (const root of categoryTree) {
       if (root.name === parentCategory && root.children && root.children.length > 0) {
@@ -379,9 +379,9 @@ export default function PriceBoard() {
 
   const safeActiveCategory = activeCategory || categories[0];
 
-  // ---- 区域选项从数据中提取 ----
+  // ---- 区域选项 ----
   const regions = useMemo(
-    () => ["", "上海", "北京", "广州", "杭州", "南京", "武汉", "成都"],
+    () => ["__all__", "上海", "北京", "广州", "杭州", "南京", "武汉", "成都"],
     [],
   );
 
@@ -395,11 +395,11 @@ export default function PriceBoard() {
     error: listErrorObj,
     refetch: refetchList,
   } = useQuery({
-    queryKey: ["price-list", { category: safeActiveCategory, region: region || undefined, spec: spec || undefined, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }],
+    queryKey: ["price-list", { category: safeActiveCategory, region: region !== "__all__" ? region : undefined, spec: spec || undefined, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }],
     queryFn: () =>
       getPriceList({
         category: safeActiveCategory,
-        region: region || undefined,
+        region: region !== "__all__" ? region : undefined,
         spec: spec || undefined,
         limit: PAGE_SIZE,
         offset: (page - 1) * PAGE_SIZE,
@@ -641,7 +641,7 @@ export default function PriceBoard() {
                   <SelectValue placeholder="全部品类" />
                 </SelectTrigger>
                 <SelectContent variant="filter">
-                  <SelectItem value="">全部品类</SelectItem>
+                  <SelectItem value="__all__">全部品类</SelectItem>
                   {parentCategoryOptions.map((c) => (
                     <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                   ))}
@@ -660,7 +660,7 @@ export default function PriceBoard() {
               <Select
                 value={region}
                 onValueChange={(v) => {
-                  setRegion(v);
+                  setRegion(v === "__all__" ? "__all__" : v);
                   setPage(1);
                 }}
               >
@@ -668,8 +668,8 @@ export default function PriceBoard() {
                   <SelectValue placeholder="全部区域" />
                 </SelectTrigger>
                 <SelectContent variant="filter">
-                  <SelectItem value="">全部区域</SelectItem>
-                  {regions.filter(Boolean).map((r) => (
+                  <SelectItem value="__all__">全部区域</SelectItem>
+                  {regions.filter((r) => r !== "__all__").map((r) => (
                     <SelectItem key={r} value={r}>{r}</SelectItem>
                   ))}
                 </SelectContent>
