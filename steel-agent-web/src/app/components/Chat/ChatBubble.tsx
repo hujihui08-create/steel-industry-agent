@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useRef } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { ChatMessage } from "@/app/types/chat";
 import { Sparkles, User, Copy, RefreshCw, ThumbsUp, ThumbsDown, Pencil, Trash2 } from "lucide-react";
@@ -211,6 +211,11 @@ export const ChatBubble = React.memo(function ChatBubble({
   onSwipeQuote,
 }: ChatBubbleProps) {
   const [showActions, setShowActions] = React.useState(false);
+  const [showTouchActions, setShowTouchActions] = React.useState(false);
+  const [swipeOffset, setSwipeOffset] = React.useState(0);
+
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const content = message.content || "";
   const isUser = message.role === "user";
@@ -235,16 +240,67 @@ export const ChatBubble = React.memo(function ChatBubble({
     setShowActions(true);
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    longPressTimer.current = setTimeout(() => {
+      setShowActions(true);
+      setShowTouchActions(false);
+    }, 350);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const dx = touchStartRef.current.x - e.touches[0].clientX;
+    if (dx > 0 && onSwipeQuote) {
+      setSwipeOffset(Math.min(dx, 96));
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+
+    if (swipeOffset > 64 && onSwipeQuote) {
+      onSwipeQuote();
+      setSwipeOffset(0);
+      return;
+    }
+
+    const dx = Math.abs(e.changedTouches[0].clientX - touchStartRef.current.x);
+    const dy = Math.abs(e.changedTouches[0].clientY - touchStartRef.current.y);
+    if (dx < 10 && dy < 10) {
+      setShowTouchActions(prev => !prev);
+    }
+
+    setSwipeOffset(0);
+  };
+
+  const isTouchDevice = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+
   if (isUser) {
     return (
       <div
         className="group relative"
+        style={{ transform: `translateX(-${swipeOffset}px)`, transition: swipeOffset === 0 ? "transform 240ms cubic-bezier(.2,.8,.2,1)" : "none" }}
         onContextMenu={handleContextMenu}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         <UserBubble>{content}</UserBubble>
         <div
           aria-label="用户消息操作"
-          className="absolute bottom-2 right-2 z-10 flex items-center gap-1 opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200"
+          className={cn(
+            "absolute bottom-2 right-2 z-10 flex items-center gap-1 transition-all duration-200",
+            isTouchDevice
+              ? (showTouchActions ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1 pointer-events-none")
+              : "opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0"
+          )}
         >
           {onCopy && (
             <button onClick={() => onCopy(content)} aria-label="复制" className="size-7 flex items-center justify-center rounded-full border border-steel-line bg-steel-canvas hover:border-steel-ink">
@@ -266,6 +322,7 @@ export const ChatBubble = React.memo(function ChatBubble({
           <div className="absolute bottom-full right-0 mb-1 rounded-xl border border-steel-line bg-steel-canvas px-1 py-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)] z-10 flex flex-col">
             {onCopy && <button onClick={() => { onCopy(content); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">复制</button>}
             {onEdit && <button onClick={() => { onEdit(content); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">编辑</button>}
+            {onSwipeQuote && <button onClick={() => { onSwipeQuote(); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">引用</button>}
             {onDelete && <button onClick={() => { onDelete(message.id); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-down hover:bg-steel-surface rounded-lg text-left">删除</button>}
           </div>
         )}
@@ -279,7 +336,11 @@ export const ChatBubble = React.memo(function ChatBubble({
   return (
     <div
       className="group relative"
+      style={{ transform: `translateX(-${swipeOffset}px)`, transition: swipeOffset === 0 ? "transform 240ms cubic-bezier(.2,.8,.2,1)" : "none" }}
       onContextMenu={handleContextMenu}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       <AIBubble hideAvatar={hideAvatar} isError={isError} ariaLive={isStreaming ? "polite" : undefined}>
         <MemoMarkdownContent content={mainContent} />
@@ -317,7 +378,12 @@ export const ChatBubble = React.memo(function ChatBubble({
       {isAssistant && (
         <div
           aria-label="AI 消息操作"
-          className="absolute bottom-2 right-2 z-10 flex items-center gap-1 opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200"
+          className={cn(
+            "absolute bottom-2 right-2 z-10 flex items-center gap-1 transition-all duration-200",
+            isTouchDevice
+              ? (showTouchActions ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1 pointer-events-none")
+              : "opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0"
+          )}
         >
           {onCopy && (
             <button onClick={() => onCopy(content)} aria-label="复制" className="size-7 flex items-center justify-center rounded-full border border-steel-line bg-steel-canvas hover:border-steel-ink">
@@ -345,6 +411,7 @@ export const ChatBubble = React.memo(function ChatBubble({
         <div className="absolute bottom-full right-0 mb-1 rounded-xl border border-steel-line bg-steel-canvas px-1 py-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)] z-10 flex flex-col">
           {onCopy && <button onClick={() => { onCopy(content); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">复制</button>}
           {onRegenerate && <button onClick={() => { onRegenerate(); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">重新生成</button>}
+          {onSwipeQuote && <button onClick={() => { onSwipeQuote(); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">引用</button>}
           {onFeedback && <button onClick={() => { onFeedback(true); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">有帮助</button>}
           {onFeedback && <button onClick={() => { onFeedback(false); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">不准确</button>}
         </div>

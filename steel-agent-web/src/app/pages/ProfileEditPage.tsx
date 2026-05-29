@@ -5,7 +5,7 @@
 // ============================================================
 
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { useRef } from "react";
 import { toast } from "sonner";
@@ -42,6 +42,7 @@ interface ProfileFormValues {
 
 export default function ProfileEditPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -94,6 +95,7 @@ export default function ProfileEditPage() {
       }
 
       await updateProfile(data);
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
       toast.success("保存成功");
       navigate(-1);
     } catch (err: unknown) {

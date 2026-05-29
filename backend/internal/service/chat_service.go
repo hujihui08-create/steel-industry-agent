@@ -1309,10 +1309,14 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 		})
 	}
 
-	// Prepend system prompt.
+	// Prepend system prompt — DB value takes priority, fallback to hardcoded constant.
+	sysPrompt := SystemPrompt
+	if cfg, cfgErr := s.agentConfigService.GetAgentConfig(ctx); cfgErr == nil && cfg != nil && cfg.SystemPrompt != "" {
+		sysPrompt = cfg.SystemPrompt
+	}
 	openaiMessages = append(
 		[]openai.ChatCompletionMessage{
-			{Role: openai.ChatMessageRoleSystem, Content: SystemPrompt},
+			{Role: openai.ChatMessageRoleSystem, Content: sysPrompt},
 		},
 		openaiMessages...,
 	)
