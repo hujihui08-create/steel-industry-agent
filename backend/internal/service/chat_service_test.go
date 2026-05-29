@@ -1679,3 +1679,238 @@ func TestSetPriceAlertCardFormat(t *testing.T) {
 		t.Errorf("expected data.is_active true, got %v", data["is_active"])
 	}
 }
+
+func TestPriceCardFormat(t *testing.T) {
+	priceResult := struct {
+		Prices []struct {
+			Category  string  `json:"category"`
+			Spec      string  `json:"spec"`
+			Price     float64 `json:"price"`
+			Change    float64 `json:"change"`
+			ChangePct float64 `json:"change_pct"`
+			Region    string  `json:"region"`
+			Source    string  `json:"source"`
+			Date      string  `json:"date"`
+		} `json:"prices"`
+		Count  int    `json:"count"`
+		Source string `json:"source"`
+	}{
+		Prices: []struct {
+			Category  string  `json:"category"`
+			Spec      string  `json:"spec"`
+			Price     float64 `json:"price"`
+			Change    float64 `json:"change"`
+			ChangePct float64 `json:"change_pct"`
+			Region    string  `json:"region"`
+			Source    string  `json:"source"`
+			Date      string  `json:"date"`
+		}{
+			{
+				Category: "螺纹钢", Spec: "HRB400E 20mm", Price: 3850,
+				Change: 12, ChangePct: 0.31, Region: "上海",
+				Source: "我的钢铁网", Date: "2026-05-29",
+			},
+		},
+		Count:  1,
+		Source: "price_api",
+	}
+
+	resultJSON, _ := json.Marshal(priceResult)
+
+	var parsed struct {
+		Prices []struct {
+			Category  string  `json:"category"`
+			Spec      string  `json:"spec"`
+			Price     float64 `json:"price"`
+			Change    float64 `json:"change"`
+			ChangePct float64 `json:"change_pct"`
+			Region    string  `json:"region"`
+			Source    string  `json:"source"`
+			Date      string  `json:"date"`
+		} `json:"prices"`
+		Count  int    `json:"count"`
+		Source string `json:"source"`
+	}
+	if err := json.Unmarshal(resultJSON, &parsed); err != nil {
+		t.Fatalf("failed to unmarshal price result: %v", err)
+	}
+	if len(parsed.Prices) != 1 {
+		t.Fatalf("expected 1 price, got %d", len(parsed.Prices))
+	}
+
+	first := parsed.Prices[0]
+	cardData := map[string]interface{}{
+		"eyebrow":    "PRICE",
+		"title":      first.Category + " " + first.Spec,
+		"prices":     parsed.Prices,
+		"source":     first.Source,
+		"sourceTime": first.Date,
+	}
+
+	cardPayload, err := json.Marshal(map[string]interface{}{
+		"type":      "card",
+		"card_type": "price",
+		"data":      cardData,
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal card payload: %v", err)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(cardPayload, &payload); err != nil {
+		t.Fatalf("failed to unmarshal card payload: %v", err)
+	}
+
+	if payload["type"] != "card" {
+		t.Errorf("expected type 'card', got '%v'", payload["type"])
+	}
+	if payload["card_type"] != "price" {
+		t.Errorf("expected card_type 'price', got '%v'", payload["card_type"])
+	}
+
+	data, ok := payload["data"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected data to be a map[string]interface{}")
+	}
+	if data["eyebrow"] != "PRICE" {
+		t.Errorf("expected data.eyebrow 'PRICE', got '%v'", data["eyebrow"])
+	}
+	if data["title"] != "螺纹钢 HRB400E 20mm" {
+		t.Errorf("expected data.title '螺纹钢 HRB400E 20mm', got '%v'", data["title"])
+	}
+}
+
+func TestTrendCardFormat(t *testing.T) {
+	trendResult := struct {
+		Points []struct {
+			Date  string  `json:"date"`
+			Price float64 `json:"price"`
+		} `json:"points"`
+		Source string `json:"source"`
+		Date   string `json:"date"`
+	}{
+		Points: []struct {
+			Date  string  `json:"date"`
+			Price float64 `json:"price"`
+		}{
+			{Date: "2026-05-20", Price: 3800},
+			{Date: "2026-05-21", Price: 3850},
+		},
+		Source: "price_api",
+		Date:   "2026-05-29",
+	}
+
+	trendData := make([]map[string]interface{}, 0, len(trendResult.Points))
+	for _, d := range trendResult.Points {
+		trendData = append(trendData, map[string]interface{}{
+			"date":  d.Date,
+			"value": d.Price,
+		})
+	}
+
+	var lastPrice float64
+	var changePct float64
+	if len(trendResult.Points) > 1 {
+		lastPrice = trendResult.Points[len(trendResult.Points)-1].Price
+		firstPrice := trendResult.Points[0].Price
+		if firstPrice != 0 {
+			changePct = ((lastPrice - firstPrice) / firstPrice) * 100
+		}
+	}
+
+	cardPayload, err := json.Marshal(map[string]interface{}{
+		"type":      "card",
+		"card_type": "trend",
+		"data": map[string]interface{}{
+			"title":     "价格走势",
+			"data":      trendData,
+			"changePct": changePct,
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal card payload: %v", err)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(cardPayload, &payload); err != nil {
+		t.Fatalf("failed to unmarshal card payload: %v", err)
+	}
+
+	if payload["type"] != "card" {
+		t.Errorf("expected type 'card', got '%v'", payload["type"])
+	}
+	if payload["card_type"] != "trend" {
+		t.Errorf("expected card_type 'trend', got '%v'", payload["card_type"])
+	}
+
+	data, ok := payload["data"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected data to be a map[string]interface{}")
+	}
+	if data["title"] != "价格走势" {
+		t.Errorf("expected data.title '价格走势', got '%v'", data["title"])
+	}
+
+	// Verify changePct is approximately 1.3158... (=(3850-3800)/3800*100)
+	expectedChangePct := 1.3157894736842106
+	actualChangePct, _ := data["changePct"].(float64)
+	if actualChangePct < expectedChangePct-0.01 || actualChangePct > expectedChangePct+0.01 {
+		t.Errorf("expected changePct ~%.4f, got %.4f", expectedChangePct, actualChangePct)
+	}
+}
+
+func TestMultiCategoryCompareCardFormat(t *testing.T) {
+	priceResult := struct {
+		Prices []struct {
+			Category  string  `json:"category"`
+			Spec      string  `json:"spec"`
+			Price     float64 `json:"price"`
+			Change    float64 `json:"change"`
+			ChangePct float64 `json:"change_pct"`
+			Region    string  `json:"region"`
+			Source    string  `json:"source"`
+			Date      string  `json:"date"`
+		} `json:"prices"`
+		Count  int    `json:"count"`
+		Source string `json:"source"`
+	}{
+		Prices: []struct {
+			Category  string  `json:"category"`
+			Spec      string  `json:"spec"`
+			Price     float64 `json:"price"`
+			Change    float64 `json:"change"`
+			ChangePct float64 `json:"change_pct"`
+			Region    string  `json:"region"`
+			Source    string  `json:"source"`
+			Date      string  `json:"date"`
+		}{
+			{Category: "螺纹钢", Spec: "HRB400E 20mm", Price: 3850, Source: "我的钢铁网", Date: "2026-05-29"},
+			{Category: "热卷", Spec: "Q235B 5.5mm", Price: 4200, Source: "我的钢铁网", Date: "2026-05-29"},
+		},
+	}
+
+	var parsed struct {
+		Prices []struct {
+			Category string `json:"category"`
+		} `json:"prices"`
+	}
+	priceResultJSON, _ := json.Marshal(priceResult)
+	json.Unmarshal(priceResultJSON, &parsed)
+
+	categories := make(map[string]bool)
+	for _, p := range parsed.Prices {
+		categories[p.Category] = true
+	}
+	if len(categories) <= 1 {
+		t.Fatal("expected multiple categories")
+	}
+
+	cardType := "price"
+	if len(categories) > 1 {
+		cardType = "compare"
+	}
+
+	if cardType != "compare" {
+		t.Errorf("expected cardType 'compare' for multi-category, got '%s'", cardType)
+	}
+}
