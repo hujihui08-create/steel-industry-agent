@@ -106,19 +106,21 @@ func (a *LLMAdapter) getEmbeddingConfig() ModelConfig {
 func ModelConfigFromEnv() (ModelConfig, []ModelConfig) {
 	cfg := config.AppConfig
 
+	var fallbacks []ModelConfig
+
 	openaiBaseURL := os.Getenv("OPENAI_BASE_URL")
 	if openaiBaseURL == "" {
 		openaiBaseURL = "https://api.openai.com/v1"
 	}
 
-	primary := ModelConfig{
-		Name:    "openai",
-		APIKey:  cfg.OpenAIAPIKey,
-		BaseURL: openaiBaseURL,
-		Model:   "gpt-4o-mini",
+	if cfg.OpenAIAPIKey != "" {
+		fallbacks = append(fallbacks, ModelConfig{
+			Name:    "openai",
+			APIKey:  cfg.OpenAIAPIKey,
+			BaseURL: openaiBaseURL,
+			Model:   "gpt-4o-mini",
+		})
 	}
-
-	var fallbacks []ModelConfig
 
 	if cfg.QwenAPIKey != "" {
 		fallbacks = append(fallbacks, ModelConfig{
@@ -138,6 +140,12 @@ func ModelConfigFromEnv() (ModelConfig, []ModelConfig) {
 		})
 	}
 
+	if len(fallbacks) == 0 {
+		return ModelConfig{}, nil
+	}
+
+	primary := fallbacks[0]
+	fallbacks = fallbacks[1:]
 	return primary, fallbacks
 }
 
@@ -219,14 +227,18 @@ type streamCallFunc func(client *openai.Client) (*openai.ChatCompletionStream, e
 func (a *LLMAdapter) getAvailableModels() []ModelConfig {
 	var models []ModelConfig
 
-	if !a.isCircuitOpen(a.primaryModel.Name) {
+	if a.primaryModel.Name != "" && a.primaryModel.APIKey != "" && !a.isCircuitOpen(a.primaryModel.Name) {
 		models = append(models, a.primaryModel)
 	}
 
 	for _, m := range a.fallbackModels {
-		if !a.isCircuitOpen(m.Name) {
-			models = append(models, m)
+		if m.Name == "" || m.APIKey == "" {
+			continue
 		}
+		if a.isCircuitOpen(m.Name) {
+			continue
+		}
+		models = append(models, m)
 	}
 
 	return models
