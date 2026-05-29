@@ -913,13 +913,13 @@ export async function getCategories(params?: { type?: string; status?: string })
   return res.data.data ?? [];
 }
 
-export async function createCategory(data: { name: string; type: string; sort_order: number; parent_id?: number }): Promise<Category> {
+export async function createCategory(data: { name: string; type: string; sort_order: number; parent_id?: number; contract_code?: string; exchange?: string }): Promise<Category> {
   const res = await adminApiClient.post<ApiResponse<Category>>("/admin/categories", data);
   if (!res.data?.data) throw new Error(res.data.message || "创建失败");
   return res.data.data;
 }
 
-export async function updateCategory(id: number, data: { name: string; type: string; status: string; sort_order: number; parent_id?: number }): Promise<void> {
+export async function updateCategory(id: number, data: { name: string; type: string; status: string; sort_order: number; parent_id?: number; contract_code?: string; exchange?: string }): Promise<void> {
   await adminApiClient.put(`/admin/categories/${id}`, data);
 }
 

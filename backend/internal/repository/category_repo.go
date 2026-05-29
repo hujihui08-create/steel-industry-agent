@@ -28,7 +28,7 @@ func (r *CategoryRepository) FindAll(ctx context.Context, typeFilter, statusFilt
 	if parentID != nil {
 		query = query.Where("parent_id = ?", *parentID)
 	}
-	err := query.Order("sort_order ASC, id ASC").Find(&categories).Error
+	err := query.Order("sort_order ASC, id ASC").Preload("Children", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order ASC, id ASC") }).Find(&categories).Error
 	return categories, err
 }
 
@@ -81,7 +81,7 @@ func (r *CategoryRepository) FindRoots(ctx context.Context, typ string) ([]model
 	var categories []model.Category
 	err := r.db.WithContext(ctx).
 		Where("parent_id IS NULL AND type = ? AND status = ?", typ, "enabled").
-		Preload("Children", "status = ?", "enabled").
+		Preload("Children", func(db *gorm.DB) *gorm.DB { return db.Where("status = ?", "enabled").Order("sort_order ASC, id ASC") }).
 		Order("sort_order ASC, id ASC").
 		Find(&categories).Error
 	return categories, err

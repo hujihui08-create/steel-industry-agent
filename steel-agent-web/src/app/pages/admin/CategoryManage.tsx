@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,8 @@ interface CategoryFormData {
   type: "spot" | "futures";
   sort_order: number;
   parent_id?: number | null;
+  contract_code: string;
+  exchange: string;
 }
 
 const EMPTY_FORM: CategoryFormData = {
@@ -39,6 +42,8 @@ const EMPTY_FORM: CategoryFormData = {
   type: "spot",
   sort_order: 0,
   parent_id: null,
+  contract_code: "",
+  exchange: "",
 };
 
 // ============================================================
@@ -82,6 +87,16 @@ export default function CategoryManage() {
   // ---------- 切换状态 ----------
   const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
 
+  // ---------- 查询客户端 ----------
+  const queryClient = useQueryClient();
+
+  // ---------- 预加载所有品类作为父品类选项 ----------
+  const { data: allCategories = [] } = useQuery({
+    queryKey: ["admin", "categories", "all"],
+    queryFn: () => getCategories(),
+    staleTime: 30_000,
+  });
+
   // ---------- 加载数据 ----------
   const fetchCategories = useCallback(async () => {
     setLoading(true);
@@ -118,6 +133,8 @@ export default function CategoryManage() {
       type: cat.type,
       sort_order: cat.sort_order,
       parent_id: cat.parent_id ?? null,
+      contract_code: cat.contract_code ?? "",
+      exchange: cat.exchange ?? "",
     });
     setFormOpen(true);
   }, []);
@@ -139,6 +156,8 @@ export default function CategoryManage() {
           status: existing?.status ?? "enabled",
           sort_order: formData.sort_order,
           parent_id: formData.parent_id ?? undefined,
+          contract_code: formData.contract_code || undefined,
+          exchange: formData.exchange || undefined,
         });
         showSuccessToast("更新成功");
       } else {
@@ -147,17 +166,20 @@ export default function CategoryManage() {
           type: formData.type,
           sort_order: formData.sort_order,
           parent_id: formData.parent_id ?? undefined,
+          contract_code: formData.contract_code || undefined,
+          exchange: formData.exchange || undefined,
         });
         showSuccessToast("创建成功");
       }
       setFormOpen(false);
       fetchCategories();
+      queryClient.invalidateQueries({ queryKey: ["admin", "categories", "all"] });
     } catch (err) {
       showErrorToast(err instanceof Error ? err.message : "保存失败");
     } finally {
       setFormSaving(false);
     }
-  }, [formData, editingId, categories, fetchCategories]);
+  }, [formData, editingId, categories, fetchCategories, queryClient]);
 
   // ---------- 删除操作 ----------
   const handleOpenDelete = useCallback((cat: Category) => {
@@ -477,7 +499,13 @@ export default function CategoryManage() {
               <Select
                 value={formData.type}
                 onValueChange={(v) =>
-                  setFormData((prev) => ({ ...prev, type: v as "spot" | "futures", parent_id: null }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    type: v as "spot" | "futures",
+                    parent_id: prev.parent_id,
+                    contract_code: v === "futures" ? prev.contract_code : "",
+                    exchange: v === "futures" ? prev.exchange : "",
+                  }))
                 }
               >
                 <SelectTrigger variant="filter" className="w-full">
@@ -489,6 +517,46 @@ export default function CategoryManage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* 合约代码 & 交易所（仅期货） */}
+            {formData.type === "futures" && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="block text-[13px] leading-[1.5] text-[#404040] font-medium">
+                    合约代码
+                  </label>
+                  <Input
+                    value={formData.contract_code}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, contract_code: e.target.value }))
+                    }
+                    placeholder="例如：RB、HC"
+                    className={cn(
+                      "h-10 rounded-[10px] border-[#E5E5E5]",
+                      "text-[14px] text-[#404040] placeholder:text-[#A3A3A3]",
+                      "focus-visible:border-[#0A0A0A] focus-visible:ring-1 focus-visible:ring-[#0A0A0A]/10",
+                    )}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[13px] leading-[1.5] text-[#404040] font-medium">
+                    交易所
+                  </label>
+                  <Input
+                    value={formData.exchange}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, exchange: e.target.value }))
+                    }
+                    placeholder="例如：SHFE、DCE"
+                    className={cn(
+                      "h-10 rounded-[10px] border-[#E5E5E5]",
+                      "text-[14px] text-[#404040] placeholder:text-[#A3A3A3]",
+                      "focus-visible:border-[#0A0A0A] focus-visible:ring-1 focus-visible:ring-[#0A0A0A]/10",
+                    )}
+                  />
+                </div>
+              </>
+            )}
 
             {/* 父品类选择 */}
             <div className="space-y-1.5">
@@ -509,7 +577,7 @@ export default function CategoryManage() {
                 </SelectTrigger>
                 <SelectContent variant="filter">
                   <SelectItem value="__none__" className="text-[13px]">无（顶级品类）</SelectItem>
-                  {categories
+                  {allCategories
                     .filter(
                       (c) =>
                         c.parent_id == null &&

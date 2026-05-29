@@ -366,7 +366,7 @@ export default function PriceBoard() {
     // 找到选中的父品类，展示其子品种名
     for (const root of categoryTree) {
       if (root.name === parentCategory && root.children && root.children.length > 0) {
-        return [root.name, ...root.children.map((c) => c.name)];
+        return root.children.map((c) => c.name);
       }
     }
     return [parentCategory];

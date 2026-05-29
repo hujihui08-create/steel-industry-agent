@@ -11,18 +11,22 @@ import (
 )
 
 type CreateCategoryRequest struct {
-	Name      string `json:"name" binding:"required"`
-	Type      string `json:"type" binding:"required"`
-	SortOrder int    `json:"sort_order"`
-	ParentID  *uint  `json:"parent_id"`
+	Name         string  `json:"name" binding:"required"`
+	Type         string  `json:"type" binding:"required"`
+	SortOrder    int     `json:"sort_order"`
+	ParentID     *uint   `json:"parent_id"`
+	ContractCode *string `json:"contract_code"`
+	Exchange     *string `json:"exchange"`
 }
 
 type UpdateCategoryRequest struct {
-	Name      string `json:"name"`
-	Type      string `json:"type"`
-	Status    string `json:"status"`
-	SortOrder int    `json:"sort_order"`
-	ParentID  *uint  `json:"parent_id"`
+	Name         string  `json:"name"`
+	Type         string  `json:"type"`
+	Status       string  `json:"status"`
+	SortOrder    int     `json:"sort_order"`
+	ParentID     *uint   `json:"parent_id"`
+	ContractCode *string `json:"contract_code"`
+	Exchange     *string `json:"exchange"`
 }
 
 type PublicCategoriesResponse struct {
@@ -81,6 +85,13 @@ func (s *CategoryService) CreateCategory(ctx context.Context, req CreateCategory
 		ParentID:  req.ParentID,
 	}
 
+	if req.ContractCode != nil {
+		category.ContractCode = *req.ContractCode
+	}
+	if req.Exchange != nil {
+		category.Exchange = *req.Exchange
+	}
+
 	if err := s.categoryRepo.Create(ctx, category); err != nil {
 		return nil, fmt.Errorf("创建品种失败: %w", err)
 	}
@@ -106,6 +117,12 @@ func (s *CategoryService) UpdateCategory(ctx context.Context, id uint, req Updat
 		category.Status = req.Status
 	}
 	category.SortOrder = req.SortOrder
+	if req.ContractCode != nil {
+		category.ContractCode = *req.ContractCode
+	}
+	if req.Exchange != nil {
+		category.Exchange = *req.Exchange
+	}
 
 	// Treat 0 as no parent
 	if req.ParentID != nil && *req.ParentID == 0 {
