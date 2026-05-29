@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { AuthStorageState } from "@/app/types/api";
-import { AUTH_STORAGE_KEY } from "@/app/config";
+import { AUTH_STORAGE_KEY, AUTH_VERSION } from "@/app/config";
 
 interface AuthState {
   access_token: string | null;
@@ -20,7 +20,7 @@ function writeStorage(state: AuthState): void {
       refresh_token: state.refresh_token,
       isAuthenticated: state.isAuthenticated,
     },
-    version: 0,
+    version: AUTH_VERSION,
   };
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
 }
@@ -51,6 +51,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       const raw = localStorage.getItem(AUTH_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as AuthStorageState;
+        if (parsed.version !== AUTH_VERSION) {
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+          set({ isHydrated: true });
+          return;
+        }
         const access_token = parsed.state?.access_token ?? null;
         const refresh_token = parsed.state?.refresh_token ?? null;
 
