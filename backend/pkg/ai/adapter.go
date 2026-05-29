@@ -99,11 +99,28 @@ func (a *LLMAdapter) getEmbeddingConfig() ModelConfig {
 	return a.primaryModel
 }
 
+// modelConfigCache provides a time-based cache for ModelConfigFromEnv to avoid
+// repeated environment variable reads and config building on every request.
+var modelConfigCache struct {
+	mu        sync.Mutex
+	primary   ModelConfig
+	fallbacks []ModelConfig
+	timestamp time.Time
+}
+
 // ModelConfigFromEnv returns a ModelConfig built from environment variables.
 // This is used as a fallback when no agent config exists in the database.
+// Results are cached for 30 seconds to reduce per-request overhead.
 // Set OPENAI_BASE_URL to use a relay/proxy (e.g. https://api.openai-proxy.com/v1)
 // instead of the official api.openai.com endpoint.
 func ModelConfigFromEnv() (ModelConfig, []ModelConfig) {
+	modelConfigCache.mu.Lock()
+	defer modelConfigCache.mu.Unlock()
+
+	if modelConfigCache.primary.Name != "" && time.Since(modelConfigCache.timestamp) < 30*time.Second {
+		return modelConfigCache.primary, modelConfigCache.fallbacks
+	}
+
 	cfg := config.AppConfig
 
 	var fallbacks []ModelConfig
@@ -141,11 +158,17 @@ func ModelConfigFromEnv() (ModelConfig, []ModelConfig) {
 	}
 
 	if len(fallbacks) == 0 {
+		modelConfigCache.primary = ModelConfig{}
+		modelConfigCache.fallbacks = nil
+		modelConfigCache.timestamp = time.Now()
 		return ModelConfig{}, nil
 	}
 
 	primary := fallbacks[0]
 	fallbacks = fallbacks[1:]
+	modelConfigCache.primary = primary
+	modelConfigCache.fallbacks = fallbacks
+	modelConfigCache.timestamp = time.Now()
 	return primary, fallbacks
 }
 
