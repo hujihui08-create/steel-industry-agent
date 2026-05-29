@@ -27,6 +27,8 @@ func (r *CategoryRepository) FindAll(ctx context.Context, typeFilter, statusFilt
 	}
 	if parentID != nil {
 		query = query.Where("parent_id = ?", *parentID)
+	} else {
+		query = query.Where("parent_id IS NULL")
 	}
 	err := query.Order("sort_order ASC, id ASC").Preload("Children", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order ASC, id ASC") }).Find(&categories).Error
 	return categories, err
