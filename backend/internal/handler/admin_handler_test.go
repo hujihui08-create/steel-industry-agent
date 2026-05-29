@@ -31,11 +31,14 @@ type mockAdminService struct {
 	updatePasswordFn      func(ctx context.Context, adminID uint, oldPassword, newPassword string) error
 	dashboardFn           func(ctx context.Context) (map[string]int64, error)
 	listAdminsFn          func(ctx context.Context) ([]model.Admin, error)
-	createAdminFn         func(ctx context.Context, username, nickname, password, role string) (*model.Admin, error)
-	updateAdminFn         func(ctx context.Context, id uint, nickname, role string) error
+	createAdminFn         func(ctx context.Context, username, nickname, password, role string, status int) (*model.Admin, error)
+	updateAdminFn         func(ctx context.Context, id uint, nickname, role string, status int) error
 	deleteAdminFn         func(ctx context.Context, id uint) error
+	disableAdminFn        func(ctx context.Context, id uint) error
+	enableAdminFn         func(ctx context.Context, id uint) error
+	getAdminDetailFn      func(ctx context.Context, id uint) (*model.Admin, error)
 	updateProfileFn       func(ctx context.Context, adminID uint, nickname string) error
-	listMobileUsersFn     func(ctx context.Context, keyword string, page, pageSize int) ([]model.User, int64, error)
+	listMobileUsersFn     func(ctx context.Context, keyword, status string, roleID uint, dateStart, dateEnd string, page, pageSize int) ([]model.User, int64, error)
 	getMobileUserDetailFn func(ctx context.Context, id uint) (*model.User, error)
 	disableMobileUserFn   func(ctx context.Context, id uint) error
 	enableMobileUserFn    func(ctx context.Context, id uint) error
@@ -69,24 +72,36 @@ func (m *mockAdminService) ListAdmins(ctx context.Context) ([]model.Admin, error
 	return m.listAdminsFn(ctx)
 }
 
-func (m *mockAdminService) CreateAdmin(ctx context.Context, username, nickname, password, role string) (*model.Admin, error) {
-	return m.createAdminFn(ctx, username, nickname, password, role)
+func (m *mockAdminService) CreateAdmin(ctx context.Context, username, nickname, password, role string, status int) (*model.Admin, error) {
+	return m.createAdminFn(ctx, username, nickname, password, role, status)
 }
 
-func (m *mockAdminService) UpdateAdmin(ctx context.Context, id uint, nickname, role string) error {
-	return m.updateAdminFn(ctx, id, nickname, role)
+func (m *mockAdminService) UpdateAdmin(ctx context.Context, id uint, nickname, role string, status int) error {
+	return m.updateAdminFn(ctx, id, nickname, role, status)
 }
 
 func (m *mockAdminService) DeleteAdmin(ctx context.Context, id uint) error {
 	return m.deleteAdminFn(ctx, id)
 }
 
+func (m *mockAdminService) DisableAdmin(ctx context.Context, id uint) error {
+	return m.disableAdminFn(ctx, id)
+}
+
+func (m *mockAdminService) EnableAdmin(ctx context.Context, id uint) error {
+	return m.enableAdminFn(ctx, id)
+}
+
+func (m *mockAdminService) GetAdminDetail(ctx context.Context, id uint) (*model.Admin, error) {
+	return m.getAdminDetailFn(ctx, id)
+}
+
 func (m *mockAdminService) UpdateProfile(ctx context.Context, adminID uint, nickname string) error {
 	return m.updateProfileFn(ctx, adminID, nickname)
 }
 
-func (m *mockAdminService) ListMobileUsers(ctx context.Context, keyword string, page, pageSize int) ([]model.User, int64, error) {
-	return m.listMobileUsersFn(ctx, keyword, page, pageSize)
+func (m *mockAdminService) ListMobileUsers(ctx context.Context, keyword, status string, roleID uint, dateStart, dateEnd string, page, pageSize int) ([]model.User, int64, error) {
+	return m.listMobileUsersFn(ctx, keyword, status, roleID, dateStart, dateEnd, page, pageSize)
 }
 
 func (m *mockAdminService) GetMobileUserDetail(ctx context.Context, id uint) (*model.User, error) {

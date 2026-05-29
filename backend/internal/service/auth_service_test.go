@@ -471,7 +471,7 @@ func TestAuthService_TokenExpiry(t *testing.T) {
 	// Test with a malformed token that represents an expired or invalid token
 	expiredToken := "expired.token.signature"
 
-	_, err := svc.RefreshToken(ctx, expiredToken)
+	_, _, err := svc.RefreshToken(ctx, expiredToken)
 	if err == nil {
 		t.Errorf("expected error for expired token, got nil")
 	}
@@ -480,7 +480,7 @@ func TestAuthService_TokenExpiry(t *testing.T) {
 	}
 
 	// Also test with empty token
-	_, err = svc.RefreshToken(ctx, "")
+	_, _, err = svc.RefreshToken(ctx, "")
 	if err == nil {
 		t.Errorf("expected error for empty token, got nil")
 	}
