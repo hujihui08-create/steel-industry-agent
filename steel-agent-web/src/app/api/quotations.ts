@@ -6,8 +6,6 @@ export type CalculateQuotationParams = {
   category: string;
   spec: string;
   quantity: number;
-  unit?: string;
-  region: string;
 };
 
 export type CalculateQuotationResult = {
@@ -25,11 +23,6 @@ export type CreateQuotationParams = {
   spec: string;
   quantity: number;
   unit?: string;
-  region: string;
-  material_cost: number;
-  freight_cost: number;
-  tax_cost: number;
-  total_price: number;
   customer_name?: string;
   delivery_location?: string;
 };

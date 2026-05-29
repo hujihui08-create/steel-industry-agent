@@ -23,7 +23,7 @@ export function useTenderFavorite() {
     staleTime: 30_000,
   });
 
-  const favoriteSet = useMemo(() => new Set(favoriteIds.map(String)), [favoriteIds]);
+  const favoriteSet = useMemo(() => new Set(favoriteIds.map((item) => String(item.id))), [favoriteIds]);
 
   const addMutation = useMutation({
     mutationFn: addTenderFavorite,

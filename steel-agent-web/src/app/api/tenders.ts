@@ -88,8 +88,8 @@ export async function removeTenderFavorite(tenderId: number | string): Promise<v
 // GET /api/v1/tenders/favorites
 // -----------------------------------------------------------
 
-export async function getTenderFavorites(): Promise<number[]> {
-  const { data } = await apiClient.get<ApiResponse<number[]>>(
+export async function getTenderFavorites(): Promise<TenderDetail[]> {
+  const { data } = await apiClient.get<ApiResponse<TenderDetail[]>>(
     "/tenders/favorites",
   );
   if (!data?.data) throw new Error(data?.message || "获取收藏列表失败");

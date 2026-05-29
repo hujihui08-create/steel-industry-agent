@@ -207,33 +207,47 @@ func (s *AuthService) Register(ctx context.Context, phone, password, code, nickn
 	return accessToken, refreshToken, nil
 }
 
-// RefreshToken validates the refresh token and issues a new access token.
-func (s *AuthService) RefreshToken(ctx context.Context, oldToken string) (string, error) {
+// RefreshToken validates the refresh token and issues new access and refresh tokens.
+func (s *AuthService) RefreshToken(ctx context.Context, oldToken string) (string, string, error) {
 	// Check if the refresh token is blacklisted (skip if Redis unavailable)
 	if s.redisClient != nil {
 		hash := hashToken(oldToken)
 		blacklistKey := fmt.Sprintf("refresh_token_blacklist:%s", hash)
 		exists, err := s.redisClient.Exists(ctx, blacklistKey).Result()
 		if err != nil {
-			return "", fmt.Errorf("redis error: %w", err)
+			return "", "", fmt.Errorf("redis error: %w", err)
 		}
 		if exists > 0 {
-			return "", errors.New("令牌已被撤销")
+			return "", "", errors.New("令牌已被撤销")
 		}
 	}
 
 	claims, err := jwt.ParseTokenWithType(oldToken, "refresh")
 	if err != nil {
-		return "", errors.New("令牌无效或已过期")
+		return "", "", errors.New("令牌无效或已过期")
 	}
 
-	// sessionTimeout can be passed from admin_settings; 0 falls back to env var
+	// ============ KEY FIX: SIMPLER APPROACH ============
+	// The frontend's Axios interceptor (client.ts:L128-L139) expects the refresh 
+	// endpoint to return BOTH access_token AND refresh_token. However, the old 
+	// backend code only returned access_token, causing the frontend to fail with 
+	// "Refresh response missing tokens" and clear auth state.
+	//
+	// Fix: also generate a new refresh token and return both tokens.
+	// This implements refresh token rotation for better security.
+	_ = s.RevokeRefreshToken(ctx, oldToken)
+
 	accessToken, err := jwt.GenerateAccessToken(claims.UserID, claims.Role, 0)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return accessToken, nil
+	refreshToken, err := jwt.GenerateRefreshToken(claims.UserID, claims.Role)
+	if err != nil {
+		return "", "", err
+	}
+
+	return accessToken, refreshToken, nil
 }
 
 // RevokeRefreshToken adds a refresh token to the blacklist in Redis.

@@ -8,7 +8,15 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Bookmark, BookmarkCheck, Bell, ExternalLink } from "lucide-react";
+import {
+  Bookmark,
+  BookmarkCheck,
+  Bell,
+  ExternalLink,
+  MapPin,
+  Calendar,
+  Tag,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { getTenderDetail } from "@/app/api/tenders";
 import type { TenderDetail } from "@/app/types/tender";
@@ -23,46 +31,26 @@ import { useTenderFavorite } from "@/app/hooks/useTenderFavorite";
 
 interface StatusConfig {
   dot: string;
-  dotClass: string;
+  textClass: string;
+  badgeClass: string;
   label: string;
-  labelClass: string;
 }
 
 const statusMap: Record<TenderDetail["status"], StatusConfig> = {
-  open: {
-    dot: "●",
-    dotClass: "text-steel-ink",
-    label: "进行中",
-    labelClass: "text-steel-ink",
-  },
-  closed: {
-    dot: "○",
-    dotClass: "text-steel-placeholder",
-    label: "已截止",
-    labelClass: "text-steel-muted",
-  },
-  won: {
-    dot: "●",
-    dotClass: "text-steel-up",
-    label: "已中标",
-    labelClass: "text-steel-up",
-  },
-  lost: {
-    dot: "●",
-    dotClass: "text-steel-down",
-    label: "未中标",
-    labelClass: "text-steel-down",
-  },
+  open:   { dot: "\u25CF", textClass: "text-steel-ink", badgeClass: "text-steel-ink border-steel-line bg-steel-canvas", label: "进行中" },
+  closed: { dot: "\u25CB", textClass: "text-steel-muted", badgeClass: "text-steel-muted border-steel-line bg-steel-canvas", label: "已截止" },
+  won:    { dot: "\u25CF", textClass: "text-steel-up", badgeClass: "text-steel-up border-steel-up bg-steel-up/5", label: "已中标" },
+  lost:   { dot: "\u25CF", textClass: "text-steel-down", badgeClass: "text-steel-down border-steel-down bg-steel-down/5", label: "未中标" },
 };
 
 // -----------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------
 
-/** Format an ISO date string to yyyy-MM-dd. */
 function formatDate(dateStr: string): string {
   try {
     const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
@@ -72,26 +60,36 @@ function formatDate(dateStr: string): string {
   }
 }
 
-/** Format a number to CNY with thousand separators. */
 function formatBudget(value: number): string {
-  return `¥${value.toLocaleString("zh-CN")}`;
+  return `\u00A5${value.toLocaleString("zh-CN")}`;
+}
+
+function formatWanYuan(value: number): string {
+  return `\u00A5${(value / 10000).toLocaleString("zh-CN", { maximumFractionDigits: 0 })}万`;
 }
 
 // -----------------------------------------------------------
-// Info Row
+// Detail Row (key-value pair)
 // -----------------------------------------------------------
 
-function InfoItem({
+function DetailRow({
+  icon: Icon,
   label,
-  children,
+  value,
 }: {
+  icon: LucideIcon;
   label: string;
-  children: React.ReactNode;
+  value: string;
 }) {
   return (
-    <div>
-      <p className="text-[12px] leading-[1.5] text-steel-muted mb-1">{label}</p>
-      <div className="text-[15px] leading-[1.6] text-steel-body">{children}</div>
+    <div className="flex items-center gap-3 py-3">
+      <Icon className="h-4 w-4 text-steel-muted shrink-0" strokeWidth={1.75} />
+      <span className="text-[13px] leading-[1.5] text-steel-muted w-16 shrink-0">
+        {label}
+      </span>
+      <span className="text-[15px] leading-[1.6] text-steel-body truncate">
+        {value}
+      </span>
     </div>
   );
 }
@@ -104,16 +102,26 @@ function ActionPill({
   icon: Icon,
   label,
   onClick,
+  active,
+  danger,
 }: {
   icon: LucideIcon;
   label: string;
   onClick: () => void;
+  active?: boolean;
+  danger?: boolean;
 }) {
+  const colorClass = danger
+    ? "text-steel-down border-steel-down hover:bg-steel-down/5"
+    : active
+      ? "text-steel-ink border-steel-ink bg-steel-surface"
+      : "text-steel-ink border-steel-line hover:border-steel-ink hover:bg-steel-surface";
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 rounded-full border border-steel-line px-4 py-2 text-[13px] text-steel-ink hover:bg-steel-surface transition-colors duration-150"
+      className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-[13px] leading-[1.5] transition-colors duration-150 ${colorClass}`}
     >
       <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
       <span>{label}</span>
@@ -143,7 +151,6 @@ export default function TenderDetailPage() {
     enabled: !!id,
   });
 
-  // ---- Loading state ----
   if (isLoading) {
     return (
       <div className="min-h-screen bg-steel-canvas">
@@ -155,100 +162,119 @@ export default function TenderDetailPage() {
     );
   }
 
-  // ---- Error state ----
   if (isError || !tender) {
     return (
       <div className="min-h-screen bg-steel-canvas">
         <PageHeader title="招标详情" onBack={() => navigate(-1)} />
         <ErrorState
-          message={
-            error instanceof Error ? error.message : "加载招标详情失败"
-          }
+          message={error instanceof Error ? error.message : "加载招标详情失败"}
           onRetry={() => refetch()}
         />
       </div>
     );
   }
 
-  // ---- Status config ----
   const status = statusMap[tender.status];
+  const isExpired = tender.status === "closed" ||
+    (tender.status === "open" && new Date(tender.bid_deadline) < new Date());
 
   return (
     <div className="min-h-screen bg-steel-canvas">
       <PageHeader title="招标详情" onBack={() => navigate(-1)} />
 
       <main className="max-w-[720px] mx-auto px-4 py-6">
-        {/* ==========================================================
-            Status indicator
-            ========================================================== */}
-        <div className="flex items-center gap-2 mb-6">
-          <span className={`text-[14px] leading-none ${status.dotClass}`}>
-            {status.dot}
-          </span>
-          <span className={`text-[13px] leading-[1.5] font-medium ${status.labelClass}`}>
-            {status.label}
-          </span>
-        </div>
-
-        {/* ==========================================================
-            Title
-            ========================================================== */}
-        <h1 className="text-[24px] leading-[1.3] font-medium text-steel-ink mb-4">
-          {tender.title}
-        </h1>
-
-        {/* ==========================================================
-            Info cards
-            ========================================================== */}
-        <div className="bg-steel-canvas border border-steel-line rounded-2xl p-5 mb-4">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-            <InfoItem label="预算金额">
-              <span className="text-[18px] font-medium text-steel-ink">
-                {formatBudget(tender.budget)}
-              </span>
-            </InfoItem>
-
-            <InfoItem label="所属地区">
-              <span>{tender.region}</span>
-            </InfoItem>
-
-            <InfoItem label="品类">
-              <span>{tender.category}</span>
-            </InfoItem>
-
-            <div />
-
-            <InfoItem label="报名截止">
-              <span>{formatDate(tender.deadline)}</span>
-            </InfoItem>
-
-            <InfoItem label="投标截止">
-              <span>{formatDate(tender.bid_deadline)}</span>
-            </InfoItem>
+        {/* ====== Title + Status ====== */}
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <h1 className="text-[24px] leading-[1.3] font-medium text-steel-ink flex-1 min-w-0">
+            {tender.title}
+          </h1>
+          <div className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 ${status.badgeClass}`}>
+            <span className={`text-[10px] leading-none ${status.textClass}`}>
+              {status.dot}
+            </span>
+            <span className="text-[15px] leading-[1.6] font-medium">
+              {status.label}
+            </span>
           </div>
         </div>
 
-        {/* ==========================================================
-            Description
-            ========================================================== */}
+        {/* ====== Budget Hero ====== */}
+        <div className="mb-6">
+          <p className="text-[12px] leading-[1.5] text-steel-muted mb-1">预算金额</p>
+          <p className="text-[40px] leading-[1.1] font-medium text-steel-ink tabular-nums tracking-tight">
+            {formatWanYuan(tender.budget)}
+          </p>
+        </div>
+
+        {/* ====== Detail Card ====== */}
+        <div className="bg-steel-canvas border border-steel-line rounded-2xl overflow-hidden mb-4">
+          <div className="divide-y divide-steel-line px-5">
+            <DetailRow
+              icon={MapPin}
+              label="地区"
+              value={tender.region}
+            />
+            <DetailRow
+              icon={Tag}
+              label="品类"
+              value={tender.category}
+            />
+            <DetailRow
+              icon={Calendar}
+              label="报名截止"
+              value={formatDate(tender.deadline)}
+            />
+            <DetailRow
+              icon={Calendar}
+              label="投标截止"
+              value={formatDate(tender.bid_deadline)}
+            />
+            {tender.source_url && (
+              <div className="flex items-center gap-3 py-3">
+                <ExternalLink className="h-4 w-4 text-steel-muted shrink-0" strokeWidth={1.75} />
+                <span className="text-[13px] leading-[1.5] text-steel-muted w-16 shrink-0">
+                  来源
+                </span>
+                <a
+                  href={tender.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[15px] leading-[1.6] text-steel-body truncate hover:text-steel-ink transition-colors duration-150 underline underline-offset-2"
+                >
+                  {tender.source_url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ====== Description ====== */}
         {tender.description && (
-          <div className="mt-4">
-            <p className="text-[12px] leading-[1.5] text-steel-muted mb-2">
+          <div className="bg-steel-surface border border-steel-line rounded-2xl p-5 mb-6">
+            <p className="text-[12px] leading-[1.5] text-steel-muted mb-3">
               项目描述
             </p>
-            <p className="text-[15px] leading-[1.6] text-steel-body whitespace-pre-wrap">
+            <p className="text-[15px] leading-[1.7] text-steel-body whitespace-pre-wrap">
               {tender.description}
             </p>
           </div>
         )}
 
-        {/* ==========================================================
-            Action buttons
-            ========================================================== */}
-        <div className="mt-6 flex gap-3 flex-wrap">
+        {/* ====== Deadline Warning ====== */}
+        {isExpired && tender.status === "open" && (
+          <div className="flex items-start gap-2 p-4 rounded-2xl bg-steel-warn/5 border border-steel-warn/20 mb-6">
+            <span className="text-[13px] leading-[1.6] text-steel-warn">
+              投标已截止，无法继续参与投标
+            </span>
+          </div>
+        )}
+
+        {/* ====== Action Buttons ====== */}
+        <div className="flex gap-3 flex-wrap">
           <ActionPill
             icon={isFavorited(Number(id)) ? BookmarkCheck : Bookmark}
             label={isFavorited(Number(id)) ? "已收藏" : "收藏"}
+            active={isFavorited(Number(id))}
             onClick={() => {
               if (!id) return;
               const tenderId = Number(id);
@@ -260,16 +286,20 @@ export default function TenderDetailPage() {
           <ActionPill
             icon={Bell}
             label="设置提醒"
-            onClick={() => toast("功能开发中", {
-              description: "招标提醒功能即将上线",
-            })}
+            onClick={() =>
+              toast("功能开发中", {
+                description: "招标提醒功能即将上线",
+              })
+            }
           />
 
           {tender.source_url && (
             <ActionPill
               icon={ExternalLink}
               label="查看来源"
-              onClick={() => window.open(tender.source_url, "_blank", "noopener,noreferrer")}
+              onClick={() =>
+                window.open(tender.source_url, "_blank", "noopener,noreferrer")
+              }
             />
           )}
         </div>

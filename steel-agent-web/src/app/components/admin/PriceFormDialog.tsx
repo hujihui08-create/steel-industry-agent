@@ -91,29 +91,29 @@ export default function PriceFormDialog({
   };
 
   const inputClass = cn(
-    "w-full h-10 rounded-[10px] border border-[#E5E5E5] bg-white",
-    "px-3 text-[14px] leading-[1.5] text-[#0A0A0A]",
-    "placeholder:text-[#A3A3A3]",
+    "w-full h-10 rounded-[10px] border border-steel-line bg-steel-canvas",
+    "px-3 text-[14px] leading-[1.5] text-steel-ink",
+    "placeholder:text-steel-placeholder",
     "outline-none transition-colors duration-200",
-    "focus:border-[#0A0A0A] focus:ring-4 focus:ring-[#0A0A0A]/5",
+    "focus:border-steel-ink focus:ring-4 focus:ring-steel-ink/5",
   );
 
-  const inputErrorClass = "border-[#B42318] focus:border-[#B42318] focus:ring-[#B42318]/10";
+  const inputErrorClass = "border-steel-down focus:border-steel-down focus:ring-steel-down/10";
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
         className={cn(
-          "bg-white border border-[#E5E5E5] rounded-2xl",
+          "bg-steel-canvas border border-steel-line rounded-2xl",
           "shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
           "p-6 max-w-[480px]",
         )}
       >
         <DialogHeader>
-          <DialogTitle className="text-[16px] leading-[1.4] font-medium text-[#0A0A0A]">
+          <DialogTitle className="text-[16px] leading-[1.4] font-medium text-steel-ink">
             {isEdit ? "编辑价格" : "新增价格"}
           </DialogTitle>
-          <DialogDescription className="text-[13px] leading-[1.6] text-[#737373]">
+          <DialogDescription className="text-[13px] leading-[1.6] text-steel-muted">
             {isEdit ? "修改钢材价格信息" : "添加一条新的钢材价格记录"}
           </DialogDescription>
         </DialogHeader>
@@ -121,8 +121,8 @@ export default function PriceFormDialog({
         <div className="grid grid-cols-2 gap-4 mt-2">
           {/* category */}
           <div className="col-span-1">
-            <label className="block text-[13px] leading-[1.5] text-[#404040] mb-1.5">
-              品种 <span className="text-[#B42318]">*</span>
+            <label className="block text-[13px] leading-[1.5] text-steel-body mb-1.5">
+              品种 <span className="text-steel-down">*</span>
             </label>
             <input
               type="text"
@@ -132,13 +132,13 @@ export default function PriceFormDialog({
               className={cn(inputClass, errors.category && inputErrorClass)}
             />
             {errors.category && (
-              <p className="text-[12px] text-[#B42318] mt-1">{errors.category}</p>
+              <p className="text-[12px] text-steel-down mt-1">{errors.category}</p>
             )}
           </div>
 
           {/* spec */}
           <div className="col-span-1">
-            <label className="block text-[13px] leading-[1.5] text-[#404040] mb-1.5">
+            <label className="block text-[13px] leading-[1.5] text-steel-body mb-1.5">
               规格
             </label>
             <input
@@ -152,7 +152,7 @@ export default function PriceFormDialog({
 
           {/* region */}
           <div className="col-span-1">
-            <label className="block text-[13px] leading-[1.5] text-[#404040] mb-1.5">
+            <label className="block text-[13px] leading-[1.5] text-steel-body mb-1.5">
               地区
             </label>
             <input
@@ -166,8 +166,8 @@ export default function PriceFormDialog({
 
           {/* price */}
           <div className="col-span-1">
-            <label className="block text-[13px] leading-[1.5] text-[#404040] mb-1.5">
-              价格 <span className="text-[#B42318]">*</span>
+            <label className="block text-[13px] leading-[1.5] text-steel-body mb-1.5">
+              价格 <span className="text-steel-down">*</span>
             </label>
             <input
               type="number"
@@ -177,13 +177,13 @@ export default function PriceFormDialog({
               className={cn(inputClass, errors.price && inputErrorClass)}
             />
             {errors.price && (
-              <p className="text-[12px] text-[#B42318] mt-1">{errors.price}</p>
+              <p className="text-[12px] text-steel-down mt-1">{errors.price}</p>
             )}
           </div>
 
           {/* change */}
           <div className="col-span-1">
-            <label className="block text-[13px] leading-[1.5] text-[#404040] mb-1.5">
+            <label className="block text-[13px] leading-[1.5] text-steel-body mb-1.5">
               涨跌额
             </label>
             <input
@@ -197,7 +197,7 @@ export default function PriceFormDialog({
 
           {/* change_pct */}
           <div className="col-span-1">
-            <label className="block text-[13px] leading-[1.5] text-[#404040] mb-1.5">
+            <label className="block text-[13px] leading-[1.5] text-steel-body mb-1.5">
               涨跌幅
             </label>
             <input
@@ -211,7 +211,7 @@ export default function PriceFormDialog({
 
           {/* source */}
           <div className="col-span-1">
-            <label className="block text-[13px] leading-[1.5] text-[#404040] mb-1.5">
+            <label className="block text-[13px] leading-[1.5] text-steel-body mb-1.5">
               来源
             </label>
             <input
@@ -225,7 +225,7 @@ export default function PriceFormDialog({
 
           {/* price_date */}
           <div className="col-span-1">
-            <label className="block text-[13px] leading-[1.5] text-[#404040] mb-1.5">
+            <label className="block text-[13px] leading-[1.5] text-steel-body mb-1.5">
               日期
             </label>
             <input
@@ -243,11 +243,11 @@ export default function PriceFormDialog({
             disabled={saving}
             className={cn(
               "h-9 px-4 rounded-full",
-              "border border-[#E5E5E5]",
-              "bg-white text-[#0A0A0A] text-[13px] leading-[1.5]",
-              "hover:bg-[#FAFAFA]",
+              "border border-steel-line",
+              "bg-steel-canvas text-steel-ink text-[13px] leading-[1.5]",
+              "hover:bg-steel-surface",
               "transition-colors duration-150",
-              "focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10",
+              "focus-visible:ring-2 focus-visible:ring-steel-ink/10",
               "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >
@@ -258,10 +258,10 @@ export default function PriceFormDialog({
             disabled={saving}
             className={cn(
               "h-9 px-4 rounded-full",
-              "bg-[#0A0A0A] text-white text-[13px] leading-[1.5] font-medium",
-              "hover:bg-[#404040]",
+              "bg-steel-ink text-white text-[13px] leading-[1.5] font-medium",
+              "hover:bg-steel-body",
               "transition-colors duration-150",
-              "focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10",
+              "focus-visible:ring-2 focus-visible:ring-steel-ink/10",
               "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >

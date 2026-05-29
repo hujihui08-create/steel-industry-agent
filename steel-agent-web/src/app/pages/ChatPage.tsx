@@ -508,11 +508,6 @@ export default function ChatPage() {
                     category: data.category,
                     spec: data.spec,
                     quantity: data.quantity || 0,
-                    region: data.region || data.delivery_location || '',
-                    material_cost: data.material_cost || 0,
-                    freight_cost: data.freight_cost || 0,
-                    tax_cost: data.tax_cost || 0,
-                    total_price: data.total || 0,
                     customer_name: data.customer_name,
                     delivery_location: data.delivery_location || data.region,
                   }).then(() => {
@@ -1413,6 +1408,12 @@ export default function ChatPage() {
   }
 
   // ============================================================
+  // Derived values (before render)
+  // ============================================================
+  const lastMsg = store.messages.length > 0 ? store.messages[store.messages.length - 1] : null;
+  const isLastMessageUser = lastMsg?.role === 'user';
+
+  // ============================================================
   // Render
   // ============================================================
 
@@ -1547,17 +1548,11 @@ export default function ChatPage() {
                 })}
 
                 {/* Typing indicator — shown when AI is generating but hasn't started output yet */}
-                {store.isStreaming && store.messages.length > 0 && (() => {
-                  const lastMsg = store.messages[store.messages.length - 1];
-                  return lastMsg.role === 'user';
-                })() && (
+                {store.isStreaming && isLastMessageUser && (
                   <TypingIndicator />
                 )}
                 {/* Tool status message — shown during function calling */}
-                {store.isStreaming && store.statusMessage && store.messages.length > 0 && (() => {
-                  const lastMsg = store.messages[store.messages.length - 1];
-                  return lastMsg.role === 'user';
-                })() && (
+                {store.isStreaming && store.statusMessage && isLastMessageUser && (
                   <div className="flex gap-3 max-w-[85%] animate-splash-in">
                     <div className="size-7 shrink-0" aria-hidden="true" />
                     <div className="rounded-2xl rounded-tl-sm bg-steel-surface border border-steel-line px-4 py-2.5 text-[13px] leading-[1.5] text-steel-muted flex items-center gap-2">

@@ -355,16 +355,16 @@ func TestRegisterCreateError(t *testing.T) {
 	}
 }
 
-func (s *testableAuthService) RefreshToken(ctx context.Context, oldToken string) (string, error) {
+func (s *testableAuthService) RefreshToken(ctx context.Context, oldToken string) (string, string, error) {
 	claims, err := jwt.ParseToken(oldToken)
 	if err != nil {
-		return "", errors.New("令牌无效或已过期")
+		return "", "", errors.New("令牌无效或已过期")
 	}
 	token, err := jwt.GenerateToken(claims.UserID)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return token, nil
+	return token, "", nil
 }
 
 func TestRefreshTokenInvalid(t *testing.T) {
@@ -380,7 +380,7 @@ func TestRefreshTokenInvalid(t *testing.T) {
 
 	for _, tokenStr := range invalidTokens {
 		t.Run("invalid token: "+tokenStr, func(t *testing.T) {
-			_, err := svc.RefreshToken(ctx, tokenStr)
+			_, _, err := svc.RefreshToken(ctx, tokenStr)
 			if err == nil {
 				t.Errorf("expected error for invalid token, got nil")
 			}
@@ -401,7 +401,7 @@ func TestRefreshTokenSuccess(t *testing.T) {
 		t.Fatalf("failed to generate token: %v", err)
 	}
 
-	newToken, err := svc.RefreshToken(ctx, originalToken)
+	newToken, _, err := svc.RefreshToken(ctx, originalToken)
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
@@ -425,7 +425,7 @@ func TestRefreshTokenExpired(t *testing.T) {
 
 	// Create a token that claims to be valid but with a different secret
 	// Using a random string that looks like JWT but can't be parsed
-	_, err := svc.RefreshToken(ctx, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJleHAiOjk5OTk5OTk5OTl9.badsignature")
+	_, _, err := svc.RefreshToken(ctx, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJleHAiOjk5OTk5OTk5OTl9.badsignature")
 	if err == nil {
 		t.Errorf("expected error for token with bad signature, got nil")
 	}

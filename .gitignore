@@ -72,8 +72,16 @@ handler_coverage
 /server
 coverage
 
+# SQLite database files (local dev)
+*.db
+*.sqlite
+*.sqlite3
+
 # Database backups (may contain sensitive data)
 backend/backups/
+
+# Root-level utility files
+/query
 
 # Docker volumes
 docker-volumes/

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/glebarez/sqlite"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
@@ -16,6 +17,7 @@ import (
 )
 
 type Config struct {
+	DBDriver              string
 	DBHost                string
 	DBPort                string
 	DBUser                string
@@ -49,6 +51,7 @@ func Load() {
 	}
 
 	AppConfig = &Config{
+		DBDriver:              getEnv("DB_DRIVER", "postgres"),
 		DBHost:                getEnv("DB_HOST", "localhost"),
 		DBPort:                getEnv("DB_PORT", "5432"),
 		DBUser:                getEnv("DB_USER", "postgres"),
@@ -123,14 +126,29 @@ func InitRedis() *redis.Client {
 }
 
 func InitDB() *gorm.DB {
-	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		AppConfig.DBHost, AppConfig.DBPort, AppConfig.DBUser, AppConfig.DBPassword, AppConfig.DBName,
-	)
+	var db *gorm.DB
+	var err error
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+	if AppConfig.DBDriver == "sqlite" {
+		log.Println("Using SQLite database")
+		db, err = gorm.Open(sqlite.Open("steel_agent.db"), &gorm.Config{})
+		if err != nil {
+			log.Fatalf("Failed to connect to SQLite: %v", err)
+		}
+	} else {
+		dsn := fmt.Sprintf(
+			"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+			AppConfig.DBHost, AppConfig.DBPort, AppConfig.DBUser, AppConfig.DBPassword, AppConfig.DBName,
+		)
+
+		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+		if err != nil {
+			log.Printf("Failed to connect to PostgreSQL: %v, falling back to SQLite", err)
+			db, err = gorm.Open(sqlite.Open("steel_agent.db"), &gorm.Config{})
+			if err != nil {
+				log.Fatalf("Failed to connect to SQLite fallback: %v", err)
+			}
+		}
 	}
 
 	sqlDB, err := db.DB()

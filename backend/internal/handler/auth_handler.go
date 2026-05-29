@@ -17,7 +17,7 @@ type authService interface {
 	Login(ctx context.Context, phone, code string) (string, string, error)
 	LoginPassword(ctx context.Context, phone, password string) (string, string, error)
 	Register(ctx context.Context, phone, password, code, nickname string) (string, string, error)
-	RefreshToken(ctx context.Context, oldToken string) (string, error)
+	RefreshToken(ctx context.Context, oldToken string) (string, string, error)
 	Logout(ctx context.Context, tokenString string) error
 }
 
@@ -194,13 +194,13 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	accessToken, err := h.authService.RefreshToken(c.Request.Context(), req.RefreshToken)
+	accessToken, refreshToken, err := h.authService.RefreshToken(c.Request.Context(), req.RefreshToken)
 	if err != nil {
 		response.Error(c, errors.CodeBusinessError, err.Error())
 		return
 	}
 
-	response.Success(c, gin.H{"access_token": accessToken, "expires_in": 7200})
+	response.Success(c, gin.H{"access_token": accessToken, "refresh_token": refreshToken, "expires_in": 7200})
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {

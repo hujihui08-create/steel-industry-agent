@@ -5,7 +5,7 @@
 
 /** 招标详情 */
 export interface TenderDetail {
-  id: string;
+  id: number;
   title: string;
   status: 'open' | 'closed' | 'won' | 'lost';
   budget: number;

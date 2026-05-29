@@ -228,8 +228,6 @@ export default function QuotationDetailPage() {
         category: quotation.category,
         spec: quotation.spec,
         quantity: quotation.quantity,
-        unit: quotation.unit,
-        region: quotation.delivery_location || "",
       });
       setCosts(result);
       toast("费用已重新计算");

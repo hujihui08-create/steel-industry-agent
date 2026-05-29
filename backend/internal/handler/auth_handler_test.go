@@ -27,7 +27,7 @@ type mockAuthService struct {
 	loginFn         func(ctx context.Context, phone, code string) (string, string, error)
 	loginPasswordFn func(ctx context.Context, phone, password string) (string, string, error)
 	registerFn      func(ctx context.Context, phone, password, code, nickname string) (string, string, error)
-	refreshTokenFn  func(ctx context.Context, oldToken string) (string, error)
+	refreshTokenFn  func(ctx context.Context, oldToken string) (string, string, error)
 	logoutFn        func(ctx context.Context, refreshToken string) error
 }
 
@@ -47,7 +47,7 @@ func (m *mockAuthService) Register(ctx context.Context, phone, password, code, n
 	return m.registerFn(ctx, phone, password, code, nickname)
 }
 
-func (m *mockAuthService) RefreshToken(ctx context.Context, oldToken string) (string, error) {
+func (m *mockAuthService) RefreshToken(ctx context.Context, oldToken string) (string, string, error) {
 	return m.refreshTokenFn(ctx, oldToken)
 }
 
@@ -331,8 +331,8 @@ func TestRegister_DuplicatePhone(t *testing.T) {
 
 func TestRefreshToken_ValidToken(t *testing.T) {
 	mock := &mockAuthService{
-		refreshTokenFn: func(ctx context.Context, oldToken string) (string, error) {
-			return "new-access-token", nil
+		refreshTokenFn: func(ctx context.Context, oldToken string) (string, string, error) {
+			return "new-access-token", "new-refresh-token", nil
 		},
 	}
 	router := setupAuthRouter(mock)
@@ -347,7 +347,8 @@ func TestRefreshToken_ValidToken(t *testing.T) {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
 		Data    struct {
-			AccessToken string `json:"access_token"`
+			AccessToken  string `json:"access_token"`
+			RefreshToken string `json:"refresh_token"`
 		} `json:"data"`
 	}
 	json.Unmarshal(w.Body.Bytes(), &resp)
@@ -357,12 +358,15 @@ func TestRefreshToken_ValidToken(t *testing.T) {
 	if resp.Data.AccessToken == "" {
 		t.Error("expected non-empty access_token")
 	}
+	if resp.Data.RefreshToken == "" {
+		t.Error("expected non-empty refresh_token")
+	}
 }
 
 func TestRefreshToken_InvalidToken(t *testing.T) {
 	mock := &mockAuthService{
-		refreshTokenFn: func(ctx context.Context, oldToken string) (string, error) {
-			return "", stderrors.New("令牌无效或已过期")
+		refreshTokenFn: func(ctx context.Context, oldToken string) (string, string, error) {
+			return "", "", stderrors.New("令牌无效或已过期")
 		},
 	}
 	router := setupAuthRouter(mock)

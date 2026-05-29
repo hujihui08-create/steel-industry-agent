@@ -28,7 +28,7 @@ export default function AdminAuthGuard({ children }: AdminAuthGuardProps) {
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="w-6 h-6 border-2 border-[#E5E5E5] border-t-[#0A0A0A] rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-steel-line border-t-steel-ink rounded-full animate-spin" />
       </div>
     );
   }

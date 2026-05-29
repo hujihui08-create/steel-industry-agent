@@ -136,7 +136,7 @@ function SortIcon({ active, direction }: SortIconProps) {
       <ArrowUpDown
         size={12}
         strokeWidth={1.75}
-        className="text-[#A3A3A3] shrink-0"
+        className="text-steel-placeholder shrink-0"
       />
     );
   }
@@ -145,7 +145,7 @@ function SortIcon({ active, direction }: SortIconProps) {
       <ArrowUp
         size={12}
         strokeWidth={1.75}
-        className="text-[#0A0A0A] shrink-0"
+        className="text-steel-ink shrink-0"
       />
     );
   }
@@ -153,7 +153,7 @@ function SortIcon({ active, direction }: SortIconProps) {
     <ArrowDown
       size={12}
       strokeWidth={1.75}
-      className="text-[#0A0A0A] shrink-0"
+      className="text-steel-ink shrink-0"
     />
   );
 }
@@ -263,7 +263,7 @@ function AdminTableInner<T>({
   // 加载态
   if (loading) {
     return (
-      <div className={cn("bg-white border border-[#E5E5E5] rounded-lg", className)}>
+      <div className={cn("bg-steel-canvas border border-steel-line rounded-lg", className)}>
         <AdminLoading type="table" rows={pageSize > 10 ? 10 : pageSize} />
       </div>
     );
@@ -272,7 +272,7 @@ function AdminTableInner<T>({
   // 空态
   if (data.length === 0) {
     return (
-      <div className={cn("bg-white border border-[#E5E5E5] rounded-lg", className)}>
+      <div className={cn("bg-steel-canvas border border-steel-line rounded-lg", className)}>
         {empty ?? <AdminEmpty />}
       </div>
     );
@@ -281,14 +281,14 @@ function AdminTableInner<T>({
   return (
     <div
       className={cn(
-        "bg-white border border-[#E5E5E5] rounded-lg overflow-hidden",
+        "bg-steel-canvas border border-steel-line rounded-lg overflow-hidden",
         className,
       )}
     >
       <Table className="w-full">
         {/* 表头 */}
         <TableHeader>
-          <TableRow className="border-b border-[#E5E5E5] hover:bg-transparent">
+          <TableRow className="border-b border-steel-line hover:bg-transparent">
             {/* 选择列 */}
             {selectable && (
               <TableHead className="w-10 px-3 py-3">
@@ -297,9 +297,9 @@ function AdminTableInner<T>({
                   onCheckedChange={handleSelectAll}
                   aria-label="全选"
                   className={cn(
-                    "h-4 w-4 rounded-[4px]",
-                    "border-[#D4D4D4] data-[state=checked]:bg-[#0A0A0A] data-[state=checked]:border-[#0A0A0A]",
-                  )}
+                      "h-4 w-4 rounded-[4px]",
+                      "border-[#D4D4D4] data-[state=checked]:bg-steel-ink data-[state=checked]:border-steel-ink",
+                    )}
                 />
               </TableHead>
             )}
@@ -310,11 +310,10 @@ function AdminTableInner<T>({
                 style={col.width ? { width: col.width } : undefined}
                 className={cn(
                   "px-4 py-3",
-                  "text-[11px] leading-[1.5] uppercase tracking-[0.08em] text-[#737373]",
+                  "text-[11px] leading-[1.5] uppercase tracking-[0.08em] text-steel-muted",
                   "font-medium whitespace-nowrap select-none",
-                  // 可排序列的交互样式
                   col.sortable && [
-                    "cursor-pointer hover:text-[#0A0A0A]",
+                    "cursor-pointer hover:text-steel-ink",
                     "transition-colors duration-150",
                   ],
                 )}
@@ -349,13 +348,10 @@ function AdminTableInner<T>({
               <TableRow
                 key={getId(row) ?? rowIndex}
                 className={cn(
-                  "border-b border-[#E5E5E5] last:border-b-0",
+                  "border-b border-steel-line last:border-b-0",
                   "transition-colors duration-150",
-                  // 偶数行浅灰底
-                  rowIndex % 2 === 0 ? "bg-white" : "bg-[#FAFAFA]",
-                  // 选中态
+                  rowIndex % 2 === 0 ? "bg-steel-canvas" : "bg-steel-surface",
                   isSelected && "bg-[#F5F5F5]",
-                  // 可点击行
                   onRowClick && "cursor-pointer hover:bg-[#F5F5F5]",
                 )}
                 onClick={
@@ -378,7 +374,7 @@ function AdminTableInner<T>({
                       aria-label={`选择第 ${rowIndex + 1} 行`}
                       className={cn(
                         "h-4 w-4 rounded-[4px]",
-                        "border-[#D4D4D4] data-[state=checked]:bg-[#0A0A0A] data-[state=checked]:border-[#0A0A0A]",
+                        "border-[#D4D4D4] data-[state=checked]:bg-steel-ink data-[state=checked]:border-steel-ink",
                       )}
                     />
                   </TableCell>
@@ -391,7 +387,7 @@ function AdminTableInner<T>({
                       key={col.key}
                       className={cn(
                         "px-4 py-3",
-                        "text-[13px] leading-[1.5] text-[#404040]",
+                        "text-[13px] leading-[1.5] text-steel-body",
                         "whitespace-nowrap",
                       )}
                     >
@@ -413,11 +409,11 @@ function AdminTableInner<T>({
           className={cn(
             "flex items-center justify-between",
             "px-5 py-3",
-            "border-t border-[#E5E5E5]",
+            "border-t border-steel-line",
           )}
         >
           {/* 左侧：信息 */}
-          <span className="text-[12px] leading-[1.5] text-[#737373] shrink-0">
+          <span className="text-[12px] leading-[1.5] text-steel-muted shrink-0">
             共 {total} 条，第 {page}/{totalPages} 页
           </span>
 
@@ -433,10 +429,10 @@ function AdminTableInner<T>({
                 className={cn(
                   "flex items-center justify-center",
                   "w-8 h-8 rounded-md",
-                  "text-[#404040] hover:bg-[#FAFAFA]",
+                  "text-steel-body hover:bg-steel-surface",
                   "transition-colors duration-150",
                   "disabled:opacity-30 disabled:cursor-not-allowed",
-                  "outline-none focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10",
+                  "outline-none focus-visible:ring-2 focus-visible:ring-steel-ink/10",
                 )}
                 aria-label="上一页"
               >
@@ -449,7 +445,7 @@ function AdminTableInner<T>({
                   return (
                     <span
                       key={`ellipsis-${idx}`}
-                      className="w-8 h-8 flex items-center justify-center text-[12px] text-[#A3A3A3]"
+                      className="w-8 h-8 flex items-center justify-center text-[12px] text-steel-placeholder"
                       aria-hidden="true"
                     >
                       ...
@@ -465,10 +461,10 @@ function AdminTableInner<T>({
                       "w-8 h-8 rounded-md",
                       "text-[12px] leading-[1.5]",
                       "transition-colors duration-150",
-                      "outline-none focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10",
+                      "outline-none focus-visible:ring-2 focus-visible:ring-steel-ink/10",
                       p === page
-                        ? "bg-[#0A0A0A] text-white"
-                        : "text-[#404040] hover:bg-[#FAFAFA]",
+                        ? "bg-steel-ink text-white"
+                        : "text-steel-body hover:bg-steel-surface",
                     )}
                     aria-label={`第 ${p} 页`}
                     aria-current={p === page ? "page" : undefined}
@@ -486,10 +482,10 @@ function AdminTableInner<T>({
                 className={cn(
                   "flex items-center justify-center",
                   "w-8 h-8 rounded-md",
-                  "text-[#404040] hover:bg-[#FAFAFA]",
+                  "text-steel-body hover:bg-steel-surface",
                   "transition-colors duration-150",
                   "disabled:opacity-30 disabled:cursor-not-allowed",
-                  "outline-none focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10",
+                  "outline-none focus-visible:ring-2 focus-visible:ring-steel-ink/10",
                 )}
                 aria-label="下一页"
               >
@@ -501,7 +497,7 @@ function AdminTableInner<T>({
             <div className="flex items-center gap-2 shrink-0">
               <label
                 htmlFor="admin-table-page-size"
-                className="text-[13px] leading-[1.5] text-[#737373] whitespace-nowrap"
+                className="text-[13px] leading-[1.5] text-steel-muted whitespace-nowrap"
               >
                 每页：
               </label>
@@ -510,13 +506,13 @@ function AdminTableInner<T>({
                 value={pageSize}
                 onChange={handlePageSizeChange}
                 className={cn(
-                  "text-[13px] leading-[1.5] text-[#404040]",
-                  "border border-[#E5E5E5]",
+                  "text-[13px] leading-[1.5] text-steel-body",
+                  "border border-steel-line",
                   "rounded-md",
                   "px-2 py-1",
-                  "bg-white",
+                  "bg-steel-canvas",
                   "cursor-pointer",
-                  "focus:outline-none focus:border-[#0A0A0A]",
+                  "focus:outline-none focus:border-steel-ink",
                   "transition-colors duration-150",
                 )}
               >

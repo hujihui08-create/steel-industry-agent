@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { Trash2, MapPin, Calendar } from "lucide-react";
 import {
   getTenderFavorites,
-  getTenderDetail,
   removeTenderFavorite,
 } from "@/app/api/tenders";
 import type { TenderDetail } from "@/app/types/tender";
@@ -74,7 +73,7 @@ function formatDate(dateStr: string): string {
 export default function FavoritesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [unfavoriteId, setUnfavoriteId] = useState<string | null>(null);
+  const [unfavoriteId, setUnfavoriteId] = useState<number | null>(null);
 
   const {
     data: favorites,
@@ -85,18 +84,13 @@ export default function FavoritesPage() {
   } = useQuery({
     queryKey: ["tender-favorites"],
     queryFn: async () => {
-      const ids = await getTenderFavorites();
-      if (!ids || ids.length === 0) return [];
-      const details = await Promise.all(
-        ids.map((id: number) => getTenderDetail(String(id)))
-      );
-      return details;
+      return await getTenderFavorites();
     },
     staleTime: 30_000,
   });
 
   const removeMutation = useMutation({
-    mutationFn: (tenderId: string) => removeTenderFavorite(tenderId),
+    mutationFn: (tenderId: number) => removeTenderFavorite(tenderId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tender-favorites"] });
       toast("已取消收藏");

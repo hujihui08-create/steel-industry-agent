@@ -120,27 +120,27 @@ export default function PriceImportDialog({
   ];
 
   const textareaClass = cn(
-    "w-full min-h-[180px] rounded-[10px] border border-[#E5E5E5] bg-white",
-    "p-3 text-[13px] leading-[1.6] text-[#0A0A0A] font-mono",
-    "placeholder:text-[#A3A3A3]",
+    "w-full min-h-[180px] rounded-[10px] border border-steel-line bg-steel-canvas",
+    "p-3 text-[13px] leading-[1.6] text-steel-ink font-mono",
+    "placeholder:text-steel-placeholder",
     "outline-none transition-colors duration-200 resize-y",
-    "focus:border-[#0A0A0A] focus:ring-4 focus:ring-[#0A0A0A]/5",
+    "focus:border-steel-ink focus:ring-4 focus:ring-steel-ink/5",
   );
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent
         className={cn(
-          "bg-white border border-[#E5E5E5] rounded-2xl",
+          "bg-steel-canvas border border-steel-line rounded-2xl",
           "shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
           "p-6 max-w-[640px] max-h-[90vh] overflow-y-auto",
         )}
       >
         <DialogHeader>
-          <DialogTitle className="text-[16px] leading-[1.4] font-medium text-[#0A0A0A]">
+          <DialogTitle className="text-[16px] leading-[1.4] font-medium text-steel-ink">
             批量导入价格
           </DialogTitle>
-          <DialogDescription className="text-[13px] leading-[1.6] text-[#737373]">
+          <DialogDescription className="text-[13px] leading-[1.6] text-steel-muted">
             粘贴 JSON 数组格式的价格数据，每行包含品种、规格、价格等字段
           </DialogDescription>
         </DialogHeader>
@@ -160,18 +160,18 @@ export default function PriceImportDialog({
 
           {/* Format hint */}
           <details className="group">
-            <summary className="text-[12px] text-[#737373] cursor-pointer hover:text-[#404040] transition-colors duration-150">
+            <summary className="text-[12px] text-steel-muted cursor-pointer hover:text-steel-body transition-colors duration-150">
               查看格式说明
             </summary>
-            <pre className="mt-2 p-3 rounded-[10px] bg-[#FAFAFA] border border-[#E5E5E5] text-[12px] leading-[1.6] text-[#404040] overflow-x-auto">
+            <pre className="mt-2 p-3 rounded-[10px] bg-steel-surface border border-steel-line text-[12px] leading-[1.6] text-steel-body overflow-x-auto">
               {IMPORT_EXAMPLE}
             </pre>
           </details>
 
           {/* Parse error */}
           {parseError && (
-            <div className="flex items-start gap-2 p-3 rounded-[10px] bg-[#B42318]/5 border border-[#B42318]/20">
-              <span className="text-[13px] leading-[1.5] text-[#B42318]">{parseError}</span>
+            <div className="flex items-start gap-2 p-3 rounded-[10px] bg-steel-down/5 border border-steel-down/20">
+              <span className="text-[13px] leading-[1.5] text-steel-down">{parseError}</span>
             </div>
           )}
 
@@ -182,9 +182,9 @@ export default function PriceImportDialog({
               disabled={!jsonText.trim()}
               className={cn(
                 "h-9 px-4 rounded-full",
-                "border border-[#E5E5E5]",
-                "bg-white text-[#0A0A0A] text-[13px] leading-[1.5]",
-                "hover:bg-[#FAFAFA] hover:border-[#0A0A0A]",
+                "border border-steel-line",
+                "bg-steel-canvas text-steel-ink text-[13px] leading-[1.5]",
+                "hover:bg-steel-surface hover:border-steel-ink",
                 "transition-colors duration-150",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
               )}
@@ -197,8 +197,8 @@ export default function PriceImportDialog({
           {preview && preview.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[13px] text-[#404040]">
-                  共 <span className="font-medium text-[#0A0A0A]">{preview.length}</span> 条待导入
+                <span className="text-[13px] text-steel-body">
+                  共 <span className="font-medium text-steel-ink">{preview.length}</span> 条待导入
                 </span>
                 <button
                   onClick={() => {
@@ -206,32 +206,32 @@ export default function PriceImportDialog({
                     setParseError(null);
                   }}
                   disabled={importing}
-                  className="text-[12px] text-[#737373] hover:text-[#0A0A0A] transition-colors duration-150 disabled:opacity-50"
+                  className="text-[12px] text-steel-muted hover:text-steel-ink transition-colors duration-150 disabled:opacity-50"
                 >
                   重新编辑
                 </button>
               </div>
-              <div className="border border-[#E5E5E5] rounded-lg overflow-hidden max-h-[240px] overflow-y-auto">
+              <div className="border border-steel-line rounded-lg overflow-hidden max-h-[240px] overflow-y-auto">
                 <table className="w-full">
                   <thead className="sticky top-0">
-                    <tr className="border-b border-[#E5E5E5] bg-[#FAFAFA]">
+                    <tr className="border-b border-steel-line bg-steel-surface">
                       {previewColumns.map((col) => (
                         <th
                           key={col.key}
-                          className="px-3 py-2 text-left text-[11px] leading-[1.5] text-[#737373] font-normal whitespace-nowrap"
+                          className="px-3 py-2 text-left text-[11px] leading-[1.5] text-steel-muted font-normal whitespace-nowrap"
                         >
                           {col.label}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#E5E5E5]">
+                  <tbody className="divide-y divide-steel-line">
                     {preview.map((row, i) => (
                       <tr key={i}>
                         {previewColumns.map((col) => (
                           <td
                             key={col.key}
-                            className="px-3 py-2 text-[12px] leading-[1.5] text-[#404040] whitespace-nowrap"
+                            className="px-3 py-2 text-[12px] leading-[1.5] text-steel-body whitespace-nowrap"
                           >
                             {col.render
                               ? col.render((row as any)[col.key])
@@ -253,11 +253,11 @@ export default function PriceImportDialog({
             disabled={importing}
             className={cn(
               "h-9 px-4 rounded-full",
-              "border border-[#E5E5E5]",
-              "bg-white text-[#0A0A0A] text-[13px] leading-[1.5]",
-              "hover:bg-[#FAFAFA]",
+              "border border-steel-line",
+              "bg-steel-canvas text-steel-ink text-[13px] leading-[1.5]",
+              "hover:bg-steel-surface",
               "transition-colors duration-150",
-              "focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10",
+              "focus-visible:ring-2 focus-visible:ring-steel-ink/10",
               "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >
@@ -269,10 +269,10 @@ export default function PriceImportDialog({
               disabled={importing}
               className={cn(
                 "h-9 px-4 rounded-full",
-                "bg-[#0A0A0A] text-white text-[13px] leading-[1.5] font-medium",
-                "hover:bg-[#404040]",
+                "bg-steel-ink text-white text-[13px] leading-[1.5] font-medium",
+                "hover:bg-steel-body",
                 "transition-colors duration-150",
-                "focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10",
+                "focus-visible:ring-2 focus-visible:ring-steel-ink/10",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
               )}
             >

@@ -107,6 +107,8 @@ export default function SteelDataList() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletingRow, setDeletingRow] = useState<any>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [selectedPriceRow, setSelectedPriceRow] = useState<number | null>(null);
+  const [selectedTenderRow, setSelectedTenderRow] = useState<number | null>(null);
 
   const loadData = useCallback(
     async (reset = false) => {
@@ -251,13 +253,13 @@ export default function SteelDataList() {
         breadcrumbs={[{ label: "首页" }, { label: "数据管理" }, { label: config.breadcrumb }]}
       >
         <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <p className="text-[#737373] text-[13px]">{error}</p>
+          <p className="text-steel-muted text-[13px]">{error}</p>
           <button
             onClick={() => loadData(true)}
             className={cn(
               "flex items-center gap-2 px-4 h-9 rounded-full",
-              "border border-[#E5E5E5] text-[#0A0A0A] text-[13px]",
-              "hover:bg-[#FAFAFA] transition-colors duration-150",
+              "border border-steel-line text-steel-ink text-[13px]",
+              "hover:bg-steel-surface transition-colors duration-150",
             )}
           >
             <RefreshCw size={14} strokeWidth={1.75} />
@@ -275,49 +277,49 @@ export default function SteelDataList() {
     >
       {/* 操作栏 */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="text-[12px] text-[#737373]">
-            共 {rows.length} 条{pagination.hasMore ? "+" : ""}
+          <div className="flex items-center gap-3">
+            <div className="text-[12px] text-steel-muted">
+              共 {rows.length} 条{pagination.hasMore ? "+" : ""}
+            </div>
+            {effectiveType === "price" && (
+              <>
+                <button
+                  onClick={handleOpenCreate}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 h-8 rounded-full",
+                    "border border-steel-line text-steel-ink text-[12px]",
+                    "hover:bg-steel-surface hover:border-steel-ink transition-colors duration-150",
+                  )}
+                >
+                  <Plus size={14} strokeWidth={1.75} />
+                  新增
+                </button>
+                <button
+                  onClick={() => setImportOpen(true)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 h-8 rounded-full",
+                    "border border-steel-line text-steel-ink text-[12px]",
+                    "hover:bg-steel-surface hover:border-steel-ink transition-colors duration-150",
+                  )}
+                >
+                  <Upload size={14} strokeWidth={1.75} />
+                  批量导入
+                </button>
+              </>
+            )}
           </div>
-          {effectiveType === "price" && (
-            <>
-              <button
-                onClick={handleOpenCreate}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 h-8 rounded-full",
-                  "border border-[#E5E5E5] text-[#0A0A0A] text-[12px]",
-                  "hover:bg-[#FAFAFA] hover:border-[#0A0A0A] transition-colors duration-150",
-                )}
-              >
-                <Plus size={14} strokeWidth={1.75} />
-                新增
-              </button>
-              <button
-                onClick={() => setImportOpen(true)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 h-8 rounded-full",
-                  "border border-[#E5E5E5] text-[#0A0A0A] text-[12px]",
-                  "hover:bg-[#FAFAFA] hover:border-[#0A0A0A] transition-colors duration-150",
-                )}
-              >
-                <Upload size={14} strokeWidth={1.75} />
-                批量导入
-              </button>
-            </>
-          )}
+          <button
+            onClick={() => loadData(true)}
+            className={cn(
+              "flex items-center justify-center w-9 h-9 rounded-full",
+              "border border-steel-line text-steel-muted",
+              "hover:text-steel-ink hover:bg-steel-surface transition-colors duration-150",
+            )}
+            aria-label="刷新"
+          >
+            <RefreshCw size={14} strokeWidth={1.75} />
+          </button>
         </div>
-        <button
-          onClick={() => loadData(true)}
-          className={cn(
-            "flex items-center justify-center w-9 h-9 rounded-full",
-            "border border-[#E5E5E5] text-[#737373]",
-            "hover:text-[#0A0A0A] hover:bg-[#FAFAFA] transition-colors duration-150",
-          )}
-          aria-label="刷新"
-        >
-          <RefreshCw size={14} strokeWidth={1.75} />
-        </button>
-      </div>
 
       {rows.length === 0 ? (
         <AdminEmpty
@@ -325,90 +327,269 @@ export default function SteelDataList() {
           description="请先在爬虫管理中触发数据采集"
         />
       ) : (
-        <div className="border border-[#E5E5E5] rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[#E5E5E5] bg-[#FAFAFA]">
-                  {config.columns.map((col) => (
-                    <th
-                      key={col.key}
-                      className="px-4 py-3 text-left text-[11px] leading-[1.5] text-[#737373] font-normal whitespace-nowrap"
-                    >
-                      {col.label}
-                    </th>
-                  ))}
-                  {effectiveType === "price" && (
-                    <th className="px-4 py-3 text-left text-[11px] leading-[1.5] text-[#737373] font-normal whitespace-nowrap">
-                      操作
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E5E5E5]">
-                {rows.map((row, i) => (
-                  <tr key={row.id || i} className="hover:bg-[#FAFAFA] transition-colors duration-150">
+        <div className="border border-steel-line rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-steel-line bg-steel-surface">
                     {config.columns.map((col) => (
-                      <td
+                      <th
                         key={col.key}
-                        className="px-4 py-3 text-[13px] leading-[1.5] text-[#404040] whitespace-nowrap max-w-[240px] truncate"
+                        className="px-4 py-3 text-left text-[11px] leading-[1.5] text-steel-muted font-normal whitespace-nowrap"
                       >
-                        {col.render
-                          ? col.render(row[col.key], row)
-                          : row[col.key] ?? "-"}
-                      </td>
+                        {col.label}
+                      </th>
                     ))}
                     {effectiveType === "price" && (
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleOpenEdit(row)}
-                            className={cn(
-                              "flex items-center justify-center w-7 h-7 rounded-full",
-                              "text-[#737373] hover:text-[#0A0A0A] hover:bg-[#FAFAFA]",
-                              "transition-colors duration-150",
-                            )}
-                            aria-label="编辑"
-                          >
-                            <Pencil size={14} strokeWidth={1.75} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClick(row)}
-                            className={cn(
-                              "flex items-center justify-center w-7 h-7 rounded-full",
-                              "text-[#737373] hover:text-[#B42318] hover:bg-[#B42318]/5",
-                              "transition-colors duration-150",
-                            )}
-                            aria-label="删除"
-                          >
-                            <Trash2 size={14} strokeWidth={1.75} />
-                          </button>
-                        </div>
-                      </td>
+                      <th className="px-4 py-3 text-left text-[11px] leading-[1.5] text-steel-muted font-normal whitespace-nowrap">
+                        操作
+                      </th>
                     )}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {pagination.hasMore && (
-            <div className="flex justify-center py-4 border-t border-[#E5E5E5]">
-              <button
-                onClick={loadMore}
-                disabled={loadingMore}
-                className={cn(
-                  "px-4 h-8 rounded-full text-[12px]",
-                  "border border-[#E5E5E5] text-[#404040]",
-                  "hover:border-[#0A0A0A] hover:text-[#0A0A0A] transition-colors duration-150",
-                  "disabled:opacity-50 disabled:cursor-not-allowed",
-                )}
-              >
-                {loadingMore ? "加载中..." : "加载更多"}
-              </button>
+                </thead>
+                <tbody className="divide-y divide-steel-line">
+                  {rows.map((row, i) => (
+                    <React.Fragment key={row.id || i}>
+                      <tr
+                        className={cn(
+                          "transition-colors duration-150",
+                          (effectiveType === "price" || effectiveType === "tender") &&
+                            "cursor-pointer",
+                          (effectiveType === "price" && selectedPriceRow === (row.id ?? i)) ||
+                            (effectiveType === "tender" && selectedTenderRow === (row.id ?? i))
+                            ? "bg-steel-surface"
+                            : "hover:bg-steel-surface",
+                        )}
+                        onClick={() => {
+                          if (effectiveType === "price") {
+                            setSelectedPriceRow(
+                              selectedPriceRow === (row.id ?? i) ? null : (row.id ?? i),
+                            );
+                          } else if (effectiveType === "tender") {
+                            setSelectedTenderRow(
+                              selectedTenderRow === (row.id ?? i) ? null : (row.id ?? i),
+                            );
+                          }
+                        }}
+                      >
+                        {config.columns.map((col) => (
+                          <td
+                            key={col.key}
+                            className="px-4 py-3 text-[13px] leading-[1.5] text-steel-body whitespace-nowrap max-w-[240px] truncate"
+                          >
+                            {col.render
+                              ? col.render(row[col.key], row)
+                              : row[col.key] ?? "-"}
+                          </td>
+                        ))}
+                        {effectiveType === "price" && (
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEdit(row);
+                                }}
+                                className={cn(
+                                  "flex items-center justify-center w-7 h-7 rounded-full",
+                                  "text-steel-muted hover:text-steel-ink hover:bg-steel-surface",
+                                  "transition-colors duration-150",
+                                )}
+                                aria-label="编辑"
+                              >
+                                <Pencil size={14} strokeWidth={1.75} />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteClick(row);
+                                }}
+                                className={cn(
+                                  "flex items-center justify-center w-7 h-7 rounded-full",
+                                  "text-steel-muted hover:text-steel-down hover:bg-steel-down/5",
+                                  "transition-colors duration-150",
+                                )}
+                                aria-label="删除"
+                              >
+                                <Trash2 size={14} strokeWidth={1.75} />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                      {effectiveType === "price" &&
+                        selectedPriceRow === (row.id ?? i) && (
+                          <tr>
+                            <td colSpan={config.columns.length + 1}>
+                              <div className="rounded-2xl border border-steel-line bg-steel-surface p-5 mx-4 my-3">
+                                <div className="space-y-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-steel-muted text-[12px] w-16 shrink-0">品种</span>
+                                    <span className="text-steel-body text-[14px]">{row.category ?? "-"}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-steel-muted text-[12px] w-16 shrink-0">规格</span>
+                                    <span className="text-steel-body text-[14px]">{row.spec ?? "-"}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-steel-muted text-[12px] w-16 shrink-0">地区</span>
+                                    <span className="text-steel-body text-[14px]">{row.region ?? "-"}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-steel-muted text-[12px] w-16 shrink-0">价格</span>
+                                    <span className="text-steel-body text-[14px]">
+                                      {row.price != null ? `¥${Number(row.price).toLocaleString()}` : "-"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-steel-muted text-[12px] w-16 shrink-0">涨跌额</span>
+                                    <span className="text-steel-body text-[14px]">
+                                      {row.change != null
+                                        ? `${row.change > 0 ? "+" : ""}${row.change}`
+                                        : "-"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-steel-muted text-[12px] w-16 shrink-0">涨跌幅</span>
+                                    <span className="text-steel-body text-[14px]">
+                                      {row.change_pct != null
+                                        ? `${row.change_pct > 0 ? "+" : ""}${row.change_pct}%`
+                                        : "-"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-steel-muted text-[12px] w-16 shrink-0">来源</span>
+                                    <span className="text-steel-body text-[14px]">{row.source ?? "-"}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-steel-muted text-[12px] w-16 shrink-0">日期</span>
+                                    <span className="text-steel-body text-[14px]">
+                                      {row.price_date
+                                        ? new Date(row.price_date).toLocaleDateString("zh-CN")
+                                        : "-"}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 mt-4">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenEdit(row);
+                                    }}
+                                    className={cn(
+                                      "px-4 h-8 rounded-full text-[13px]",
+                                      "border border-steel-line text-steel-ink",
+                                      "hover:bg-steel-surface hover:border-steel-ink transition-colors duration-150",
+                                    )}
+                                  >
+                                    编辑
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteClick(row);
+                                    }}
+                                    className={cn(
+                                      "px-4 h-8 rounded-full text-[13px]",
+                                      "border border-steel-line text-steel-ink",
+                                      "hover:bg-steel-surface hover:border-steel-ink transition-colors duration-150",
+                                    )}
+                                  >
+                                    删除
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      {effectiveType === "tender" &&
+                        selectedTenderRow === (row.id ?? i) && (
+                          <tr>
+                            <td colSpan={config.columns.length}>
+                              <div className="rounded-2xl border border-steel-line bg-steel-surface p-5 mx-4 my-3">
+                                <div className="space-y-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-steel-muted text-[12px] w-16 shrink-0">标题</span>
+                                    <span className="text-steel-body text-[14px]">{row.title ?? "-"}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-steel-muted text-[12px] w-16 shrink-0">地区</span>
+                                    <span className="text-steel-body text-[14px]">{row.region ?? "-"}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-steel-muted text-[12px] w-16 shrink-0">品类</span>
+                                    <span className="text-steel-body text-[14px]">{row.category ?? "-"}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-steel-muted text-[12px] w-16 shrink-0">预算</span>
+                                    <span className="text-steel-body text-[14px]">
+                                      {row.budget != null ? `¥${Number(row.budget).toLocaleString()}` : "-"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-steel-muted text-[12px] w-16 shrink-0">状态</span>
+                                    <span className="text-steel-body text-[14px]">{row.status ?? "-"}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-steel-muted text-[12px] w-16 shrink-0">截止日期</span>
+                                    <span className="text-steel-body text-[14px]">
+                                      {row.deadline
+                                        ? new Date(row.deadline).toLocaleDateString("zh-CN")
+                                        : "-"}
+                                    </span>
+                                  </div>
+                                  {row.description && (
+                                    <div className="flex items-start gap-2">
+                                      <span className="text-steel-muted text-[12px] w-16 shrink-0 mt-0.5">
+                                        描述
+                                      </span>
+                                      <span className="text-steel-body text-[14px]">
+                                        {row.description}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {row.source_url && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-steel-muted text-[12px] w-16 shrink-0">来源</span>
+                                      <a
+                                        href={row.source_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-steel-ink text-[14px] underline hover:text-steel-body transition-colors duration-150"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {row.source_url}
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
+
+            {pagination.hasMore && (
+              <div className="flex justify-center py-4 border-t border-steel-line">
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className={cn(
+                    "px-4 h-8 rounded-full text-[12px]",
+                    "border border-steel-line text-steel-body",
+                    "hover:border-steel-ink hover:text-steel-ink transition-colors duration-150",
+                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                  )}
+                >
+                  {loadingMore ? "加载中..." : "加载更多"}
+                </button>
+              </div>
+            )}
+          </div>
       )}
 
       {/* Price Form Dialog */}

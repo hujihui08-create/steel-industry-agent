@@ -750,6 +750,7 @@ export function RolePermissionManagement() {
               >
                 <SelectTrigger
                   id="field-role-type"
+                  variant="filter"
                   className={cn(
                     "h-10 px-3 rounded-[10px]",
                     "border border-[#E5E5E5] text-[14px] leading-[1.5]",
@@ -759,7 +760,7 @@ export function RolePermissionManagement() {
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent variant="filter">
                   <SelectItem value="mobile" className="text-[13px]">
                     移动端角色
                   </SelectItem>

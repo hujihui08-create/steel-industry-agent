@@ -15,13 +15,19 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
 } from "lucide-react";
 
 import { PageHeader } from "@/app/components/shared/PageHeader";
 import { ErrorState } from "@/app/components/shared/ErrorState";
 import { LoadingSkeleton } from "@/app/components/shared/LoadingSkeleton";
 import { PriceCard } from "@/app/components/Cards/PriceCard";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { PriceItem } from "@/app/components/Cards/PriceCard";
 import { TrendCard } from "@/app/components/Cards/TrendCard";
 import type { TrendDataPoint as TrendCardDataPoint } from "@/app/components/Cards/TrendCard";
@@ -625,27 +631,22 @@ export default function PriceBoard() {
 
       {/* 主内容区 */}
       <div className="flex-1 overflow-auto">
-        <div className="max-w-[960px] mx-auto px-4 py-6">
+        <div className="max-w-[960px] mx-auto px-3 sm:px-4 py-6">
           {/* 筛选栏 */}
           <div className="mb-5 space-y-3">
             {/* Row 1: 品类 + 品种两级联动（surface 容器包裹，视觉上形成一组） */}
             <div className="flex items-center gap-3 min-w-0 rounded-2xl bg-steel-surface px-3.5 py-2">
-              {parentCategoryOptions.length > 0 && (
-                <div className="relative shrink-0">
-                  <select
-                    value={parentCategory}
-                    onChange={(e) => handleParentCategoryChange(e.target.value)}
-                    className="rounded-full border border-steel-line bg-steel-canvas pl-3.5 pr-8 py-1.5 text-[13px] text-steel-ink font-medium outline-none hover:border-steel-ink focus:border-steel-ink transition-colors duration-150 appearance-none cursor-pointer"
-                    aria-label="品类筛选"
-                  >
-                    <option value="">全部品类</option>
-                    {parentCategoryOptions.map((c) => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3 text-steel-muted pointer-events-none" strokeWidth={2} />
-                </div>
-              )}
+              <Select value={parentCategory} onValueChange={handleParentCategoryChange}>
+                <SelectTrigger variant="filter" className="shrink-0 w-auto min-w-0" aria-label="品类筛选">
+                  <SelectValue placeholder="全部品类" />
+                </SelectTrigger>
+                <SelectContent variant="filter">
+                  <SelectItem value="">全部品类</SelectItem>
+                  {parentCategoryOptions.map((c) => (
+                    <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <span className="text-[11px] text-steel-muted shrink-0 select-none">品种</span>
               <CategoryTabs
                 categories={categories}
@@ -656,23 +657,23 @@ export default function PriceBoard() {
 
             {/* Row 2: 区域 + 规格 + 查询 + 视图切换 */}
             <div className="flex flex-wrap items-center gap-3">
-              <div className="relative">
-                <select
-                  value={region}
-                  onChange={(e) => {
-                    setRegion(e.target.value);
-                    setPage(1);
-                  }}
-                  className="rounded-full border border-steel-line bg-steel-canvas pl-3.5 pr-8 py-1.5 text-[13px] text-steel-ink outline-none hover:border-steel-ink focus:border-steel-ink transition-colors duration-150 appearance-none cursor-pointer"
-                  aria-label="区域筛选"
-                >
-                  <option value="">全部区域</option>
+              <Select
+                value={region}
+                onValueChange={(v) => {
+                  setRegion(v);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger variant="filter" className="w-auto min-w-0" aria-label="区域筛选">
+                  <SelectValue placeholder="全部区域" />
+                </SelectTrigger>
+                <SelectContent variant="filter">
+                  <SelectItem value="">全部区域</SelectItem>
                   {regions.filter(Boolean).map((r) => (
-                    <option key={r} value={r}>{r}</option>
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
                   ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3 text-steel-muted pointer-events-none" strokeWidth={2} />
-              </div>
+                </SelectContent>
+              </Select>
 
               <div className="flex items-center gap-2 rounded-full border border-steel-line px-3 py-1.5 focus-within:border-steel-ink transition-colors duration-150">
                 <Search className="size-3.5 text-steel-placeholder shrink-0" strokeWidth={1.75} />
@@ -681,7 +682,7 @@ export default function PriceBoard() {
                   value={spec}
                   onChange={(e) => setSpec(e.target.value)}
                   placeholder="规格型号"
-                  className="bg-transparent border-0 outline-none text-[13px] text-steel-ink placeholder:text-steel-placeholder w-36"
+                  className="bg-transparent border-0 outline-none text-[13px] text-steel-ink placeholder:text-steel-placeholder min-w-0 flex-1"
                   aria-label="规格型号"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleSearch();
@@ -697,7 +698,7 @@ export default function PriceBoard() {
                 查询
               </button>
 
-              <div className="ml-auto">
+              <div className="sm:ml-auto flex-shrink-0">
                 <ViewModeControl mode={viewMode} onChange={handleViewModeChange} />
               </div>
             </div>

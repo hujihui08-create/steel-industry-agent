@@ -87,7 +87,11 @@ export default function QuotationListPage() {
   const renderContent = () => {
     // Loading
     if (isLoading) {
-      return <LoadingSkeleton variant="list" count={3} className="px-4 pt-4" />;
+      return (
+        <div className="max-w-[720px] mx-auto px-4 py-4">
+          <LoadingSkeleton variant="list" count={3} />
+        </div>
+      );
     }
 
     // Error
@@ -107,7 +111,7 @@ export default function QuotationListPage() {
 
     // List
     return (
-      <div className="divide-y divide-steel-line">
+      <div className="max-w-[720px] mx-auto px-4 py-4 space-y-2">
         {quotations.map((item) => {
           const status = STATUS_MAP[item.status];
           return (
@@ -115,7 +119,7 @@ export default function QuotationListPage() {
               key={item.id}
               type="button"
               onClick={() => navigate(`/quotations/${item.id}`)}
-              className="w-full text-left px-4 py-4 hover:bg-steel-surface transition-colors duration-150 block"
+              className="w-full text-left rounded-2xl border border-steel-line bg-steel-canvas p-4 hover:bg-steel-surface/50 transition-colors duration-150"
             >
               {/* Row 1: title + status badge */}
               <div className="flex items-start justify-between gap-3">
