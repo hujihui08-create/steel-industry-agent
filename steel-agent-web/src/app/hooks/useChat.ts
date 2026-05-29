@@ -57,6 +57,14 @@ export function useChat() {
         const s = useChatStore.getState();
         s.setStatusMessage(null);
         s.setStreaming(false);
+
+        const inMemoryAttachments = new Map<number, CardAttachment[]>();
+        s.messages.forEach((msg, idx) => {
+          if (msg.role === 'assistant' && msg.attachments && msg.attachments.length > 0) {
+            inMemoryAttachments.set(idx, [...msg.attachments]);
+          }
+        });
+
         if (s.currentSessionId !== null) {
           try {
             const [sessions, messages] = await Promise.all([
@@ -66,7 +74,17 @@ export function useChat() {
             if (genId !== generationRef.current) return;
             s.setSessions(sessions);
             if (messages.length > 0) {
-              s.setMessages(messages);
+              if (inMemoryAttachments.size > 0) {
+                const mergedMessages = messages.map((msg, idx) => {
+                  if (msg.role === 'assistant' && inMemoryAttachments.has(idx)) {
+                    return { ...msg, attachments: inMemoryAttachments.get(idx) };
+                  }
+                  return msg;
+                });
+                s.setMessages(mergedMessages);
+              } else {
+                s.setMessages(messages);
+              }
             }
           } catch {
             // 静默失败
