@@ -90,9 +90,13 @@ func GenerateRefreshToken(userID uint, role string) (string, error) {
 }
 
 // ParseToken parses and validates a JWT token string, returning the parsed claims.
-// Backward compatible: does not validate TokenType.
+// Tries JWTSecret first; if that fails and a JWTRefreshSecret is configured, also tries that.
 func ParseToken(tokenString string) (*Claims, error) {
-	return parseTokenWithSecret(tokenString, config.AppConfig.JWTSecret)
+	claims, err := parseTokenWithSecret(tokenString, config.AppConfig.JWTSecret)
+	if err != nil && config.AppConfig.JWTRefreshSecret != "" {
+		return parseTokenWithSecret(tokenString, config.AppConfig.JWTRefreshSecret)
+	}
+	return claims, err
 }
 
 // ParseTokenWithType parses a token and validates that its TokenType matches the expected type.
