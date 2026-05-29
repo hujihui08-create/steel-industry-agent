@@ -231,13 +231,7 @@ export function useChat() {
   const loadSessions = useCallback(async () => {
     try {
       const sessions = await chatApi.getSessions();
-      const s = useChatStore.getState();
-      s.setSessions(sessions);
-      if (sessions.length > 0 && s.currentSessionId === null) {
-        s.setCurrentSessionId(sessions[0].id);
-        const messages = await chatApi.getSessionMessages(sessions[0].id);
-        s.setMessages(messages);
-      }
+      useChatStore.getState().setSessions(sessions);
     } catch {
       // 静默失败
     }
