@@ -472,10 +472,13 @@ func (s *ChatService) buildModelConfigsFromAgentConfig(cfg *AgentConfigDO) (ai.M
 			Model:   normalizeModelName(m.Name),
 		}
 
-		if strings.EqualFold(m.Name, cfg.PrimaryModel) {
+		// Match by name or ID (admin UI uses auto-generated IDs like "m-1234567890")
+		isPrimary := strings.EqualFold(m.Name, cfg.PrimaryModel) || strings.EqualFold(m.ID, cfg.PrimaryModel)
+		isBackup := strings.EqualFold(m.Name, cfg.BackupModel) || strings.EqualFold(m.ID, cfg.BackupModel)
+		if isPrimary {
 			primary = mc
 			primaryFound = true
-		} else if strings.EqualFold(m.Name, cfg.BackupModel) {
+		} else if isBackup {
 			fallbacks = append(fallbacks, mc)
 		}
 	}
@@ -492,7 +495,8 @@ func (s *ChatService) buildModelConfigsFromAgentConfig(cfg *AgentConfigDO) (ai.M
 
 	// Add any remaining models as fallbacks (up to 2).
 	for _, m := range cfg.Models {
-		if strings.EqualFold(m.Name, cfg.PrimaryModel) || strings.EqualFold(m.Name, cfg.BackupModel) {
+		if strings.EqualFold(m.Name, cfg.PrimaryModel) || strings.EqualFold(m.ID, cfg.PrimaryModel) ||
+			strings.EqualFold(m.Name, cfg.BackupModel) || strings.EqualFold(m.ID, cfg.BackupModel) {
 			continue
 		}
 		if len(fallbacks) >= 2 {
@@ -1060,7 +1064,7 @@ func (s *ChatService) executeGetPriceTrend(ctx context.Context, argsJSON string)
 		"category": args.Category,
 		"period":   args.Period,
 		"points":   points,
-		"count":    len(points),
+		"count":    len(prices),
 	}
 	data, _ := json.Marshal(result)
 	return string(data), nil

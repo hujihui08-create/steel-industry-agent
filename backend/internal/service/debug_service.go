@@ -555,6 +555,9 @@ func (s *DebugService) StreamDebugChat(ctx context.Context, req *DebugDialogueRe
 		req.ContextTurns = 5
 	}
 
+	// Apply admin-configured AI models before each call
+	s.chatService.applyAgentConfig(ctx)
+
 	cfg, cfgErr := s.agentConfigService.GetAgentConfig(ctx)
 	sysPrompt := SystemPrompt
 	if cfgErr == nil && cfg.SystemPrompt != "" {
