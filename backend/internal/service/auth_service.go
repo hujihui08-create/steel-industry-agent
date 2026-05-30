@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"time"
 
@@ -24,9 +23,9 @@ const smsCodeTTL = 5 * time.Minute
 
 // AuthService handles authentication and authorization business logic.
 type AuthService struct {
-	userRepo           *repository.UserRepository
-	redisClient        redis.UniversalClient
-	adminSettingsRepo  *repository.AdminSettingsRepository
+	userRepo          *repository.UserRepository
+	redisClient       redis.UniversalClient
+	adminSettingsRepo *repository.AdminSettingsRepository
 }
 
 // NewAuthService creates a new AuthService with the given dependencies.
@@ -37,32 +36,37 @@ func NewAuthService(userRepo *repository.UserRepository, redisClient redis.Unive
 // SendSMSCode sends a one-time SMS verification code to the given phone number
 // and stores it in Redis with a 5-minute TTL.
 func (s *AuthService) SendSMSCode(ctx context.Context, phone string) error {
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	code := fmt.Sprintf("%06d", rng.Intn(1000000))
-
-	if s.redisClient != nil {
-		key := fmt.Sprintf("sms_code:%s", phone)
-		if err := s.redisClient.Set(ctx, key, code, smsCodeTTL).Err(); err != nil {
-			return fmt.Errorf("failed to store verification code: %w", err)
-		}
-	}
-
 	if s.adminSettingsRepo == nil {
-		fmt.Printf("SMS code sent to %s: %s\n", phone, code)
+		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+		code := fmt.Sprintf("%06d", rng.Intn(1000000))
+		fmt.Printf("SMS code (no settings access) for %s: %s\n", phone, code)
+		if s.redisClient != nil {
+			key := fmt.Sprintf("sms_code:%s", phone)
+			_ = s.redisClient.Set(ctx, key, code, smsCodeTTL)
+		}
 		return nil
 	}
 
 	settings, err := s.adminSettingsRepo.Get(ctx)
 	if err != nil || settings == nil {
-		fmt.Printf("SMS code (settings unavailable) sent to %s: %s\n", phone, code)
+		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+		code := fmt.Sprintf("%06d", rng.Intn(1000000))
+		fmt.Printf("SMS code (settings unavailable) for %s: %s\n", phone, code)
+		if s.redisClient != nil {
+			key := fmt.Sprintf("sms_code:%s", phone)
+			_ = s.redisClient.Set(ctx, key, code, smsCodeTTL)
+		}
 		return nil
 	}
 
-	enabled, _ := settings.SettingsData["smsEnabled"].(bool)
-	if !enabled {
-		fmt.Printf("SMS disabled, code sent to %s: %s\n", phone, code)
-		log.Printf("SMS disabled, code for %s printed to console", phone)
-		return nil
+	enabled := false
+	switch v := settings.SettingsData["smsEnabled"].(type) {
+	case bool:
+		enabled = v
+	case float64:
+		enabled = v != 0
+	case int:
+		enabled = v != 0
 	}
 
 	accessKey, _ := settings.SettingsData["smsAccessKey"].(string)
@@ -70,22 +74,35 @@ func (s *AuthService) SendSMSCode(ctx context.Context, phone string) error {
 	signName, _ := settings.SettingsData["smsSignName"].(string)
 	templateCode, _ := settings.SettingsData["smsTemplateCode"].(string)
 
-	if accessKey == "" || accessSecret == "" || signName == "" || templateCode == "" {
-		fmt.Printf("SMS config incomplete, code sent to %s: %s\n", phone, code)
-		log.Printf("SMS config incomplete for %s, code printed to console", phone)
+	if !enabled || accessKey == "" || accessSecret == "" || signName == "" || templateCode == "" {
+		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+		code := fmt.Sprintf("%06d", rng.Intn(1000000))
+		fmt.Printf("SMS config incomplete (enabled=%v), code for %s: %s\n", enabled, phone, code)
+		if s.redisClient != nil {
+			key := fmt.Sprintf("sms_code:%s", phone)
+			_ = s.redisClient.Set(ctx, key, code, smsCodeTTL)
+		}
 		return nil
 	}
 
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	code := fmt.Sprintf("%06d", rng.Intn(1000000))
+
 	smsClient, err := sms.NewSMSService(accessKey, accessSecret)
 	if err != nil {
-		log.Printf("Failed to create SMS client: %v", err)
-		return fmt.Errorf("短信服务初始化失败")
+		return fmt.Errorf("短信服务初始化失败: %w", err)
 	}
 
 	_, err = smsClient.SendVerificationCode(phone, signName, templateCode, code)
 	if err != nil {
-		log.Printf("Failed to send SMS to %s: %v", phone, err)
-		return fmt.Errorf("短信发送失败，请稍后重试")
+		return err
+	}
+
+	if s.redisClient != nil {
+		key := fmt.Sprintf("sms_code:%s", phone)
+		if err := s.redisClient.Set(ctx, key, code, smsCodeTTL).Err(); err != nil {
+			return fmt.Errorf("failed to store verification code: %w", err)
+		}
 	}
 
 	return nil
@@ -228,9 +245,9 @@ func (s *AuthService) RefreshToken(ctx context.Context, oldToken string) (string
 	}
 
 	// ============ KEY FIX: SIMPLER APPROACH ============
-	// The frontend's Axios interceptor (client.ts:L128-L139) expects the refresh 
-	// endpoint to return BOTH access_token AND refresh_token. However, the old 
-	// backend code only returned access_token, causing the frontend to fail with 
+	// The frontend's Axios interceptor (client.ts:L128-L139) expects the refresh
+	// endpoint to return BOTH access_token AND refresh_token. However, the old
+	// backend code only returned access_token, causing the frontend to fail with
 	// "Refresh response missing tokens" and clear auth state.
 	//
 	// Fix: also generate a new refresh token and return both tokens.

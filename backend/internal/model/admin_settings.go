@@ -50,7 +50,7 @@ func SettingsDefaults() map[string]interface{} {
 		"smtpEncryption":     "SSL",
 		"smtpEmail":          "",
 		"smtpPassword":       "",
-		"smsEnabled":         false,
+		"smsEnabled":         true,
 		"smsProvider":        "阿里云号码认证（个人开发者）",
 		"smsAccessKey":       "",
 		"smsAccessSecret":    "",

@@ -69,7 +69,7 @@ const DEFAULT_FORM: SystemSettingsType = {
   smtpEncryption: "SSL",
   smtpEmail: "",
   smtpPassword: "",
-  smsEnabled: false,
+  smsEnabled: true,
   smsProvider: "阿里云号码认证（个人开发者）",
   smsAccessKey: "",
   smsAccessSecret: "",
@@ -876,7 +876,7 @@ export default function SystemSettingsPage() {
                         onChange={(e) =>
                           updateField("smsSignName", e.target.value)
                         }
-                        placeholder="阿里云控制台中的签名名称"
+                        placeholder="系统赠送的签名名称，如：速通互联验证码"
                         className={cn(
                           "h-9 rounded-[10px] border-[#E5E5E5] bg-white",
                           "text-[13px] leading-[1.5] text-[#0A0A0A]",
@@ -884,6 +884,9 @@ export default function SystemSettingsPage() {
                           "focus-visible:border-[#0A0A0A] focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/5",
                         )}
                       />
+                      <p className="text-[11px] text-[#737373] mt-1">
+                        必须使用阿里云系统赠送的签名名称，不支持自定义签名
+                      </p>
                     </FormRow>
 
                     {/* 模板编号 */}
