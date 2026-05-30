@@ -360,7 +360,7 @@ export default function ChatPage() {
               key={cardKey}
               role="button"
               tabIndex={0}
-              className="mt-3 max-w-[85%] cursor-pointer animate-card-in"
+              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
               onClick={() => handleCardClick(att, cardKey)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
@@ -391,7 +391,7 @@ export default function ChatPage() {
               key={cardKey}
               role="button"
               tabIndex={0}
-              className="mt-3 max-w-[85%] cursor-pointer animate-card-in"
+              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
               onClick={() => handleCardClick(att, cardKey)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
@@ -416,7 +416,7 @@ export default function ChatPage() {
               key={cardKey}
               role="button"
               tabIndex={0}
-              className="mt-3 max-w-[85%] cursor-pointer animate-card-in"
+              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
               onClick={() => handleCardClick(att, cardKey)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
@@ -443,7 +443,7 @@ export default function ChatPage() {
               key={cardKey}
               role="button"
               tabIndex={0}
-              className="mt-3 max-w-[85%] cursor-pointer animate-card-in"
+              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
               onClick={() => handleCardClick(att, cardKey)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
@@ -483,7 +483,7 @@ export default function ChatPage() {
               key={cardKey}
               role="button"
               tabIndex={0}
-              className="mt-3 max-w-[85%] cursor-pointer animate-card-in"
+              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
               onClick={() => handleCardClick(att, cardKey)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
@@ -529,7 +529,7 @@ export default function ChatPage() {
           };
           if (!data.options || data.options.length === 0) return null;
           return (
-            <div key={cardKey} className="mt-3 max-w-[85%]">
+            <div key={cardKey} className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)]">
               <QuickSelectChips
                 options={data.options}
                 label={data.label}
@@ -564,7 +564,7 @@ export default function ChatPage() {
               key={cardKey}
               role="button"
               tabIndex={0}
-              className="mt-3 max-w-[85%] cursor-pointer animate-card-in"
+              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
               onClick={() => handleCardClick(att, cardKey)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
@@ -587,7 +587,7 @@ export default function ChatPage() {
           const items = (raw.items as TenderCardItem[]) || [];
           if (items.length === 0) {
             return (
-              <div key={cardKey} className="mt-3 max-w-[85%]">
+              <div key={cardKey} className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)]">
                 <TenderCard items={[]} />
               </div>
             );
@@ -597,7 +597,7 @@ export default function ChatPage() {
               key={cardKey}
               role="button"
               tabIndex={0}
-              className="mt-3 max-w-[85%] cursor-pointer animate-card-in"
+              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
               onClick={() => handleCardClick(att, cardKey)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
@@ -641,7 +641,7 @@ export default function ChatPage() {
               key={cardKey}
               role="button"
               tabIndex={0}
-              className="mt-3 max-w-[85%] cursor-pointer animate-card-in"
+              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
               onClick={() => handleCardClick(att, cardKey)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
@@ -1484,7 +1484,8 @@ export default function ChatPage() {
 
         {/* ---- Messages Area ---- */}
         <div
-          className="flex flex-col flex-1 min-h-0 overflow-hidden"
+          className="flex flex-col flex-1 min-h-0 overflow-hidden select-none"
+          style={{ touchAction: 'pan-y' }}
           onTouchStart={handlePullStart}
           onTouchMove={handlePullMove}
           onTouchEnd={handlePullEnd}
@@ -1510,7 +1511,7 @@ export default function ChatPage() {
               <EmptyState />
             ) : (
               <div
-                className="max-w-[720px] mx-auto px-4 py-6 space-y-4"
+                className="max-w-[720px] mx-auto px-4 py-6 space-y-2"
                 role="log"
                 aria-live="polite"
                 aria-label="对话消息列表"
@@ -1518,8 +1519,10 @@ export default function ChatPage() {
                 {store.messages.map((msg, index) => {
                   const prevMsg = index > 0 ? store.messages[index - 1] : null;
                   const hideAvatar = msg.role === 'assistant' && prevMsg?.role === 'assistant';
+                  const prevRole = index > 0 ? store.messages[index - 1].role : null;
+                  const isRoleSwitch = prevRole && prevRole !== msg.role;
                   return (
-                  <div key={msg.id}>
+                  <div key={msg.id} className={isRoleSwitch ? "mt-6" : "mt-2"}>
                     <ChatBubble
                       message={msg}
                       isStreaming={
@@ -1580,7 +1583,7 @@ export default function ChatPage() {
         </div>
 
         {/* ---- Input Area ---- */}
-        <div className="flex-shrink-0 border-t border-steel-line bg-steel-canvas px-4 pb-4 pt-3 relative z-10">
+        <div className="flex-shrink-0 border-t border-steel-line bg-steel-canvas px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-3 relative z-10">
           <div className="max-w-[720px] mx-auto">
             <ChatInput
               onSend={handleSend}

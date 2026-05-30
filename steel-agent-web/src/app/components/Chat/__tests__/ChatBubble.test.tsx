@@ -356,10 +356,10 @@ describe("ChatBubble - Stopped content", () => {
 });
 
 // ===========================================================================
-// ChatBubble - Action sheet (long press context menu)
+// ChatBubble - Action buttons (inline icon buttons on hover/tap)
 // ===========================================================================
-describe("ChatBubble - Action sheet", () => {
-  it("should open action sheet on right-click for assistant messages", () => {
+describe("ChatBubble - Action buttons", () => {
+  it("should render inline action buttons for assistant messages", () => {
     const msg = makeMsg({
       role: "assistant",
       content: "正常回复",
@@ -367,19 +367,11 @@ describe("ChatBubble - Action sheet", () => {
 
     render(<ChatBubble message={msg} onCopy={vi.fn()} />);
 
-    const bubbleGroup = document.querySelector(".group");
-    expect(bubbleGroup).toBeInTheDocument();
-
-    if (bubbleGroup) {
-      fireEvent.contextMenu(bubbleGroup);
-    }
-
-    // After context menu, the action sheet should appear
-    // with copy and regenerate options (for assistant)
-    expect(screen.getByText("复制")).toBeInTheDocument();
+    // Inline icon buttons use aria-label, not raw text
+    expect(screen.getByLabelText("复制")).toBeInTheDocument();
   });
 
-  it("should include '有用'/'无用' options for assistant message action sheet", () => {
+  it("should include thumbs-up/thumbs-down buttons for assistant with feedback", () => {
     const msg = makeMsg({
       role: "assistant",
       content: "正常回复",
@@ -393,12 +385,7 @@ describe("ChatBubble - Action sheet", () => {
       />,
     );
 
-    const bubbleGroup = document.querySelector(".group");
-    if (bubbleGroup) {
-      fireEvent.contextMenu(bubbleGroup);
-    }
-
-    expect(screen.getByText("有帮助")).toBeInTheDocument();
-    expect(screen.getByText("不准确")).toBeInTheDocument();
+    expect(screen.getByLabelText("有帮助")).toBeInTheDocument();
+    expect(screen.getByLabelText("不准确")).toBeInTheDocument();
   });
 });

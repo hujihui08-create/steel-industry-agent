@@ -73,7 +73,8 @@ export function QuickSelectChips({
             <button
               key={option}
               type="button"
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
                 setLocked(true);
                 onSelect(option);
               }}

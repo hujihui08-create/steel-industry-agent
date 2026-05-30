@@ -118,7 +118,7 @@ export function AIBubble({
         aria-live={ariaLive}
         role={isError ? "alert" : undefined}
         className={cn(
-          "rounded-2xl rounded-tl-sm px-4 py-3.5 text-[15px] leading-[1.6] text-steel-body",
+          "rounded-2xl rounded-tl-sm px-4 py-3.5 text-[15px] leading-[1.6] text-steel-ink",
           isError
             ? "bg-rose-50 border border-rose-200"
             : "bg-steel-surface border border-steel-line"
@@ -210,7 +210,6 @@ export const ChatBubble = React.memo(function ChatBubble({
   onDelete,
   onSwipeQuote,
 }: ChatBubbleProps) {
-  const [showActions, setShowActions] = React.useState(false);
   const [showTouchActions, setShowTouchActions] = React.useState(false);
   const [swipeOffset, setSwipeOffset] = React.useState(0);
 
@@ -234,17 +233,10 @@ export const ChatBubble = React.memo(function ChatBubble({
   const errorKeywords = ["查询失败", "查询异常", "请求失败", "服务不可用", "网络异常", "请求超时"];
   const isError = isAssistant && errorKeywords.some(kw => content.startsWith(kw));
 
-  // Context menu handler
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setShowActions(true);
-  };
-
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     longPressTimer.current = setTimeout(() => {
-      setShowActions(true);
-      setShowTouchActions(false);
+      setShowTouchActions(true);
     }, 350);
   };
 
@@ -287,7 +279,6 @@ export const ChatBubble = React.memo(function ChatBubble({
       <div
         className="group relative"
         style={{ transform: `translateX(-${swipeOffset}px)`, transition: swipeOffset === 0 ? "transform 240ms cubic-bezier(.2,.8,.2,1)" : "none" }}
-        onContextMenu={handleContextMenu}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -318,17 +309,6 @@ export const ChatBubble = React.memo(function ChatBubble({
             </button>
           )}
         </div>
-        {showActions && isUser && (
-          <div className="absolute bottom-full right-0 mb-1 rounded-xl border border-steel-line bg-steel-canvas px-1 py-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)] z-10 flex flex-col">
-            {onCopy && <button onClick={() => { onCopy(content); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">复制</button>}
-            {onEdit && <button onClick={() => { onEdit(content); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">编辑</button>}
-            {onSwipeQuote && <button onClick={() => { onSwipeQuote(); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">引用</button>}
-            {onDelete && <button onClick={() => { onDelete(message.id); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-down hover:bg-steel-surface rounded-lg text-left">删除</button>}
-          </div>
-        )}
-        {showActions && (
-          <div className="fixed inset-0 z-0" onClick={() => setShowActions(false)} />
-        )}
       </div>
     );
   }
@@ -337,7 +317,6 @@ export const ChatBubble = React.memo(function ChatBubble({
     <div
       className="group relative"
       style={{ transform: `translateX(-${swipeOffset}px)`, transition: swipeOffset === 0 ? "transform 240ms cubic-bezier(.2,.8,.2,1)" : "none" }}
-      onContextMenu={handleContextMenu}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -406,18 +385,6 @@ export const ChatBubble = React.memo(function ChatBubble({
             </>
           )}
         </div>
-      )}
-      {showActions && isAssistant && (
-        <div className="absolute bottom-full right-0 mb-1 rounded-xl border border-steel-line bg-steel-canvas px-1 py-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)] z-10 flex flex-col">
-          {onCopy && <button onClick={() => { onCopy(content); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">复制</button>}
-          {onRegenerate && <button onClick={() => { onRegenerate(); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">重新生成</button>}
-          {onSwipeQuote && <button onClick={() => { onSwipeQuote(); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">引用</button>}
-          {onFeedback && <button onClick={() => { onFeedback(true); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">有帮助</button>}
-          {onFeedback && <button onClick={() => { onFeedback(false); setShowActions(false); }} className="px-3 py-1.5 text-[13px] text-steel-body hover:bg-steel-surface rounded-lg text-left">不准确</button>}
-        </div>
-      )}
-      {showActions && (
-        <div className="fixed inset-0 z-0" onClick={() => setShowActions(false)} />
       )}
     </div>
   );

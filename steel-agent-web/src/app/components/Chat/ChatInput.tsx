@@ -355,7 +355,7 @@ export function ChatInput({
       <button
         key={cmd.id}
         type="button"
-        onClick={() => handleQuickCommand(cmd)}
+        onClick={(e) => { e.preventDefault(); textareaRef.current?.blur(); setTimeout(() => handleQuickCommand(cmd), 0); }}
         className={cn(
           "flex items-center shrink-0 rounded-full border px-3 py-1.5",
           "text-[13px] leading-[1.5]",
@@ -469,7 +469,7 @@ export function ChatInput({
         disabled={isStreaming}
         rows={1}
         aria-label="输入消息"
-        className="flex-1 resize-none border-0 bg-transparent px-0 py-1.5 text-[15px] leading-[1.6] text-steel-ink placeholder:text-steel-placeholder outline-none"
+        className="flex-1 min-w-0 resize-none border-0 bg-transparent px-0 py-1.5 text-[15px] leading-[1.6] text-steel-ink placeholder:text-steel-placeholder outline-none"
         style={{
           minHeight: `${MIN_TEXTAREA_HEIGHT}px`,
           maxHeight: `${MAX_TEXTAREA_HEIGHT}px`,
@@ -596,7 +596,7 @@ export function ChatInput({
         )}
       >
         <div className={cn(
-          "flex items-end gap-2 p-2 pl-3",
+          "flex flex-nowrap items-end gap-2 p-2 pl-3",
           "transition-all duration-[240ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]",
           isStreaming
             ? "opacity-0 scale-[0.98] absolute inset-0 pointer-events-none overflow-hidden"
@@ -639,7 +639,7 @@ export function ChatInput({
         {filePreviews}
 
         <div className={cn(
-          "flex items-end gap-2 px-2 pb-2",
+          "flex flex-nowrap items-end gap-2 px-2 pb-2",
           "transition-all duration-[240ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]",
           isStreaming
             ? "opacity-0 scale-[0.98] absolute inset-0 pointer-events-none overflow-hidden"
