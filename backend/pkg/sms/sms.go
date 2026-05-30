@@ -2,6 +2,7 @@ package sms
 
 import (
 	"fmt"
+	"log"
 
 	openapi "github.com/alibabacloud-go/darabonba-openapi/client"
 	openapiutil "github.com/alibabacloud-go/openapi-util/service"
@@ -63,6 +64,8 @@ func (s *SMSService) SendVerificationCode(phoneNumber, signName, templateCode, c
 	if err != nil {
 		return nil, fmt.Errorf("SMS API call failed: %w", err)
 	}
+
+	log.Printf("[SMS] Raw response bodyMap: %+v", bodyMap)
 
 	apiCode, _ := bodyMap["Code"].(string)
 	if apiCode != "OK" {
