@@ -4,10 +4,10 @@ WORKDIR /app
 
 RUN npm config set registry https://registry.npmmirror.com
 
-COPY package*.json ./
+COPY steel-agent-web/package*.json ./
 RUN npm install --legacy-peer-deps
 
-COPY . .
+COPY steel-agent-web/ ./
 RUN npm run build
 
 FROM nginx:alpine
