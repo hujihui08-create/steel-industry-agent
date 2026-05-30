@@ -50,6 +50,7 @@ func NewKnowledgeService(knowledgeRepo *repository.KnowledgeRepository, aiAdapte
 		defer cancel()
 		if dbCfg, err := knowledgeRepo.GetRAGConfig(ctx); err == nil && dbCfg != nil {
 			s.ragConfig = dbCfg
+			s.syncEmbeddingConfig()
 			log.Println("RAG config loaded from database")
 		}
 	}
@@ -61,6 +62,7 @@ func defaultRAGConfig() *model.RAGConfig {
 		EmbeddingModel:      "text-embedding-3-small",
 		EmbeddingAPIKey:     "",
 		EmbeddingBaseURL:    "",
+		EmbeddingDimension:  1536,
 		ChunkMethod:         "paragraph",
 		ChunkSize:           512,
 		ChunkOverlap:        50,
@@ -72,6 +74,22 @@ func defaultRAGConfig() *model.RAGConfig {
 		RerankEnabled:       false,
 		CacheEnabled:        false,
 		MaxRecall:           100,
+	}
+}
+
+func (s *KnowledgeService) syncEmbeddingConfig() {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.ragConfig.EmbeddingAPIKey != "" {
+		s.aiAdapter.SetEmbeddingConfig(&ai.ModelConfig{
+			Name:    "embedding",
+			APIKey:  s.ragConfig.EmbeddingAPIKey,
+			BaseURL: s.ragConfig.EmbeddingBaseURL,
+			Model:   s.ragConfig.EmbeddingModel,
+		})
+	} else {
+		s.aiAdapter.SetEmbeddingConfig(nil)
 	}
 }
 
@@ -208,6 +226,7 @@ func (s *KnowledgeService) AdminGetStats(ctx context.Context) (*model.KnowledgeS
 	// Derive vector dimension from the configured embedding model
 	s.mu.RLock()
 	modelName := s.ragConfig.EmbeddingModel
+	storedDim := s.ragConfig.EmbeddingDimension
 	s.mu.RUnlock()
 
 	switch modelName {
@@ -215,8 +234,12 @@ func (s *KnowledgeService) AdminGetStats(ctx context.Context) (*model.KnowledgeS
 		stats.VectorDimension = 3072
 	case "text-embedding-ada-002":
 		stats.VectorDimension = 1536
-	default: // text-embedding-3-small or unknown
-		stats.VectorDimension = 1536
+	default:
+		if storedDim > 0 {
+			stats.VectorDimension = storedDim
+		} else {
+			stats.VectorDimension = 1536
+		}
 	}
 	return stats, nil
 }
@@ -372,8 +395,10 @@ func (s *KnowledgeService) UpdateRAGConfig(ctx context.Context, cfg *model.RAGCo
 	}
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.ragConfig = cfg
+	s.mu.Unlock()
+
+	s.syncEmbeddingConfig()
 	return nil
 }
 

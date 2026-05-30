@@ -56,8 +56,14 @@ export default function RetrievalConfig() {
     setDirty(true);
   }, []);
 
+  const isCustomModel = !MODEL_OPTIONS.some((m) => m.value === config?.embedding_model);
+
   const handleSave = useCallback(async () => {
     if (!config) return;
+    if (isCustomModel && !config.embedding_api_key) {
+      showErrorToast("自定义模型请填写 API Key");
+      return;
+    }
     setSaving(true);
     try {
       const saved = await adminKnowledgeApi.adminUpdateRAGConfig(config);
@@ -126,37 +132,58 @@ export default function RetrievalConfig() {
 
         {/* Embedding 模型配置 */}
         <SectionCard icon={<Zap size={16} strokeWidth={1.75} />} title="Embedding 模型">
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-[12px] text-[#737373]">模型名称</label>
-              <select
+              <input
+                type="text"
                 value={config.embedding_model}
                 onChange={(e) => updateConfig("embedding_model", e.target.value)}
+                list="embedding-model-list"
+                placeholder="输入或选择模型名称"
                 className={cn(
                   "h-9 px-3 rounded-[10px]",
                   "border border-[#E5E5E5]",
                   "bg-white",
-                  "text-[13px] text-[#404040]",
-                  "outline-none focus:border-[#0A0A0A]",
-                  "cursor-pointer transition-colors duration-150",
+                  "text-[13px] text-[#404040] placeholder:text-[#A3A3A3]",
+                  "outline-none focus:border-[#0A0A0A] focus:ring-2 focus:ring-[#0A0A0A]/10",
+                  "transition-colors duration-150",
                 )}
-              >
+              />
+              <datalist id="embedding-model-list">
                 {MODEL_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}（{opt.dimension} 维）
                   </option>
                 ))}
-              </select>
+              </datalist>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-[12px] text-[#737373]">向量维度</label>
-              <span className="h-9 flex items-center text-[13px] text-[#404040]">
-                {MODEL_OPTIONS.find((m) => m.value === config.embedding_model)?.dimension ?? "—"}
-              </span>
+              {isCustomModel ? (
+                <input
+                  type="number"
+                  min={1}
+                  value={config.embedding_dimension}
+                  onChange={(e) => updateConfig("embedding_dimension", Number(e.target.value))}
+                  className={cn(
+                    "h-9 px-3 rounded-[10px]",
+                    "border border-[#E5E5E5]",
+                    "bg-white",
+                    "text-[13px] text-[#404040]",
+                    "outline-none focus:border-[#0A0A0A] focus:ring-2 focus:ring-[#0A0A0A]/10",
+                    "transition-colors duration-150",
+                  )}
+                />
+              ) : (
+                <span className="h-9 flex items-center text-[13px] text-[#404040]">
+                  {MODEL_OPTIONS.find((m) => m.value === config.embedding_model)?.dimension ?? "—"}
+                </span>
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-[12px] text-[#737373]">API Key（可选）</label>
               <div className="relative">
@@ -215,7 +242,7 @@ export default function RetrievalConfig() {
 
         {/* 分块策略 */}
         <SectionCard icon={<Database size={16} strokeWidth={1.75} />} title="文档分块策略">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-[12px] text-[#737373]">分块方式</label>
               <select
@@ -280,7 +307,7 @@ export default function RetrievalConfig() {
 
         {/* 检索参数 */}
         <SectionCard icon={<SlidersHorizontal size={16} strokeWidth={1.75} />} title="检索参数">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="default-topk" className="text-[12px] text-[#737373]">默认 Top-K</label>
               <input
@@ -424,7 +451,7 @@ export default function RetrievalConfig() {
 
         {/* 性能统计 */}
         <SectionCard icon={<BarChart3 size={16} strokeWidth={1.75} />} title="性能统计">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="rounded-lg bg-[#FAFAFA] p-4 text-center">
               <div className="text-[24px] leading-[1.3] font-medium text-[#0A0A0A]">--</div>
               <div className="text-[12px] text-[#737373] mt-1">平均检索耗时</div>

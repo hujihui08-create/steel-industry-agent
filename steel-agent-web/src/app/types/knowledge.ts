@@ -88,6 +88,7 @@ export interface RAGConfig {
   embedding_model: string;
   embedding_api_key: string;
   embedding_base_url: string;
+  embedding_dimension: number;
   chunk_method: string;
   chunk_size: number;
   chunk_overlap: number;

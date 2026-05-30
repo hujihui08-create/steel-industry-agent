@@ -87,6 +87,7 @@ type RAGConfig struct {
 	EmbeddingModel      string    `gorm:"column:embedding_model" json:"embedding_model"`
 	EmbeddingAPIKey     string    `gorm:"column:embedding_api_key" json:"embedding_api_key"`
 	EmbeddingBaseURL    string    `gorm:"column:embedding_base_url" json:"embedding_base_url"`
+	EmbeddingDimension  int       `gorm:"column:embedding_dimension;default:1536" json:"embedding_dimension"`
 	ChunkMethod         string    `gorm:"column:chunk_method" json:"chunk_method"`
 	ChunkSize           int       `gorm:"column:chunk_size" json:"chunk_size"`
 	ChunkOverlap        int       `gorm:"column:chunk_overlap" json:"chunk_overlap"`
