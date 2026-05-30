@@ -111,16 +111,16 @@ func (s *TenderService) GetFavorites(ctx context.Context, userID uint) ([]model.
 		return nil, err
 	}
 
-	tenders := make([]model.Tender, 0, len(favorites))
-	for _, fav := range favorites {
-		tender, err := s.tenderRepo.FindByID(ctx, fav.TenderID)
-		if err != nil {
-			continue
-		}
-		tenders = append(tenders, *tender)
+	if len(favorites) == 0 {
+		return []model.Tender{}, nil
 	}
 
-	return tenders, nil
+	ids := make([]uint, len(favorites))
+	for i, fav := range favorites {
+		ids[i] = fav.TenderID
+	}
+
+	return s.tenderRepo.FindByIDs(ctx, ids)
 }
 
 // GetCalendar returns tenders with deadlines within the next 30 days.

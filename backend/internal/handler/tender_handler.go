@@ -153,8 +153,16 @@ func (h *TenderHandler) RemoveFavoriteByID(c *gin.Context) {
 
 // GetFavorites returns the current user's favorited tenders.
 func (h *TenderHandler) GetFavorites(c *gin.Context) {
-	userIDVal, _ := c.Get("user_id")
-	userID := userIDVal.(uint)
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "未提供认证令牌")
+		return
+	}
+	userID, ok := userIDVal.(uint)
+	if !ok {
+		response.Unauthorized(c, "认证信息无效")
+		return
+	}
 
 	tenders, err := h.tenderService.GetFavorites(c.Request.Context(), userID)
 	if err != nil {

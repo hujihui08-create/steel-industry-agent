@@ -8,6 +8,7 @@ import {
   removeTenderFavorite,
 } from "@/app/api/tenders";
 import type { TenderDetail } from "@/app/types/tender";
+import { useAuthStore } from "@/app/stores/authStore";
 import { PageHeader } from "@/app/components/shared/PageHeader";
 import { LoadingSkeleton } from "@/app/components/shared/LoadingSkeleton";
 import { ErrorState } from "@/app/components/shared/ErrorState";
@@ -74,6 +75,7 @@ export default function FavoritesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [unfavoriteId, setUnfavoriteId] = useState<number | null>(null);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const {
     data: favorites,
@@ -86,6 +88,7 @@ export default function FavoritesPage() {
     queryFn: async () => {
       return await getTenderFavorites();
     },
+    enabled: isAuthenticated,
     staleTime: 30_000,
   });
 

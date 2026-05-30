@@ -68,3 +68,13 @@ func (r *TenderRepository) FindByStatus(ctx context.Context, status string) ([]m
 	err := r.db.WithContext(ctx).Where("status = ?", status).Find(&tenders).Error
 	return tenders, err
 }
+
+// FindByIDs finds tenders by a list of primary key IDs using a single batch query.
+func (r *TenderRepository) FindByIDs(ctx context.Context, ids []uint) ([]model.Tender, error) {
+	if len(ids) == 0 {
+		return []model.Tender{}, nil
+	}
+	var tenders []model.Tender
+	err := r.db.WithContext(ctx).Where("id IN ?", ids).Find(&tenders).Error
+	return tenders, err
+}
