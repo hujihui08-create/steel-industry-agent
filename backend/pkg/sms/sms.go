@@ -34,7 +34,7 @@ func NewSMSService(accessKeyID, accessKeySecret string) (*SMSService, error) {
 }
 
 func (s *SMSService) SendVerificationCode(phoneNumber, signName, templateCode, code string) (*SendResult, error) {
-	templateParam := fmt.Sprintf(`{"min":"%s"}`, code)
+	templateParam := code
 
 	query := map[string]interface{}{
 		"PhoneNumber":   phoneNumber,
