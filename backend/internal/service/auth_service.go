@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	"steel-agent-backend/internal/model"
@@ -71,6 +72,8 @@ func (s *AuthService) SendSMSCode(ctx context.Context, phone string) error {
 
 	accessKey, _ := settings.SettingsData["smsAccessKey"].(string)
 	accessSecret, _ := settings.SettingsData["smsAccessSecret"].(string)
+	accessKey = strings.TrimSpace(accessKey)
+	accessSecret = strings.TrimSpace(accessSecret)
 	signName, _ := settings.SettingsData["smsSignName"].(string)
 	templateCode, _ := settings.SettingsData["smsTemplateCode"].(string)
 
