@@ -6,7 +6,8 @@
 // ============================================================
 
 import axios, {
-  type AxiosError,
+  AxiosError,
+  type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from "axios";
 import type { ApiResponse } from "@/app/types/api";
@@ -74,6 +75,22 @@ apiClient.interceptors.response.use(
   (response) => {
     const data = response.data as ApiResponse | undefined;
     if (data && typeof data === "object" && "code" in data && data.code !== 200) {
+      if (data.code === 40101 || data.code === 40102) {
+        const authError = new AxiosError(
+          data.message || "认证失败",
+          "AUTH_ERROR",
+          response.config,
+          response.request,
+          {
+            data,
+            status: 401,
+            statusText: "Unauthorized",
+            headers: response.headers,
+            config: response.config,
+          } as AxiosResponse,
+        );
+        return Promise.reject(authError);
+      }
       return Promise.reject(new Error(data.message || "请求失败"));
     }
     return response;

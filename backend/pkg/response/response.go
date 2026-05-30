@@ -45,12 +45,20 @@ func BusinessError(c *gin.Context, msg string) {
 
 // Unauthorized returns a 401 error response with the given message.
 func Unauthorized(c *gin.Context, msg string) {
-	Error(c, errors.CodeAuthFailed, msg)
+	c.JSON(http.StatusUnauthorized, Response{
+		Code:    errors.CodeAuthFailed,
+		Message: msg,
+		Data:    nil,
+	})
 }
 
 // TokenInvalid returns a 401 token invalid error response with the given message.
 func TokenInvalid(c *gin.Context, msg string) {
-	Error(c, errors.CodeTokenInvalid, msg)
+	c.JSON(http.StatusUnauthorized, Response{
+		Code:    errors.CodeTokenInvalid,
+		Message: msg,
+		Data:    nil,
+	})
 }
 
 // Forbidden returns a 403 error response with the given message.

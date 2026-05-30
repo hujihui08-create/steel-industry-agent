@@ -170,6 +170,35 @@ export function sendMessage(
     if (!response.ok) {
       throw new Error(`Request failed with status ${response.status}`);
     }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("text/event-stream")) {
+      const text = await response.text();
+      try {
+        const json = JSON.parse(text);
+        if (json.code === 40101 || json.code === 40102) {
+          if (isRetry) {
+            throw new Error("令牌刷新后仍返回 401，请重新登录");
+          }
+          const tokens = getStoredTokens();
+          if (!tokens.refresh_token) {
+            throw new Error("认证已过期，请重新登录");
+          }
+          const { data: refreshData } = await axios.post<
+            ApiResponse<{ access_token: string; refresh_token: string }>
+          >(API_BASE_URL + REFRESH_PATH, { refresh_token: tokens.refresh_token });
+          if (!refreshData?.data?.access_token || !refreshData?.data?.refresh_token) {
+            throw new Error("令牌刷新失败，请重新登录");
+          }
+          updateStoredTokens(refreshData.data.access_token, refreshData.data.refresh_token);
+          return doFetch(refreshData.data.access_token, true);
+        }
+      } catch {
+        // not JSON or other error, fall through
+      }
+      throw new Error(`Unexpected response: ${text.slice(0, 100)}`);
+    }
+
     await parseSSEStream(response, onChunk, onError, onDone, onCard, onSessionId, onStatus);
   };
 
@@ -244,6 +273,35 @@ export function continueGeneration(
     if (!response.ok) {
       throw new Error(`Request failed with status ${response.status}`);
     }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("text/event-stream")) {
+      const text = await response.text();
+      try {
+        const json = JSON.parse(text);
+        if (json.code === 40101 || json.code === 40102) {
+          if (isRetry) {
+            throw new Error("令牌刷新后仍返回 401，请重新登录");
+          }
+          const tokens = getStoredTokens();
+          if (!tokens.refresh_token) {
+            throw new Error("认证已过期，请重新登录");
+          }
+          const { data: refreshData } = await axios.post<
+            ApiResponse<{ access_token: string; refresh_token: string }>
+          >(API_BASE_URL + REFRESH_PATH, { refresh_token: tokens.refresh_token });
+          if (!refreshData?.data?.access_token || !refreshData?.data?.refresh_token) {
+            throw new Error("令牌刷新失败，请重新登录");
+          }
+          updateStoredTokens(refreshData.data.access_token, refreshData.data.refresh_token);
+          return doFetch(refreshData.data.access_token, true);
+        }
+      } catch {
+        // not JSON or other error, fall through
+      }
+      throw new Error(`Unexpected response: ${text.slice(0, 100)}`);
+    }
+
     await parseSSEStream(response, onChunk, onError, onDone, onCard, onSessionId, onStatus);
   };
 
