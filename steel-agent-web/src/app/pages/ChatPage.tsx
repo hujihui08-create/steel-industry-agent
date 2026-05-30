@@ -358,25 +358,30 @@ export default function ChatPage() {
           return (
             <div
               key={cardKey}
-              role="button"
-              tabIndex={0}
-              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
+              className="flex gap-3 max-w-full md:max-w-[640px] xl:max-w-[720px] mt-3 animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
-              onClick={() => handleCardClick(att, cardKey)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
             >
-              <PriceCard
-                eyebrow={data.eyebrow}
-                title={data.title || '价格查询'}
-                prices={data.prices}
-                source={data.source}
-                sourceTime={data.sourceTime}
-                onViewTrend={(e?: React.MouseEvent) => {
-                  e?.stopPropagation();
-                  const first = data.prices![0];
-                  handleSend(`查看${first.region || ''}${data.title || ''}最近一周走势`);
-                }}
-              />
+              <div className="size-7 shrink-0" aria-hidden="true" />
+              <div
+                role="button"
+                tabIndex={0}
+                className="min-w-0 flex-1 cursor-pointer"
+                onClick={() => handleCardClick(att, cardKey)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
+              >
+                <PriceCard
+                  eyebrow={data.eyebrow}
+                  title={data.title || '价格查询'}
+                  prices={data.prices}
+                  source={data.source}
+                  sourceTime={data.sourceTime}
+                  onViewTrend={(e?: React.MouseEvent) => {
+                    e?.stopPropagation();
+                    const first = data.prices![0];
+                    handleSend(`查看${first.region || ''}${data.title || ''}最近一周走势`);
+                  }}
+                />
+              </div>
             </div>
           );
         }
@@ -389,18 +394,23 @@ export default function ChatPage() {
           return (
             <div
               key={cardKey}
-              role="button"
-              tabIndex={0}
-              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
+              className="flex gap-3 max-w-full md:max-w-[640px] xl:max-w-[720px] mt-3 animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
-              onClick={() => handleCardClick(att, cardKey)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
             >
-              <TrendCard
-                title={data.title || '价格走势'}
-                data={data.data}
-                changePct={data.changePct}
-              />
+              <div className="size-7 shrink-0" aria-hidden="true" />
+              <div
+                role="button"
+                tabIndex={0}
+                className="min-w-0 flex-1 cursor-pointer"
+                onClick={() => handleCardClick(att, cardKey)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
+              >
+                <TrendCard
+                  title={data.title || '价格走势'}
+                  data={data.data}
+                  changePct={data.changePct}
+                />
+              </div>
             </div>
           );
         }
@@ -414,20 +424,25 @@ export default function ChatPage() {
           return (
             <div
               key={cardKey}
-              role="button"
-              tabIndex={0}
-              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
+              className="flex gap-3 max-w-full md:max-w-[640px] xl:max-w-[720px] mt-3 animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
-              onClick={() => handleCardClick(att, cardKey)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
             >
-              <NewsCard
-                title={data.title}
-                news={data.news}
-                source={data.source}
-                sourceTime={data.sourceTime}
-                onViewDetail={(item) => setDetailNews(item)}
-              />
+              <div className="size-7 shrink-0" aria-hidden="true" />
+              <div
+                role="button"
+                tabIndex={0}
+                className="min-w-0 flex-1 cursor-pointer"
+                onClick={() => handleCardClick(att, cardKey)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
+              >
+                <NewsCard
+                  title={data.title}
+                  news={data.news}
+                  source={data.source}
+                  sourceTime={data.sourceTime}
+                  onViewDetail={(item) => setDetailNews(item)}
+                />
+              </div>
             </div>
           );
         }
@@ -441,20 +456,25 @@ export default function ChatPage() {
           return (
             <div
               key={cardKey}
-              role="button"
-              tabIndex={0}
-              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
+              className="flex gap-3 max-w-full md:max-w-[640px] xl:max-w-[720px] mt-3 animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
-              onClick={() => handleCardClick(att, cardKey)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
             >
-              <CompareCard
-                eyebrow={data.eyebrow}
-                title={data.title}
-                categories={data.categories}
-                source={data.source}
-                sourceTime={data.sourceTime}
-              />
+              <div className="size-7 shrink-0" aria-hidden="true" />
+              <div
+                role="button"
+                tabIndex={0}
+                className="min-w-0 flex-1 cursor-pointer"
+                onClick={() => handleCardClick(att, cardKey)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
+              >
+                <CompareCard
+                  eyebrow={data.eyebrow}
+                  title={data.title}
+                  categories={data.categories}
+                  source={data.source}
+                  sourceTime={data.sourceTime}
+                />
+              </div>
             </div>
           );
         }
@@ -481,44 +501,49 @@ export default function ChatPage() {
           return (
             <div
               key={cardKey}
-              role="button"
-              tabIndex={0}
-              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
+              className="flex gap-3 max-w-full md:max-w-[640px] xl:max-w-[720px] mt-3 animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
-              onClick={() => handleCardClick(att, cardKey)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
             >
-              <QuotationCard
-                title={data.title || '报价单'}
-                items={items}
-                total={data.total || 0}
-                currency={data.currency}
-                onSave={() => {
-                  if (!data.category || !data.spec) {
-                    toast.error('报价信息不完整，无法保存');
-                    return;
-                  }
-                  createQuotation({
-                    title: data.title || `${data.category || ''} ${data.spec || ''}`.trim() || '报价单',
-                    category: data.category,
-                    spec: data.spec,
-                    quantity: data.quantity || 0,
-                    customer_name: data.customer_name,
-                    delivery_location: data.delivery_location || data.region,
-                  }).then(() => {
-                    toast.success('报价单已保存');
-                  }).catch(() => {
-                    toast.error('保存失败，请重试');
-                  });
-                }}
-                onShare={() => {
-                  const text = items.map(i => `${i.label}: ¥${i.value.toLocaleString()}`).join(' | ') + ` | 合计: ¥${(data.total || 0).toLocaleString()}`;
-                  navigator.clipboard.writeText(text).then(() => toast.success('已复制报价信息'));
-                }}
-                onRecalculate={() => {
-                  store.setInputValue('重新计算报价');
-                }}
-              />
+              <div className="size-7 shrink-0" aria-hidden="true" />
+              <div
+                role="button"
+                tabIndex={0}
+                className="min-w-0 flex-1 cursor-pointer"
+                onClick={() => handleCardClick(att, cardKey)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
+              >
+                <QuotationCard
+                  title={data.title || '报价单'}
+                  items={items}
+                  total={data.total || 0}
+                  currency={data.currency}
+                  onSave={() => {
+                    if (!data.category || !data.spec) {
+                      toast.error('报价信息不完整，无法保存');
+                      return;
+                    }
+                    createQuotation({
+                      title: data.title || `${data.category || ''} ${data.spec || ''}`.trim() || '报价单',
+                      category: data.category,
+                      spec: data.spec,
+                      quantity: data.quantity || 0,
+                      customer_name: data.customer_name,
+                      delivery_location: data.delivery_location || data.region,
+                    }).then(() => {
+                      toast.success('报价单已保存');
+                    }).catch(() => {
+                      toast.error('保存失败，请重试');
+                    });
+                  }}
+                  onShare={() => {
+                    const text = items.map(i => `${i.label}: ¥${i.value.toLocaleString()}`).join(' | ') + ` | 合计: ¥${(data.total || 0).toLocaleString()}`;
+                    navigator.clipboard.writeText(text).then(() => toast.success('已复制报价信息'));
+                  }}
+                  onRecalculate={() => {
+                    store.setInputValue('重新计算报价');
+                  }}
+                />
+              </div>
             </div>
           );
         }
@@ -529,17 +554,20 @@ export default function ChatPage() {
           };
           if (!data.options || data.options.length === 0) return null;
           return (
-            <div key={cardKey} className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)]">
-              <QuickSelectChips
-                options={data.options}
-                label={data.label}
-                disabled={store.isStreaming}
-                onSelect={(value: string) => {
-                  if (store.isStreaming) return;
-                  store.setInputValue(value);
-                  setTimeout(() => handleSend(value), 50);
-                }}
-              />
+            <div key={cardKey} className="flex gap-3 max-w-full md:max-w-[640px] xl:max-w-[720px] mt-3">
+              <div className="size-7 shrink-0" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <QuickSelectChips
+                  options={data.options}
+                  label={data.label}
+                  disabled={store.isStreaming}
+                  onSelect={(value: string) => {
+                    if (store.isStreaming) return;
+                    store.setInputValue(value);
+                    setTimeout(() => handleSend(value), 50);
+                  }}
+                />
+              </div>
             </div>
           );
         }
@@ -562,22 +590,27 @@ export default function ChatPage() {
           return (
             <div
               key={cardKey}
-              role="button"
-              tabIndex={0}
-              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
+              className="flex gap-3 max-w-full md:max-w-[640px] xl:max-w-[720px] mt-3 animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
-              onClick={() => handleCardClick(att, cardKey)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
             >
-              <AlertCard
-                {...data}
-                onModify={() => {
-                  store.setInputValue(`修改${data.category || ''}${data.spec || ''}预警条件`);
-                }}
-                onViewAll={() => {
-                  handleSend('查看我的预警');
-                }}
-              />
+              <div className="size-7 shrink-0" aria-hidden="true" />
+              <div
+                role="button"
+                tabIndex={0}
+                className="min-w-0 flex-1 cursor-pointer"
+                onClick={() => handleCardClick(att, cardKey)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
+              >
+                <AlertCard
+                  {...data}
+                  onModify={() => {
+                    store.setInputValue(`修改${data.category || ''}${data.spec || ''}预警条件`);
+                  }}
+                  onViewAll={() => {
+                    handleSend('查看我的预警');
+                  }}
+                />
+              </div>
             </div>
           );
         }
@@ -587,35 +620,43 @@ export default function ChatPage() {
           const items = (raw.items as TenderCardItem[]) || [];
           if (items.length === 0) {
             return (
-              <div key={cardKey} className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)]">
-                <TenderCard items={[]} />
+              <div key={cardKey} className="flex gap-3 max-w-full md:max-w-[640px] xl:max-w-[720px] mt-3">
+                <div className="size-7 shrink-0" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <TenderCard items={[]} />
+                </div>
               </div>
             );
           }
           return (
             <div
               key={cardKey}
-              role="button"
-              tabIndex={0}
-              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
+              className="flex gap-3 max-w-full md:max-w-[640px] xl:max-w-[720px] mt-3 animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
-              onClick={() => handleCardClick(att, cardKey)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
             >
-              <TenderCard
-                title={raw.title as string}
-                subtitle={raw.subtitle as string}
-                items={items}
-                totalCount={raw.total_count as number}
-                isReminder={raw.is_reminder as boolean}
-                source={raw.source as string}
-                sourceTime={raw.sourceTime as string}
-                favoritedIds={favoriteSet}
-                onFavorite={toggleFavorite}
-                onViewDetail={(id) => {
-                  handleSend(`查看招标${id}的详情`);
-                }}
-              />
+              <div className="size-7 shrink-0" aria-hidden="true" />
+              <div
+                role="button"
+                tabIndex={0}
+                className="min-w-0 flex-1 cursor-pointer"
+                onClick={() => handleCardClick(att, cardKey)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
+              >
+                <TenderCard
+                  title={raw.title as string}
+                  subtitle={raw.subtitle as string}
+                  items={items}
+                  totalCount={raw.total_count as number}
+                  isReminder={raw.is_reminder as boolean}
+                  source={raw.source as string}
+                  sourceTime={raw.sourceTime as string}
+                  favoritedIds={favoriteSet}
+                  onFavorite={toggleFavorite}
+                  onViewDetail={(id) => {
+                    handleSend(`查看招标${id}的详情`);
+                  }}
+                />
+              </div>
             </div>
           );
         }
@@ -639,21 +680,26 @@ export default function ChatPage() {
           return (
             <div
               key={cardKey}
-              role="button"
-              tabIndex={0}
-              className="mt-3 max-w-[calc(85%-1.75rem-12px)] ml-[calc(1.75rem+12px)] cursor-pointer animate-card-in"
+              className="flex gap-3 max-w-full md:max-w-[640px] xl:max-w-[720px] mt-3 animate-card-in"
               style={{ animationDelay: `${i * 100}ms` }}
-              onClick={() => handleCardClick(att, cardKey)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
             >
-              <TenderDetailCard
-                data={detailData}
-                isFavorited={isFavorited(raw.id as (number | string))}
-                onFavorite={toggleFavorite}
-                onViewSource={(url) => {
-                  window.open(url, "_blank", "noopener,noreferrer");
-                }}
-              />
+              <div className="size-7 shrink-0" aria-hidden="true" />
+              <div
+                role="button"
+                tabIndex={0}
+                className="min-w-0 flex-1 cursor-pointer"
+                onClick={() => handleCardClick(att, cardKey)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCard(att); } }}
+              >
+                <TenderDetailCard
+                  data={detailData}
+                  isFavorited={isFavorited(raw.id as (number | string))}
+                  onFavorite={toggleFavorite}
+                  onViewSource={(url) => {
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  }}
+                />
+              </div>
             </div>
           );
         }
