@@ -10,6 +10,7 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"steel-agent-backend/internal/model"
@@ -229,6 +230,8 @@ func (s *AdminSettingsService) TestSMS(ctx context.Context, phone string) (bool,
 
 	accessKey, _ := settings["smsAccessKey"].(string)
 	accessSecret, _ := settings["smsAccessSecret"].(string)
+	accessKey = strings.TrimSpace(accessKey)
+	accessSecret = strings.TrimSpace(accessSecret)
 	signName, _ := settings["smsSignName"].(string)
 	templateCode, _ := settings["smsTemplateCode"].(string)
 
