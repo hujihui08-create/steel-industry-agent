@@ -173,7 +173,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearAttachments: () =>
     set((state) => ({
-      messages: state.messages.map(({ attachments, ...msg }) => msg),
+      messages: state.messages.map((msg, i) =>
+        i === state.messages.length - 1 ? { ...msg, attachments: [] } : msg
+      ),
     })),
 
   fixMessageSessionIds: (sessionId) =>

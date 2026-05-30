@@ -242,9 +242,10 @@ export default function CrawlerManage() {
 
   const handleToggleActive = async (source: CrawlerSource) => {
     try {
-      await updateCrawlerSource(source.id, { is_active: !source.is_active });
-      showSuccessToast(source.is_active ? "已暂停" : "已启用");
+      const newActive = !source.is_active;
+      await updateCrawlerSource(source.id, { is_active: newActive });
       await loadData();
+      showSuccessToast(newActive ? "已启用" : "已暂停");
     } catch (err: any) {
       showErrorToast(err?.message || "操作失败");
     }

@@ -47,9 +47,9 @@ func (r *CrawlerSourceRepository) Create(source *model.CrawlerSource) error {
 }
 
 // Update saves changes to an existing crawler source.
-// Select("*") is used to force GORM to update all fields including zero values (e.g. is_active = false).
+// Uses explicit field list so that zero values (e.g. is_active = false) are written correctly.
 func (r *CrawlerSourceRepository) Update(source *model.CrawlerSource) error {
-	return r.db.Model(source).Select("*").Updates(source).Error
+	return r.db.Model(source).Select("source_name", "source_type", "source_url", "crawl_rule", "crawl_interval", "is_active").Updates(source).Error
 }
 
 // UpdateLastCrawl updates the last crawl timestamp for the given source.

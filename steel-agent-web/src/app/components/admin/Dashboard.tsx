@@ -423,7 +423,7 @@ export function Dashboard() {
               value={stats?.totalUsers?.toLocaleString() ?? "--"}
               change={stats?.totalUsersChange}
               changePct={stats?.totalUsersChangePct}
-              onClick={() => navigate("/admin/users")}
+              onClick={() => navigate("/admin/mobile-users")}
             />
             <AdminStatCard
               icon={<Activity size={18} strokeWidth={1.75} />}
@@ -431,7 +431,7 @@ export function Dashboard() {
               value={stats?.todayActive?.toLocaleString() ?? "--"}
               change={stats?.todayActiveChange}
               changePct={stats?.todayActiveChangePct}
-              onClick={() => navigate("/admin/users")}
+              onClick={() => navigate("/admin/mobile-users")}
             />
             <AdminStatCard
               icon={<MessageSquare size={18} strokeWidth={1.75} />}
@@ -439,7 +439,6 @@ export function Dashboard() {
               value={stats?.totalConversations?.toLocaleString() ?? "--"}
               change={stats?.totalConversationsChange}
               changePct={stats?.totalConversationsChangePct}
-              onClick={() => navigate("/admin/conversations")}
             />
             <AdminStatCard
               icon={<Zap size={18} strokeWidth={1.75} />}
@@ -447,7 +446,7 @@ export function Dashboard() {
               value={stats?.aiCalls?.toLocaleString() ?? "--"}
               change={stats?.aiCallsChange}
               changePct={stats?.aiCallsChangePct}
-              onClick={() => navigate("/admin/ai-usage")}
+              onClick={() => navigate("/admin/api-stats")}
             />
           </div>
 
@@ -697,7 +696,7 @@ export function Dashboard() {
                   <div className="pt-3 mt-2 border-t border-[#E5E5E5]">
                     <button
                       type="button"
-                      onClick={() => navigate("/admin/logs")}
+                      onClick={() => navigate("/admin/operation-logs")}
                       className={cn(
                         "inline-flex items-center gap-1",
                         "text-[12px] leading-[1.5] text-[#737373]",

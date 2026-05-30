@@ -167,8 +167,8 @@ export async function getAdminPrices(params: {
   limit?: number;
   offset?: number;
 }): Promise<any[]> {
-  const { data } = await adminApiClient.get<ApiResponse<any[]>>("/admin/prices", { params });
-  return data.data ?? [];
+  const { data } = await adminApiClient.get<ApiResponse<{ items: any[] }>>("/admin/prices", { params });
+  return data.data?.items ?? [];
 }
 
 export async function createAdminPrice(data: {

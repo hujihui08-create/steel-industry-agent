@@ -70,6 +70,7 @@ opencode.json
 *.test
 handler_coverage
 /server
+backend/server
 coverage
 
 # SQLite database files (local dev)

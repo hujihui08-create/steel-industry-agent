@@ -195,6 +195,9 @@ func (s *CrawlerService) CrawlSource(source model.CrawlerSource) {
 				continue
 			}
 			itemsCrawled = len(prices)
+			if itemsCrawled == 0 {
+				log.Printf("[CrawlerService] WARNING: source %d returned 0 items, check URL and CSS selectors", source.ID)
+			}
 			// Invalidate relevant caches after successful price crawl.
 			categories := make(map[string]bool)
 			for _, p := range prices {
@@ -395,6 +398,11 @@ func (s *CrawlerService) parsePriceHTML(source model.CrawlerSource, c *colly.Col
 		return nil, fmt.Errorf("invalid crawl rule: %w", err)
 	}
 
+	var lastHTTPError error
+	c.OnError(func(r *colly.Response, err error) {
+		lastHTTPError = err
+	})
+
 	var scraped []model.SteelPrice
 
 	c.OnHTML(rule.Container, func(e *colly.HTMLElement) {
@@ -449,6 +457,10 @@ func (s *CrawlerService) parsePriceHTML(source model.CrawlerSource, c *colly.Col
 
 	// colly uses a request wait queue internally; ensure all callbacks complete.
 	c.Wait()
+
+	if len(scraped) == 0 && lastHTTPError != nil {
+		return nil, fmt.Errorf("HTTP error: %w", lastHTTPError)
+	}
 
 	return scraped, nil
 }

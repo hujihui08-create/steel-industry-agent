@@ -332,11 +332,6 @@ export default function ChatPage() {
   // ============================================================
 
   function renderCards(attachments: CardAttachment[], messageIndex: number) {
-    // Don't render cards during streaming for the last message
-    if (store.isStreaming && messageIndex === store.messages.length - 1) {
-      return null;
-    }
-
     const handleCardClick = (att: CardAttachment, cardKey: string) => {
       const now = Date.now();
       if (lastTapRef.current.cardKey === cardKey && now - lastTapRef.current.time < 400) {

@@ -109,8 +109,8 @@ services:
 
   frontend:
     build:
-      context: ./steel-agent-web
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.frontend
     container_name: steel-frontend
     ports:
       - "3000:80"
