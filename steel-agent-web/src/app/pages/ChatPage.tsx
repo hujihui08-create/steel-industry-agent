@@ -92,6 +92,9 @@ export default function ChatPage() {
   // ---- Fullscreen card state (double-tap) ---------------------
   const [fullscreenCard, setFullscreenCard] = useState<CardAttachment | null>(null);
 
+  // ---- Disclaimer per message state ---------------------------
+  const [disclaimers, setDisclaimers] = useState<Map<number, string>>(new Map());
+
   // ============================================================
   // Pull-to-refresh (mobile: pull down > 80px to refresh history)
   // ============================================================
@@ -326,6 +329,14 @@ export default function ChatPage() {
     const quoted = content.length > 80 ? content.slice(0, 80) + '...' : content;
     store.setInputValue(`> ${quoted}\n`);
   };
+
+  const handleDisclaimer = useCallback((text: string, messageId: number) => {
+    setDisclaimers((prev) => {
+      const next = new Map(prev);
+      next.set(messageId, text);
+      return next;
+    });
+  }, []);
 
   // ============================================================
   // Card Attachment Renderer
@@ -1583,9 +1594,18 @@ export default function ChatPage() {
                       onContinue={continueGeneration}
                       onFeedback={handleFeedback}
                       onSwipeQuote={() => handleSwipeQuote(msg.content)}
+                      onDisclaimer={handleDisclaimer}
                     />
                     {msg.role === 'assistant' && msg.attachments && msg.attachments.length > 0 && (
                       renderCards(msg.attachments, index)
+                    )}
+                    {msg.role === 'assistant' && msg.attachments && msg.attachments.length > 0 && disclaimers.has(msg.id) && (
+                      <div className="flex gap-3 max-w-full md:max-w-[640px] xl:max-w-[720px] mt-2">
+                        <div className="size-7 shrink-0" aria-hidden="true" />
+                        <div className="min-w-0 flex-1 text-[12px] leading-[1.5] text-steel-muted">
+                          {disclaimers.get(msg.id)}
+                        </div>
+                      </div>
                     )}
                   </div>
                   );

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { ChatMessage } from "@/app/types/chat";
 import { Sparkles, User, Copy, RefreshCw, ThumbsUp, ThumbsDown, Pencil, Trash2 } from "lucide-react";
@@ -196,6 +196,7 @@ export interface ChatBubbleProps {
   onEdit?: (content: string) => void;
   onDelete?: (messageId: number) => void;
   onSwipeQuote?: () => void;
+  onDisclaimer?: (text: string, messageId: number) => void;
 }
 
 export const ChatBubble = React.memo(function ChatBubble({
@@ -209,6 +210,7 @@ export const ChatBubble = React.memo(function ChatBubble({
   onEdit,
   onDelete,
   onSwipeQuote,
+  onDisclaimer,
 }: ChatBubbleProps) {
   const [showTouchActions, setShowTouchActions] = React.useState(false);
   const [swipeOffset, setSwipeOffset] = React.useState(0);
@@ -227,11 +229,21 @@ export const ChatBubble = React.memo(function ChatBubble({
   // 2. Source citation parsing
   const sourceMatch = displayContent.match(/\n来源[：:]\s*(.+?)$/m);
   const sourceCitation = sourceMatch ? sourceMatch[1] : null;
-  const mainContent = sourceCitation ? displayContent.replace(/\n来源[：:]\s*.+$/m, "").trim() : displayContent;
+  const disclaimerMatch = displayContent.match(/\n?数据更新至.+[，,]以上数据仅供参考，不构成投资建议[。]?/m);
+  const disclaimer = disclaimerMatch ? disclaimerMatch[0].replace(/^\n/, "") : null;
+  let mainContent = displayContent;
+  if (sourceCitation) mainContent = mainContent.replace(/\n来源[：:]\s*.+$/m, "").trim();
+  if (disclaimer) mainContent = mainContent.replace(/\n?数据更新至.+[，,]以上数据仅供参考，不构成投资建议[。]?/m, "").trim();
 
   // 3. Error keyword detection (for assistant messages)
   const errorKeywords = ["查询失败", "查询异常", "请求失败", "服务不可用", "网络异常", "请求超时"];
   const isError = isAssistant && errorKeywords.some(kw => content.startsWith(kw));
+
+  useEffect(() => {
+    if (disclaimer && onDisclaimer) {
+      onDisclaimer(disclaimer, message.id);
+    }
+  }, [disclaimer, message.id, onDisclaimer]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };

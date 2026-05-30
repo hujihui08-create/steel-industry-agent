@@ -27,12 +27,12 @@ const RISK_DISCLAIMER = "仅供参考，不构成投资建议";
 
 const markdownComponents: Components = {
   p: ({ children, ...props }) => (
-    <p className="text-[15px] leading-[1.6] text-steel-body m-0 mb-1" {...props}>
+    <p className="text-[15px] leading-[1.6] text-steel-ink m-0 mb-1" {...props}>
       {children}
     </p>
   ),
   li: ({ children, ...props }) => (
-    <li className="text-[15px] leading-[1.6] text-steel-body m-0 mb-0 list-outside" {...props}>
+    <li className="text-[15px] leading-[1.6] text-steel-ink m-0 mb-0 list-outside" {...props}>
       {children}
     </li>
   ),
