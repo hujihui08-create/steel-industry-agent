@@ -174,23 +174,36 @@ docker-compose up -d --build frontend
 docker-compose pull
 ```
 
-### 数据管理
+### 数据库操作
 
 ```bash
+# 进入 PostgreSQL 容器
+docker-compose exec postgres psql -U postgres -d steel_agent
+
 # 备份数据库
-docker exec steel-postgres pg_dump -U postgres steel_agent > backup.sql
+docker-compose exec postgres pg_dump -U postgres steel_agent > backup.sql
 
 # 恢复数据库
-docker exec -i steel-postgres psql -U postgres steel_agent < backup.sql
-
-# 进入数据库
-docker exec -it steel-postgres psql -U postgres steel_agent
+docker-compose exec -T postgres psql -U postgres steel_agent < backup.sql
 
 # 进入 Redis
-docker exec -it steel-redis redis-cli
+docker-compose exec redis redis-cli
 
 # 查看 MinIO 存储
-docker exec -it steel-minio mc ls local
+docker-compose exec minio mc ls local
+```
+
+### 后端操作
+
+```bash
+# 执行数据库迁移
+docker-compose exec backend go run cmd/migrate/main.go up
+
+# 填充种子数据
+docker-compose exec backend go run cmd/seed/main.go
+
+# 手动触发爬虫
+docker-compose exec backend go run cmd/crawler/main.go
 ```
 
 ### 清理操作
@@ -213,6 +226,7 @@ docker system prune -a
 
 ### 服务无法启动
 
+<<<<<<< HEAD
 1. 检查端口占用：
 ```bash
 netstat -tulpn | grep -E ':(80|443|5432|6379|8080|9000)'
@@ -300,3 +314,28 @@ docker stats
 2. 检查环境配置
 3. 确认网络连接
 4. 查阅相关文档
+=======
+1. 检查端口占用：`netstat -tlnp | grep -E '80|5432|6379|8080|9000'`
+2. 检查日志：`docker-compose logs <service_name>`
+3. 检查磁盘空间：`df -h`
+4. 检查内存使用：`free -m`
+
+### 数据库连接失败
+
+1. 确认 PostgreSQL 容器正在运行：`docker-compose ps postgres`
+2. 检查数据库日志：`docker-compose logs postgres`
+3. 确认环境变量中的数据库配置正确
+
+### API 响应缓慢
+
+1. 检查 Redis 连接状态
+2. 检查 API 调用日志中的响应时间
+3. 检查 OpenAI API 的延迟和可用性
+4. 考虑增加缓存策略
+
+### MinIO 连接问题
+
+1. 确认 MinIO 容器正在运行
+2. 检查 MinIO 控制台是否可访问：http://localhost:9001
+3. 验证访问密钥配置是否正确
+>>>>>>> origin/main

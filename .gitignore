@@ -52,7 +52,6 @@ coverage/
 *.tmp
 *.temp
 .cache/
-
 # Trae specific - exclude design specs, PRD docs, and internal rules
 .trae/
 .opencode/
