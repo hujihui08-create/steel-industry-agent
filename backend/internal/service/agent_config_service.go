@@ -112,9 +112,9 @@ func (s *AgentConfigService) SaveAgentConfig(ctx context.Context, config *AgentC
 	if findErr == nil {
 		var old AgentConfigDO
 		if json.Unmarshal([]byte(oldCfg.ConfigValue), &old) == nil {
-			if old.SystemPrompt != config.SystemPrompt {
-				// Auto-snapshot old prompt as a new version.
-				_ = s.recordPromptVersion(ctx, old.SystemPrompt, "system")
+			if old.SystemPrompt != config.SystemPrompt && config.SystemPrompt != "" {
+				// Auto-snapshot new prompt as a version.
+				_ = s.recordPromptVersion(ctx, config.SystemPrompt, "admin")
 			}
 		}
 	}
