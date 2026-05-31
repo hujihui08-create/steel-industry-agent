@@ -1568,7 +1568,7 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 				usage := &model.TokenUsage{
 					UserID:     userID,
 					SessionID:  sessIDStr,
-					Model:      "gpt-4o-mini",
+					Model:      s.getCurrentModelName(ctx),
 					APIPath:    "/api/v1/chat/completions",
 					StatusCode: 200,
 					DurationMs: int(time.Since(startTime).Milliseconds()),
@@ -1924,6 +1924,14 @@ func (s *ChatService) GetChatSessions(ctx context.Context, userID uint, limit, o
 // createNewSession creates a new chat session from the first message.
 // ---------------------------------------------------------------------------
 
+func (s *ChatService) getCurrentModelName(ctx context.Context) string {
+	cfg, err := s.agentConfigService.GetAgentConfig(ctx)
+	if err != nil || cfg == nil {
+		return "gpt-4o-mini"
+	}
+	return cfg.PrimaryModel
+}
+
 func (s *ChatService) createNewSession(ctx context.Context, userID uint, firstMessage string) (*model.ChatSession, error) {
 	title := firstMessage
 	if len([]rune(title)) > 30 {
@@ -1933,7 +1941,7 @@ func (s *ChatService) createNewSession(ctx context.Context, userID uint, firstMe
 	session := &model.ChatSession{
 		UserID: userID,
 		Title:  title,
-		Model:  "gpt-4o-mini",
+		Model:  s.getCurrentModelName(ctx),
 	}
 
 	if err := s.chatRepo.CreateSession(ctx, session); err != nil {
