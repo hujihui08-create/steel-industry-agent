@@ -91,7 +91,7 @@ func main() {
 	quotationService := service.NewQuotationService(quotationRepo, steelPriceRepo)
 	knowledgeService := service.NewKnowledgeService(knowledgeRepo, llmAdapter, db)
 	tenderService := service.NewTenderService(tenderRepo, userFavoriteRepo)
-	alertService := service.NewAlertService(priceAlertRepo)
+	alertService := service.NewAlertService(priceAlertRepo, steelPriceRepo, notificationRepo)
 	notificationService := service.NewNotificationService(notificationRepo)
 	settingsService := service.NewSettingsService(settingsRepo)
 	adminService := service.NewAdminService(adminRepo, userRepo)
@@ -107,7 +107,7 @@ func main() {
 	menuService := service.NewMenuService(menuRepo)
 	mobileRoleService := service.NewMobileRoleService(mobileRoleRepo, userRepo)
 	apiCallLogService := service.NewApiCallLogService(apiCallLogRepo, tokenUsageRepo)
-	scheduledTaskService := service.NewScheduledTaskService(scheduledTaskRepo, taskExecLogRepo, cleanupService, backupService, crawlerService)
+	scheduledTaskService := service.NewScheduledTaskService(scheduledTaskRepo, taskExecLogRepo, cleanupService, backupService, crawlerService, alertService)
 	certificationService := service.NewCertificationService(certificationRepo, userRepo)
 	feedbackService := service.NewFeedbackService(feedbackRepo)
 

@@ -117,8 +117,8 @@ export default function SettingsPage() {
   };
 
   const handleLogout = () => {
-    logout();
     navigate(ROUTE.CHAT);
+    setTimeout(() => logout(), 50);
   };
 
   // -----------------------------------------------------------

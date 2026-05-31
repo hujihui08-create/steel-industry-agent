@@ -49,3 +49,15 @@ func (r *PriceAlertRepository) FindByUserID(ctx context.Context, userID uint) ([
 func (r *PriceAlertRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.PriceAlert{}).Error
 }
+
+// FindAllActive returns all currently active price alerts.
+func (r *PriceAlertRepository) FindAllActive(ctx context.Context) ([]model.PriceAlert, error) {
+	var alerts []model.PriceAlert
+	err := r.db.WithContext(ctx).Where("is_active = ?", true).Find(&alerts).Error
+	return alerts, err
+}
+
+// Deactivate sets is_active = false for a price alert.
+func (r *PriceAlertRepository) Deactivate(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Model(&model.PriceAlert{}).Where("id = ?", id).Update("is_active", false).Error
+}

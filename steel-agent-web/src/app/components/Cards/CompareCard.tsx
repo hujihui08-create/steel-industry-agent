@@ -63,30 +63,30 @@ function CategoryColumn({ cat }: { cat: CompareCategory }) {
   return (
     <>
       {/* Category header */}
-      <div className="text-[15px] font-medium text-steel-ink">
+      <div className="text-[14px] sm:text-[15px] font-medium text-steel-ink">
         {cat.name}
       </div>
-      <div className="text-[13px] text-steel-muted mt-0.5">
+      <div className="text-[12px] sm:text-[13px] text-steel-muted mt-0.5">
         {cat.spec}
       </div>
 
       {/* Region rows */}
-      <div className="mt-3 divide-y divide-steel-line">
+      <div className="mt-2.5 sm:mt-3 divide-y divide-steel-line">
         {cat.regions.map((r) => (
           <div
             key={r.region}
-            className="py-2.5 flex items-center justify-between"
+            className="py-2 sm:py-2.5 flex items-center justify-between gap-2"
           >
-            <span className="text-[13px] text-steel-muted">
+            <span className="text-[12px] sm:text-[13px] text-steel-muted shrink-0">
               {r.region}
             </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[15px] tabular-nums text-steel-ink">
+            <div className="flex items-baseline gap-1.5 sm:gap-2 min-w-0">
+              <span className="text-[14px] sm:text-[15px] tabular-nums text-steel-ink whitespace-nowrap">
                 {formatPrice(r.price)}
               </span>
               <span
                 className={cn(
-                  "text-[12px] tabular-nums",
+                  "text-[11px] sm:text-[12px] tabular-nums whitespace-nowrap",
                   getChangeColor(r.change),
                 )}
               >
@@ -189,17 +189,17 @@ export function CompareCard({
     <div>
       <div className="rounded-2xl border border-steel-line overflow-hidden">
         {/* ---- Header ---- */}
-        <div className="px-5 py-4 border-b border-steel-line flex items-center justify-between">
+        <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-steel-line flex items-start sm:items-center justify-between gap-2">
           <div className="min-w-0">
-            <div className="text-[11px] leading-[1.5] tracking-[0.18em] uppercase text-steel-muted">
+            <div className="text-[10px] sm:text-[11px] leading-[1.5] tracking-[0.18em] uppercase text-steel-muted">
               {eyebrow}
             </div>
-            <div className="text-[18px] leading-[1.4] font-medium text-steel-ink mt-0.5 truncate">
+            <div className="text-[16px] sm:text-[18px] leading-[1.4] font-medium text-steel-ink mt-0.5 truncate">
               {title}
             </div>
           </div>
           {sourceTime && (
-            <div className="text-[12px] leading-[1.5] text-steel-muted shrink-0 ml-4">
+            <div className="text-[11px] sm:text-[12px] leading-[1.5] text-steel-muted shrink-0 mt-1 sm:mt-0">
               {sourceTime}
             </div>
           )}
@@ -210,32 +210,18 @@ export function CompareCard({
           <div className="px-5 py-8 text-center">
             <p className="text-[13px] text-steel-placeholder">暂无对比数据</p>
           </div>
-        ) : isTwoColumns ? (
-          /* 2 品种：网格布局，中间 1px 描边分隔 */
-          <div className="grid grid-cols-2">
-            {categories.map((cat, ci) => (
-              <div
-                key={cat.name}
-                className={cn(
-                  "px-5 py-4",
-                  ci === 0 && "border-r border-steel-line",
-                )}
-              >
-                <CategoryColumn cat={cat} />
-              </div>
-            ))}
-          </div>
         ) : (
-          /* ≥3 品种：横向滚动容器 */
-          <div className="overflow-x-auto">
-            <div className="flex min-w-max">
+          /* 移动端一律横向滚动，桌面端 2 列网格 */
+          <div className={cn(isTwoColumns ? "md:grid md:grid-cols-2 overflow-x-auto" : "overflow-x-auto")}>
+            <div className={cn(isTwoColumns ? "flex min-w-max md:contents" : "flex min-w-max")}>
               {categories.map((cat, ci) => (
                 <div
                   key={cat.name}
                   className={cn(
-                    "min-w-[160px] px-5 py-4",
-                    ci < categories.length - 1 &&
-                      "border-r border-steel-line",
+                    "min-w-[140px] sm:min-w-[160px] px-4 sm:px-5 py-3 sm:py-4",
+                    !isTwoColumns
+                      ? ci < categories.length - 1 && "border-r border-steel-line"
+                      : ci === 0 && "border-r border-steel-line",
                   )}
                 >
                   <CategoryColumn cat={cat} />
@@ -247,8 +233,8 @@ export function CompareCard({
 
         {/* ---- Source footer ---- */}
         {source && (
-          <div className="px-5 py-3 border-t border-steel-line">
-            <span className="text-[12px] leading-[1.5] text-steel-muted">
+          <div className="px-4 sm:px-5 py-2.5 sm:py-3 border-t border-steel-line">
+            <span className="text-[11px] sm:text-[12px] leading-[1.5] text-steel-muted">
               数据来源: {source}
             </span>
           </div>

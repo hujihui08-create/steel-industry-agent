@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"context"
+
 	"steel-agent-backend/internal/model"
 
 	"gorm.io/gorm"
@@ -30,4 +32,9 @@ func (r *NotificationRepository) FindByUserID(userID uint, limit, offset int) ([
 // MarkAsRead marks a notification as read by ID.
 func (r *NotificationRepository) MarkAsRead(id uint) error {
 	return r.db.Model(&model.Notification{}).Where("id = ?", id).Update("is_read", true).Error
+}
+
+// Create inserts a new notification record.
+func (r *NotificationRepository) Create(ctx context.Context, n *model.Notification) error {
+	return r.db.WithContext(ctx).Create(n).Error
 }

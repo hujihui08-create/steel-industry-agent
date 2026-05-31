@@ -170,9 +170,19 @@ findUser:
 	user, err := s.userRepo.FindByPhone(ctx, phone)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", "", errors.New("用户不存在")
+			nickname := "用户" + phone[7:]
+			user = &model.User{
+				Phone:        phone,
+				PasswordHash: "",
+				Nickname:     nickname,
+				Role:         "user",
+			}
+			if err := s.userRepo.Create(ctx, user); err != nil {
+				return "", "", fmt.Errorf("自动注册失败: %w", err)
+			}
+		} else {
+			return "", "", err
 		}
-		return "", "", err
 	}
 
 	accessToken, err := jwt.GenerateAccessToken(user.ID, "user", 0)

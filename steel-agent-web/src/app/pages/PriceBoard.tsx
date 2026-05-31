@@ -372,9 +372,9 @@ export default function PriceBoard() {
     return [parentCategory];
   }, [allCategoryNames, parentCategory, categoryTree]);
 
-  // 品类筛选选项（有子品种的根品类）
+  // 一级类目选项（所有顶级品类，包含有/无子品种的）
   const parentCategoryOptions = useMemo(() => {
-    return categoryTree.filter((c) => c.children && c.children.length > 0);
+    return categoryTree;
   }, [categoryTree]);
 
   const safeActiveCategory = activeCategory || categories[0];

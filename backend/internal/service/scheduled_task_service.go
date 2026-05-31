@@ -18,6 +18,7 @@ type ScheduledTaskService struct {
 	cleanupSvc *CleanupService
 	backupSvc  *BackupService
 	crawlerSvc *CrawlerService
+	alertSvc   *AlertService
 }
 
 // NewScheduledTaskService creates a new ScheduledTaskService wired with all
@@ -28,6 +29,7 @@ func NewScheduledTaskService(
 	cleanupSvc *CleanupService,
 	backupSvc *BackupService,
 	crawlerSvc *CrawlerService,
+	alertSvc *AlertService,
 ) *ScheduledTaskService {
 	return &ScheduledTaskService{
 		taskRepo:   taskRepo,
@@ -35,6 +37,7 @@ func NewScheduledTaskService(
 		cleanupSvc: cleanupSvc,
 		backupSvc:  backupSvc,
 		crawlerSvc: crawlerSvc,
+		alertSvc:   alertSvc,
 	}
 }
 
@@ -61,6 +64,12 @@ func (s *ScheduledTaskService) RegisterTasks() error {
 			CronExpr:    "每30秒",
 			Status:      "running",
 		},
+		{
+			Name:        "price_alert_check",
+			Description: "价格预警检查（每分钟检查活跃预警并触发通知）",
+			CronExpr:    "每60秒",
+			Status:      "running",
+		},
 	}
 
 	for _, task := range tasks {
@@ -70,7 +79,7 @@ func (s *ScheduledTaskService) RegisterTasks() error {
 		}
 	}
 
-	log.Println("[ScheduledTaskService] 已注册 3 个默认定时任务")
+	log.Println("[ScheduledTaskService] 已注册 4 个默认定时任务")
 	return nil
 }
 
@@ -140,6 +149,11 @@ func (s *ScheduledTaskService) executeTask(task *model.ScheduledTask, execLog *m
 		log.Println("[ScheduledTaskService] 执行数据采集任务...")
 		s.crawlerSvc.RunSchedulerTick()
 		resultDetail = "数据采集轮询完成"
+
+	case "price_alert_check":
+		log.Println("[ScheduledTaskService] 执行价格预警检查...")
+		s.alertSvc.CheckAndTriggerAlerts(ctx)
+		resultDetail = "价格预警检查完成"
 
 	default:
 		execErr = fmt.Errorf("未知任务: %s", task.Name)
