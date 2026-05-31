@@ -43,6 +43,7 @@ func (h *IntentHandler) Create(c *gin.Context) {
 		IntentName    string   `json:"intent_name" binding:"required"`
 		ToolName      string   `json:"tool_name"`
 		Keywords      []string `json:"keywords"`
+		Entities      []string `json:"entities"`
 		ReplyTemplate string   `json:"reply_template"`
 		Priority      int      `json:"priority"`
 		IsActive      bool     `json:"is_active"`
@@ -57,6 +58,7 @@ func (h *IntentHandler) Create(c *gin.Context) {
 		IntentName:    req.IntentName,
 		ToolName:      req.ToolName,
 		Keywords:      req.Keywords,
+		Entities:      req.Entities,
 		ReplyTemplate: req.ReplyTemplate,
 		Priority:      req.Priority,
 		IsActive:      req.IsActive,
@@ -82,6 +84,7 @@ func (h *IntentHandler) Update(c *gin.Context) {
 		IntentName    string   `json:"intent_name"`
 		ToolName      string   `json:"tool_name"`
 		Keywords      []string `json:"keywords"`
+		Entities      []string `json:"entities"`
 		ReplyTemplate string   `json:"reply_template"`
 		Priority      int      `json:"priority"`
 		IsActive      *bool    `json:"is_active"`
@@ -97,6 +100,7 @@ func (h *IntentHandler) Update(c *gin.Context) {
 		IntentName:    req.IntentName,
 		ToolName:      req.ToolName,
 		Keywords:      req.Keywords,
+		Entities:      req.Entities,
 		ReplyTemplate: req.ReplyTemplate,
 		Priority:      req.Priority,
 	}
