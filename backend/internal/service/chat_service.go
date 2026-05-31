@@ -876,8 +876,8 @@ func (s *ChatService) executeCalculateQuotation(ctx context.Context, argsJSON st
 
 	unitPrice := latest.Price
 	materialCost := unitPrice * args.Quantity
-	processCost := math.Round(materialCost*0.1*100) / 100
-	freightCost := math.Round(materialCost*0.05*100) / 100
+	processCost := math.Round(materialCost*0.08*100) / 100
+	freightCost := math.Round(50.0*args.Quantity*100) / 100
 	subtotal := materialCost + processCost + freightCost
 	taxCost := math.Round(subtotal*0.13*100) / 100
 	totalPrice := math.Round((subtotal+taxCost)*100) / 100
@@ -1710,6 +1710,41 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 								"target_price": alertResult.TargetPrice,
 								"condition":    alertResult.Condition,
 								"is_active":    true,
+							},
+						})
+						ch <- fmt.Sprintf("data: %s\n\n", cardPayload)
+					}
+				case "calculate_quotation":
+					var qResult struct {
+						Category     string  `json:"category"`
+						Spec         string  `json:"spec"`
+						Quantity     float64 `json:"quantity"`
+						Unit         string  `json:"unit"`
+						UnitPrice    float64 `json:"unit_price"`
+						MaterialCost float64 `json:"material_cost"`
+						ProcessCost  float64 `json:"process_cost"`
+						FreightCost  float64 `json:"freight_cost"`
+						TaxCost      float64 `json:"tax_cost"`
+						TotalPrice   float64 `json:"total_price"`
+						Source       string  `json:"source"`
+					}
+					if json.Unmarshal([]byte(tr.result), &qResult) == nil && qResult.TotalPrice > 0 {
+						cardPayload, _ := json.Marshal(map[string]interface{}{
+							"type":      "card",
+							"card_type": "quotation",
+							"data": map[string]interface{}{
+								"title":         qResult.Category + " " + qResult.Spec,
+								"category":      qResult.Category,
+								"spec":          qResult.Spec,
+								"quantity":      qResult.Quantity,
+								"unit":          qResult.Unit,
+								"material_cost": qResult.MaterialCost,
+								"process_cost":  qResult.ProcessCost,
+								"freight_cost":  qResult.FreightCost,
+								"tax_cost":      qResult.TaxCost,
+								"total":         qResult.TotalPrice,
+								"unit_price":    qResult.UnitPrice,
+								"currency":      "¥",
 							},
 						})
 						ch <- fmt.Sprintf("data: %s\n\n", cardPayload)

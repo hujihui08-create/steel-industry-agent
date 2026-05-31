@@ -73,17 +73,22 @@ func (s *SMSService) SendVerificationCode(phoneNumber, signName, templateCode st
 
 	log.Printf("[SMS] Raw response bodyMap: %+v", bodyMap)
 
-	apiCode, _ := bodyMap["Code"].(string)
+	body, ok := bodyMap["body"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("SMS API unexpected response format")
+	}
+
+	apiCode, _ := body["Code"].(string)
 	if apiCode != "OK" {
-		msg, _ := bodyMap["Message"].(string)
+		msg, _ := body["Message"].(string)
 		return nil, fmt.Errorf("SMS API error: %s - %s", apiCode, msg)
 	}
 
 	sendResult := &SendResult{}
-	if requestId, ok := bodyMap["RequestId"].(string); ok {
+	if requestId, ok := body["RequestId"].(string); ok {
 		sendResult.RequestId = requestId
 	}
-	if model, ok := bodyMap["Model"].(map[string]interface{}); ok {
+	if model, ok := body["Model"].(map[string]interface{}); ok {
 		if bizId, ok := model["BizId"].(string); ok {
 			sendResult.BizId = bizId
 		}
@@ -122,14 +127,19 @@ func (s *SMSService) CheckSmsVerifyCode(phoneNumber, verifyCode string) (*CheckV
 
 	log.Printf("[SMS Check] Raw response bodyMap: %+v", bodyMap)
 
-	apiCode, _ := bodyMap["Code"].(string)
+	body, ok := bodyMap["body"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("SMS check API unexpected response format")
+	}
+
+	apiCode, _ := body["Code"].(string)
 	if apiCode != "OK" {
-		msg, _ := bodyMap["Message"].(string)
+		msg, _ := body["Message"].(string)
 		return nil, fmt.Errorf("SMS check API error: %s - %s", apiCode, msg)
 	}
 
 	result := &CheckVerifyResult{}
-	if model, ok := bodyMap["Model"].(map[string]interface{}); ok {
+	if model, ok := body["Model"].(map[string]interface{}); ok {
 		if verifyResult, ok := model["VerifyResult"].(string); ok {
 			result.Passed = verifyResult == "PASS"
 		}

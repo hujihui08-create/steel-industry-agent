@@ -1,12 +1,15 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"time"
 
 	"steel-agent-backend/internal/model"
 	"steel-agent-backend/internal/repository"
+
+	"github.com/jung-kurt/gofpdf"
 )
 
 // QuotationService handles quotation business logic.
@@ -85,27 +88,113 @@ func (s *QuotationService) ExportQuotationPDF(ctx context.Context, id uint) ([]b
 		return nil, fmt.Errorf("报价单不存在: %v", err)
 	}
 
-	pdf := buildSimplePDF(q)
+	pdf := buildQuotationPDF(q)
 	return pdf, nil
 }
 
-func buildSimplePDF(q *model.Quotation) []byte {
-	var content string
-	content += fmt.Sprintf("报价单 #%d\n", q.ID)
-	content += "========================\n\n"
-	content += fmt.Sprintf("客户名称: %s\n", q.CustomerName)
-	content += fmt.Sprintf("品类: %s\n", q.Category)
-	content += fmt.Sprintf("规格: %s\n", q.Spec)
-	content += fmt.Sprintf("数量: %.2f %s\n", q.Quantity, q.Unit)
-	content += "\n--- 费用明细 ---\n"
-	content += fmt.Sprintf("材料费: %.2f\n", q.MaterialCost)
-	content += fmt.Sprintf("加工费: %.2f\n", q.ProcessCost)
-	content += fmt.Sprintf("运费: %.2f\n", q.FreightCost)
-	content += fmt.Sprintf("税费: %.2f\n", q.TaxCost)
-	content += "------------------------\n"
-	content += fmt.Sprintf("总价: %.2f\n", q.TotalPrice)
-	content += "========================\n"
-	content += fmt.Sprintf("生成时间: %s\n", time.Now().Format("2006-01-02 15:04:05"))
+func buildQuotationPDF(q *model.Quotation) []byte {
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.SetAutoPageBreak(true, 15)
+	pdf.AddPage()
 
-	return []byte(content)
+	pdf.AddUTF8Font("simsun", "", "simsun.ttc")
+	pdf.AddUTF8Font("simhei", "B", "simhei.ttf")
+
+	pdf.SetFont("simhei", "B", 18)
+	pdf.CellFormat(0, 12, fmt.Sprintf("报价单 #%d", q.ID), "", 1, "C", false, 0, "")
+	pdf.Ln(4)
+
+	pdf.SetLineWidth(0.5)
+	pdf.SetDrawColor(229, 229, 229)
+	y := pdf.GetY()
+	pdf.Line(10, y, 200, y)
+	pdf.Ln(6)
+
+	pdf.SetFont("simsun", "", 11)
+	colW := 95.0
+	rowH := 8.0
+
+	addRow := func(label, value string) {
+		pdf.SetFont("simsun", "", 11)
+		pdf.SetTextColor(115, 115, 115)
+		pdf.CellFormat(colW, rowH, label, "", 0, "L", false, 0, "")
+		pdf.SetTextColor(10, 10, 10)
+		pdf.CellFormat(0, rowH, value, "", 1, "L", false, 0, "")
+	}
+
+	if q.CustomerName != "" {
+		addRow("客户名称", q.CustomerName)
+	}
+	addRow("品类", q.Category)
+	addRow("规格", q.Spec)
+	addRow("数量", fmt.Sprintf("%.2f %s", q.Quantity, q.Unit))
+	if q.DeliveryLocation != "" {
+		addRow("收货地", q.DeliveryLocation)
+	}
+	addRow("状态", statusLabel(q.Status))
+
+	pdf.Ln(4)
+	pdf.SetLineWidth(0.3)
+	pdf.SetDrawColor(229, 229, 229)
+	y = pdf.GetY()
+	pdf.Line(10, y, 200, y)
+	pdf.Ln(6)
+
+	pdf.SetFont("simhei", "B", 13)
+	pdf.SetTextColor(10, 10, 10)
+	pdf.CellFormat(0, 8, "费用明细", "", 1, "L", false, 0, "")
+	pdf.Ln(2)
+
+	addCostRow(pdf, "材料费", q.MaterialCost)
+	addCostRow(pdf, "加工费", q.ProcessCost)
+	addCostRow(pdf, "运费", q.FreightCost)
+	addCostRow(pdf, "税费", q.TaxCost)
+
+	pdf.Ln(2)
+	pdf.SetLineWidth(0.5)
+	pdf.SetDrawColor(10, 10, 10)
+	y = pdf.GetY()
+	pdf.Line(120, y, 200, y)
+	pdf.Ln(4)
+
+	pdf.SetFont("simhei", "B", 14)
+	pdf.SetTextColor(10, 10, 10)
+	pdf.CellFormat(colW, 10, "合计", "", 0, "L", false, 0, "")
+	pdf.CellFormat(0, 10, formatPriceCN(q.TotalPrice), "", 1, "L", false, 0, "")
+	pdf.Ln(6)
+
+	pdf.SetFont("simsun", "", 9)
+	pdf.SetTextColor(163, 163, 163)
+	pdf.CellFormat(0, 6, fmt.Sprintf("生成时间: %s", time.Now().Format("2006-01-02 15:04:05")), "", 1, "C", false, 0, "")
+
+	var buf bytes.Buffer
+	_ = pdf.Output(&buf)
+	return buf.Bytes()
+}
+
+func addCostRow(pdf *gofpdf.Fpdf, label string, value float64) {
+	pdf.SetFont("simsun", "", 11)
+	pdf.SetTextColor(115, 115, 115)
+	pdf.CellFormat(95, 8, label, "", 0, "L", false, 0, "")
+	pdf.SetTextColor(10, 10, 10)
+	pdf.CellFormat(0, 8, formatPriceCN(value), "", 1, "L", false, 0, "")
+}
+
+func statusLabel(status string) string {
+	switch status {
+	case "draft":
+		return "草稿"
+	case "sent":
+		return "已发送"
+	case "accepted":
+		return "已接受"
+	case "rejected":
+		return "已拒绝"
+	default:
+		return status
+	}
+}
+
+func formatPriceCN(value float64) string {
+	return fmt.Sprintf("¥%.2f", value)
 }
