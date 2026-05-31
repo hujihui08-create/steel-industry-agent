@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"strings"
 	"time"
@@ -20,18 +21,51 @@ import (
 	"gorm.io/gorm"
 )
 
+type smsConfig struct {
+	enabled      bool
+	accessKey    string
+	accessSecret string
+}
+
 const smsCodeTTL = 5 * time.Minute
 
-// AuthService handles authentication and authorization business logic.
 type AuthService struct {
 	userRepo          *repository.UserRepository
 	redisClient       redis.UniversalClient
 	adminSettingsRepo *repository.AdminSettingsRepository
 }
 
-// NewAuthService creates a new AuthService with the given dependencies.
 func NewAuthService(userRepo *repository.UserRepository, redisClient redis.UniversalClient, adminSettingsRepo *repository.AdminSettingsRepository) *AuthService {
 	return &AuthService{userRepo: userRepo, redisClient: redisClient, adminSettingsRepo: adminSettingsRepo}
+}
+
+func (s *AuthService) getSMSConfig(ctx context.Context) *smsConfig {
+	if s.adminSettingsRepo == nil {
+		return nil
+	}
+	settings, err := s.adminSettingsRepo.Get(ctx)
+	if err != nil || settings == nil {
+		return nil
+	}
+
+	var enabled bool
+	switch v := settings.SettingsData["smsEnabled"].(type) {
+	case bool:
+		enabled = v
+	case float64:
+		enabled = v != 0
+	case int:
+		enabled = v != 0
+	}
+
+	accessKey, _ := settings.SettingsData["smsAccessKey"].(string)
+	accessSecret, _ := settings.SettingsData["smsAccessSecret"].(string)
+
+	return &smsConfig{
+		enabled:      enabled,
+		accessKey:    strings.TrimSpace(accessKey),
+		accessSecret: strings.TrimSpace(accessSecret),
+	}
 }
 
 // SendSMSCode sends a one-time SMS verification code to the given phone number
@@ -88,24 +122,14 @@ func (s *AuthService) SendSMSCode(ctx context.Context, phone string) error {
 		return nil
 	}
 
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	code := fmt.Sprintf("%06d", rng.Intn(1000000))
-
 	smsClient, err := sms.NewSMSService(accessKey, accessSecret)
 	if err != nil {
 		return fmt.Errorf("短信服务初始化失败: %w", err)
 	}
 
-	_, err = smsClient.SendVerificationCode(phone, signName, templateCode, code)
+	_, err = smsClient.SendVerificationCode(phone, signName, templateCode)
 	if err != nil {
 		return err
-	}
-
-	if s.redisClient != nil {
-		key := fmt.Sprintf("sms_code:%s", phone)
-		if err := s.redisClient.Set(ctx, key, code, smsCodeTTL).Err(); err != nil {
-			return fmt.Errorf("failed to store verification code: %w", err)
-		}
 	}
 
 	return nil
@@ -113,6 +137,23 @@ func (s *AuthService) SendSMSCode(ctx context.Context, phone string) error {
 
 // Login authenticates a user by phone number and SMS code, returning access and refresh tokens.
 func (s *AuthService) Login(ctx context.Context, phone, code string) (string, string, error) {
+	cfg := s.getSMSConfig(ctx)
+	if cfg != nil && cfg.enabled && cfg.accessKey != "" && cfg.accessSecret != "" {
+		smsClient, err := sms.NewSMSService(cfg.accessKey, cfg.accessSecret)
+		if err != nil {
+			log.Printf("[SMS] Login: failed to create SMS client: %v", err)
+		} else {
+			result, err := smsClient.CheckSmsVerifyCode(phone, code)
+			if err != nil {
+				return "", "", fmt.Errorf("验证码核验失败，请稍后重试")
+			}
+			if !result.Passed {
+				return "", "", errors.New("验证码错误")
+			}
+			goto findUser
+		}
+	}
+
 	if s.redisClient != nil {
 		key := fmt.Sprintf("sms_code:%s", phone)
 		storedCode, err := s.redisClient.Get(ctx, key).Result()
@@ -125,6 +166,7 @@ func (s *AuthService) Login(ctx context.Context, phone, code string) (string, st
 		s.redisClient.Del(ctx, key)
 	}
 
+findUser:
 	user, err := s.userRepo.FindByPhone(ctx, phone)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -133,7 +175,6 @@ func (s *AuthService) Login(ctx context.Context, phone, code string) (string, st
 		return "", "", err
 	}
 
-	// sessionTimeout can be passed from admin_settings; 0 falls back to env var
 	accessToken, err := jwt.GenerateAccessToken(user.ID, "user", 0)
 	if err != nil {
 		return "", "", err
@@ -177,6 +218,23 @@ func (s *AuthService) LoginPassword(ctx context.Context, phone, password string)
 
 // Register creates a new user account and returns access and refresh tokens.
 func (s *AuthService) Register(ctx context.Context, phone, password, code, nickname string) (string, string, error) {
+	cfg := s.getSMSConfig(ctx)
+	if cfg != nil && cfg.enabled && cfg.accessKey != "" && cfg.accessSecret != "" {
+		smsClient, err := sms.NewSMSService(cfg.accessKey, cfg.accessSecret)
+		if err != nil {
+			log.Printf("[SMS] Register: failed to create SMS client: %v", err)
+		} else {
+			result, err := smsClient.CheckSmsVerifyCode(phone, code)
+			if err != nil {
+				return "", "", fmt.Errorf("验证码核验失败，请稍后重试")
+			}
+			if !result.Passed {
+				return "", "", errors.New("验证码错误")
+			}
+			goto createUser
+		}
+	}
+
 	if s.redisClient != nil {
 		key := fmt.Sprintf("sms_code:%s", phone)
 		storedCode, err := s.redisClient.Get(ctx, key).Result()
@@ -188,6 +246,8 @@ func (s *AuthService) Register(ctx context.Context, phone, password, code, nickn
 		}
 		s.redisClient.Del(ctx, key)
 	}
+
+createUser:
 
 	_, err := s.userRepo.FindByPhone(ctx, phone)
 	if err == nil {

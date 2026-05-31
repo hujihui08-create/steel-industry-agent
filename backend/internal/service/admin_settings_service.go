@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
 	"mime/multipart"
 	"net/smtp"
 	"os"
@@ -250,10 +249,7 @@ func (s *AdminSettingsService) TestSMS(ctx context.Context, phone string) (bool,
 		return false, fmt.Sprintf("短信服务初始化失败: %v", err), nil
 	}
 
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	code := fmt.Sprintf("%06d", rng.Intn(1000000))
-
-	_, err = smsClient.SendVerificationCode(phone, signName, templateCode, code)
+	_, err = smsClient.SendVerificationCode(phone, signName, templateCode)
 	if err != nil {
 		return false, fmt.Sprintf("短信发送失败: %v", err), nil
 	}

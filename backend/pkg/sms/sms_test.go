@@ -38,7 +38,6 @@ func TestSendVerificationCode_Signature(t *testing.T) {
 		phoneNumber  string
 		signName     string
 		templateCode string
-		code         string
 		wantErr      bool
 		errContains  string
 	}{
@@ -47,7 +46,6 @@ func TestSendVerificationCode_Signature(t *testing.T) {
 			phoneNumber:  "13800138000",
 			signName:     "测试签名",
 			templateCode: "SMS_123456",
-			code:         "123456",
 			wantErr:      true,
 		},
 		{
@@ -55,14 +53,13 @@ func TestSendVerificationCode_Signature(t *testing.T) {
 			phoneNumber:  "",
 			signName:     "测试签名",
 			templateCode: "SMS_123456",
-			code:         "123456",
 			wantErr:      true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := svc.SendVerificationCode(tt.phoneNumber, tt.signName, tt.templateCode, tt.code)
+			_, err := svc.SendVerificationCode(tt.phoneNumber, tt.signName, tt.templateCode)
 			if tt.wantErr && err == nil {
 				t.Error("expected error, got nil")
 			}
