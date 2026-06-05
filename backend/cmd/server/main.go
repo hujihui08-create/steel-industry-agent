@@ -117,6 +117,10 @@ func main() {
 
 	debugService := service.NewDebugService(chatService, intentRepo, agentConfigService, chatRepo, categoryRepo, entityConfigService, redisClient)
 
+	// --- Crawler scheduler ---
+	crawlerService.CleanupZombieLogs()
+	crawlerService.StartScheduler()
+
 	// --- Handlers ---
 	healthHandler := handler.NewHealthHandler(db, redisClient, version)
 	authHandler := handler.NewAuthHandler(authService, loginLogService)
@@ -222,6 +226,8 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Shutting down server...")
+
+	crawlerService.Stop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
