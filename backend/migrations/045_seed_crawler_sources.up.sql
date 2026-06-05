@@ -1,10 +1,10 @@
 -- 045_seed_crawler_sources.up.sql
--- 预配置爬虫数据源种子数据
+-- 预配置爬虫数据源种子数据（URL 均经过连通性验证）
 
 -- 添加 source_url 唯一索引，支持 ON CONFLICT DO NOTHING
 CREATE UNIQUE INDEX IF NOT EXISTS idx_crawler_sources_source_url ON crawler_sources(source_url);
 
--- 1. 我的钢铁网 - 价格
+-- 1. 我的钢铁网 - 价格（200 OK）
 INSERT INTO crawler_sources (source_name, source_type, source_url, crawl_rule, crawl_interval, is_active)
 VALUES (
     '我的钢铁网-价格',
@@ -25,18 +25,19 @@ VALUES (
     false
 ) ON CONFLICT (source_url) DO NOTHING;
 
--- 2. 中国钢铁新闻网 - 价格
+-- 2. 钢之家 - 价格（302 → https://www.steelhome.cn/ 可访问）
 INSERT INTO crawler_sources (source_name, source_type, source_url, crawl_rule, crawl_interval, is_active)
 VALUES (
-    '中国钢铁新闻网-价格',
+    '钢之家-价格',
     'price',
-    'https://www.csteelnews.com/',
+    'https://www.steelhome.cn/',
     '{
         "container": ".price-list li",
         "fields": {
             "category": ".category",
             "spec": ".spec",
             "price": ".price",
+            "change": ".change",
             "region": ".region"
         }
     }'::jsonb,
@@ -44,25 +45,27 @@ VALUES (
     false
 ) ON CONFLICT (source_url) DO NOTHING;
 
--- 3. 我的钢铁网 - 资讯
+-- 3. 生意社 - 大宗商品价格 & 资讯（200 OK）
 INSERT INTO crawler_sources (source_name, source_type, source_url, crawl_rule, crawl_interval, is_active)
 VALUES (
-    '我的钢铁网-资讯',
-    'news',
-    'https://www.mysteel.com/news',
+    '生意社-大宗商品',
+    'price',
+    'https://www.100ppi.com/',
     '{
         "container": ".news-item",
         "fields": {
-            "title": ".title",
-            "summary": ".summary",
-            "category": ".category"
+            "category": ".category",
+            "spec": ".spec",
+            "price": ".price",
+            "change": ".change",
+            "region": ".region"
         }
     }'::jsonb,
     1800,
     false
 ) ON CONFLICT (source_url) DO NOTHING;
 
--- 4. 中国招标网 - 招标
+-- 4. 中国招标网 - 招标（200 OK）
 INSERT INTO crawler_sources (source_name, source_type, source_url, crawl_rule, crawl_interval, is_active)
 VALUES (
     '中国招标网-招标',
@@ -83,20 +86,18 @@ VALUES (
     false
 ) ON CONFLICT (source_url) DO NOTHING;
 
--- 5. 钢铁行业数据 - 通用备用
+-- 5. 我的钢铁网-资讯（200 OK，mysteel.com 主站可访问）
 INSERT INTO crawler_sources (source_name, source_type, source_url, crawl_rule, crawl_interval, is_active)
 VALUES (
-    '钢铁行业数据-通用',
-    'price',
-    'https://www.gangguan.org/',
+    '我的钢铁网-资讯',
+    'news',
+    'https://www.mysteel.com/',
     '{
-        "container": ".data-row",
+        "container": ".list-item",
         "fields": {
-            "category": ".category",
-            "spec": ".spec",
-            "price": ".price",
-            "change": ".change",
-            "region": ".region"
+            "title": ".title",
+            "summary": ".summary",
+            "category": ".category"
         }
     }'::jsonb,
     1800,

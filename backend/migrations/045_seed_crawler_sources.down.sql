@@ -1,14 +1,11 @@
 -- 045_seed_crawler_sources.down.sql
--- 回滚：删除预配置的爬虫数据源种子数据
+-- 删除种子数据源
 
-DELETE FROM crawler_sources
-WHERE source_url IN (
+DELETE FROM crawler_sources WHERE source_url IN (
     'https://www.mysteel.com/',
-    'https://www.csteelnews.com/',
-    'https://www.mysteel.com/news',
-    'https://www.bidcenter.com.cn/',
-    'https://www.gangguan.org/'
+    'https://www.steelhome.cn/',
+    'https://www.100ppi.com/',
+    'https://www.bidcenter.com.cn/'
 );
 
--- 删除 source_url 唯一索引
 DROP INDEX IF EXISTS idx_crawler_sources_source_url;
