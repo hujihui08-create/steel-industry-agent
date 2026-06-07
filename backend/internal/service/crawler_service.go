@@ -360,26 +360,41 @@ func (s *CrawlerService) GetCrawlStatus() (map[uint]CrawlStatus, error) {
 // Internal: colly collector factory
 // ---------------------------------------------------------------------------
 
-// createCollector builds a pre-configured colly collector with sensible defaults.
+// createCollector builds a pre-configured async colly collector with redirect
+// tracking and sensible defaults.
 func (s *CrawlerService) createCollector() *colly.Collector {
 	c := colly.NewCollector(
 		colly.UserAgent("SteelAgentCrawler/1.0"),
 		colly.AllowURLRevisit(),
+		colly.Async(true),
 	)
 
-	// Respect robots.txt for ethical crawling.
+	// Set async parallelism to avoid overwhelming target servers.
 	c.Limit(&colly.LimitRule{
-		DomainGlob: "*",
-		Delay:      2 * time.Second,
+		DomainGlob:  "*",
+		Parallelism: 2,
+		Delay:       2 * time.Second,
 	})
 
-	// Logging callbacks.
+	// Track redirects for debugging.
 	c.OnRequest(func(r *colly.Request) {
+		if r.Ctx.Get("original_url") == "" {
+			r.Ctx.Put("original_url", r.URL.String())
+		}
 		log.Printf("[CrawlerService] Visiting: %s", r.URL.String())
 	})
 
+	c.OnResponse(func(r *colly.Response) {
+		finalURL := r.Request.URL.String()
+		originalURL := r.Ctx.Get("original_url")
+		if originalURL != "" && originalURL != finalURL {
+			log.Printf("[CrawlerService] Redirected: %s → %s (status=%d)", originalURL, finalURL, r.StatusCode)
+		}
+		log.Printf("[CrawlerService] Response: %s status=%d size=%d", finalURL, r.StatusCode, len(r.Body))
+	})
+
 	c.OnError(func(r *colly.Response, err error) {
-		log.Printf("[CrawlerService] Request error for %s: %v", r.Request.URL, err)
+		log.Printf("[CrawlerService] Request error for %s: %v (status=%d)", r.Request.URL, err, r.StatusCode)
 	})
 
 	return c
@@ -458,8 +473,13 @@ func (s *CrawlerService) parsePriceHTML(source model.CrawlerSource, c *colly.Col
 	// colly uses a request wait queue internally; ensure all callbacks complete.
 	c.Wait()
 
-	if len(scraped) == 0 && lastHTTPError != nil {
-		return nil, fmt.Errorf("HTTP error: %w", lastHTTPError)
+	if len(scraped) == 0 {
+		if lastHTTPError != nil {
+			return nil, fmt.Errorf("HTTP error: %w", lastHTTPError)
+		}
+		// Log the HTML structure hint to help debug CSS selector mismatches.
+		log.Printf("[CrawlerService] WARNING: source %d (%s) parsed 0 items from %s — CSS selector may not match page structure (container: %s)",
+			source.ID, source.SourceName, source.SourceURL, rule.Container)
 	}
 
 	return scraped, nil
