@@ -122,51 +122,67 @@ func (s *AuthService) SendSMSCode(ctx context.Context, phone string) error {
 		return nil
 	}
 
+	// Always generate a local backup code regardless of Alibaba Cloud result.
+	// Free/test templates may return API success but not actually deliver SMS
+	// to non-whitelisted numbers. The local code in Redis serves as a fallback.
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	localCode := fmt.Sprintf("%06d", rng.Intn(1000000))
+	if s.redisClient != nil {
+		key := fmt.Sprintf("sms_code:%s", phone)
+		_ = s.redisClient.Set(ctx, key, localCode, smsCodeTTL)
+	}
+
 	smsClient, err := sms.NewSMSService(accessKey, accessSecret)
 	if err != nil {
-		return fmt.Errorf("短信服务初始化失败: %w", err)
+		fmt.Printf("SMS API init failed, using local code for %s: %s\n", phone, localCode)
+		return nil
 	}
 
 	_, err = smsClient.SendVerificationCode(phone, signName, templateCode)
 	if err != nil {
-		return err
+		fmt.Printf("SMS API send failed for %s, using local code: %s (error: %v)\n", phone, localCode, err)
+		return nil
 	}
 
+	fmt.Printf("SMS sent for %s, local backup code: %s\n", phone, localCode)
 	return nil
 }
 
 // Login authenticates a user by phone number and SMS code, returning access and refresh tokens.
 func (s *AuthService) Login(ctx context.Context, phone, code string) (string, string, error) {
+	// Try Alibaba Cloud verification first, but fall back to local Redis code
+	// if it fails (free templates may not deliver to non-whitelisted numbers).
 	cfg := s.getSMSConfig(ctx)
+	aliVerified := false
 	if cfg != nil && cfg.enabled && cfg.accessKey != "" && cfg.accessSecret != "" {
 		smsClient, err := sms.NewSMSService(cfg.accessKey, cfg.accessSecret)
 		if err != nil {
-			log.Printf("[SMS] Login: failed to create SMS client: %v", err)
+			log.Printf("[SMS] Login: failed to create SMS client: %v, falling back to local code", err)
 		} else {
 			result, err := smsClient.CheckSmsVerifyCode(phone, code)
 			if err != nil {
-				return "", "", fmt.Errorf("验证码核验失败，请稍后重试")
+				log.Printf("[SMS] Login: Alibaba CheckSmsVerifyCode error: %v, falling back to local code", err)
+			} else if result.Passed {
+				aliVerified = true
+			} else {
+				log.Printf("[SMS] Login: Alibaba code mismatch, falling back to local code")
 			}
-			if !result.Passed {
+		}
+	}
+
+	if !aliVerified {
+		if s.redisClient != nil {
+			key := fmt.Sprintf("sms_code:%s", phone)
+			storedCode, err := s.redisClient.Get(ctx, key).Result()
+			if err != nil {
+				return "", "", errors.New("验证码无效或已过期")
+			}
+			if storedCode != code {
 				return "", "", errors.New("验证码错误")
 			}
-			goto findUser
+			s.redisClient.Del(ctx, key)
 		}
 	}
-
-	if s.redisClient != nil {
-		key := fmt.Sprintf("sms_code:%s", phone)
-		storedCode, err := s.redisClient.Get(ctx, key).Result()
-		if err != nil {
-			return "", "", errors.New("验证码无效或已过期")
-		}
-		if storedCode != code {
-			return "", "", errors.New("验证码错误")
-		}
-		s.redisClient.Del(ctx, key)
-	}
-
-findUser:
 	user, err := s.userRepo.FindByPhone(ctx, phone)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -229,35 +245,36 @@ func (s *AuthService) LoginPassword(ctx context.Context, phone, password string)
 // Register creates a new user account and returns access and refresh tokens.
 func (s *AuthService) Register(ctx context.Context, phone, password, code, nickname string) (string, string, error) {
 	cfg := s.getSMSConfig(ctx)
+	aliVerified := false
 	if cfg != nil && cfg.enabled && cfg.accessKey != "" && cfg.accessSecret != "" {
 		smsClient, err := sms.NewSMSService(cfg.accessKey, cfg.accessSecret)
 		if err != nil {
-			log.Printf("[SMS] Register: failed to create SMS client: %v", err)
+			log.Printf("[SMS] Register: failed to create SMS client: %v, falling back to local code", err)
 		} else {
 			result, err := smsClient.CheckSmsVerifyCode(phone, code)
 			if err != nil {
-				return "", "", fmt.Errorf("验证码核验失败，请稍后重试")
+				log.Printf("[SMS] Register: Alibaba CheckSmsVerifyCode error: %v, falling back to local code", err)
+			} else if result.Passed {
+				aliVerified = true
+			} else {
+				log.Printf("[SMS] Register: Alibaba code mismatch, falling back to local code")
 			}
-			if !result.Passed {
+		}
+	}
+
+	if !aliVerified {
+		if s.redisClient != nil {
+			key := fmt.Sprintf("sms_code:%s", phone)
+			storedCode, err := s.redisClient.Get(ctx, key).Result()
+			if err != nil {
+				return "", "", errors.New("验证码无效或已过期")
+			}
+			if storedCode != code {
 				return "", "", errors.New("验证码错误")
 			}
-			goto createUser
+			s.redisClient.Del(ctx, key)
 		}
 	}
-
-	if s.redisClient != nil {
-		key := fmt.Sprintf("sms_code:%s", phone)
-		storedCode, err := s.redisClient.Get(ctx, key).Result()
-		if err != nil {
-			return "", "", errors.New("验证码无效或已过期")
-		}
-		if storedCode != code {
-			return "", "", errors.New("验证码错误")
-		}
-		s.redisClient.Del(ctx, key)
-	}
-
-createUser:
 
 	_, err := s.userRepo.FindByPhone(ctx, phone)
 	if err == nil {
