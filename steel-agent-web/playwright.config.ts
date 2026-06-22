@@ -11,7 +11,7 @@ export default defineConfig({
     ["list"],
   ],
   use: {
-    baseURL: process.env.CI ? "http://localhost:5173" : "http://localhost:5173",
+    baseURL: process.env.CI ? "http://localhost:3000" : "http://localhost:3000",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -24,9 +24,14 @@ export default defineConfig({
   webServer: process.env.CI
     ? {
         command: "npm run dev",
-        url: "http://localhost:5173",
-        reuseExistingServer: !process.env.CI,
+        url: "http://localhost:3000",
+        reuseExistingServer: false,
         timeout: 120 * 1000,
       }
-    : undefined,
+    : {
+        command: "npm run dev",
+        url: "http://localhost:3000",
+        reuseExistingServer: true,
+        timeout: 120 * 1000,
+      },
 });

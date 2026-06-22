@@ -2,10 +2,27 @@
 
 import React, { useEffect, useRef } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import type { ChatMessage } from "@/app/types/chat";
+import type { ChatMessage, CardAttachment } from "@/app/types/chat";
 import { Sparkles, User, Copy, RefreshCw, ThumbsUp, ThumbsDown, Pencil, Trash2 } from "lucide-react";
 import { MarkdownContent } from "./MarkdownContent";
 import { cn } from "@/lib/utils";
+import { PriceCard } from "@/app/components/Cards/PriceCard";
+import type { PriceItem } from "@/app/components/Cards/PriceCard";
+import { TrendCard } from "@/app/components/Cards/TrendCard";
+import type { TrendDataPoint as TrendCardDataPoint } from "@/app/components/Cards/TrendCard";
+import { CompareCard } from "@/app/components/Cards/CompareCard";
+import type { CompareCategory } from "@/app/components/Cards/CompareCard";
+import { QuotationCard } from "@/app/components/Cards/QuotationCard";
+import type { QuotationItem } from "@/app/components/Cards/QuotationCard";
+import { NewsCard } from "@/app/components/Cards/NewsCard";
+import type { NewsItem } from "@/app/components/Cards/NewsCard";
+import { AlertCard } from "@/app/components/Cards/AlertCard";
+import type { AlertCardProps } from "@/app/components/Cards/AlertCard";
+import { TenderCard } from "@/app/components/Cards/TenderCard";
+import type { TenderCardProps } from "@/app/components/Cards/TenderCard";
+import { TenderDetailCard } from "@/app/components/Cards/TenderDetailCard";
+import type { TenderDetailCardData } from "@/app/components/Cards/TenderDetailCard";
+import { QuickSelectChips } from "@/app/components/Chat/QuickSelectChips";
 
 const MemoMarkdownContent = React.memo(MarkdownContent, (prev, next) => prev.content === next.content);
 
@@ -184,6 +201,181 @@ export function ErrorBubble({ content, onRegenerate }: ErrorBubbleProps) {
   );
 }
 
+// ============================================================
+// Inline Card Renderer — renders card inline inside AI bubble
+// ============================================================
+
+function renderInlineCard(
+  att: CardAttachment,
+  idx: number,
+  bubbleMessageId: number,
+  onCardClick?: (att: CardAttachment) => void,
+  onCardDoubleClick?: (att: CardAttachment) => void,
+) {
+  const cardKey = `bubble-card-${bubbleMessageId}-${idx}`;
+
+  const lastTap = React.useRef<{ time: number; cardKey: string | null }>({ time: 0, cardKey: null });
+
+  const handleClick = () => {
+    const now = Date.now();
+    if (lastTap.current.cardKey === cardKey && now - lastTap.current.time < 400) {
+      // Double click
+      lastTap.current = { time: 0, cardKey: null };
+      onCardDoubleClick?.(att);
+    } else {
+      // Single click
+      lastTap.current = { time: now, cardKey };
+      onCardClick?.(att);
+    }
+  };
+
+  switch (att.type) {
+    case 'price': {
+      const data = att.data as unknown as { eyebrow?: string; title?: string; prices?: PriceItem[]; source?: string; sourceTime?: string; };
+      if (!data.prices || data.prices.length === 0) return null;
+      return (
+        <div key={cardKey} className="cursor-pointer" onClick={handleClick}
+          role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}>
+          <PriceCard eyebrow={data.eyebrow} title={data.title || '价格查询'} prices={data.prices} source={data.source} sourceTime={data.sourceTime} />
+        </div>
+      );
+    }
+    case 'trend': {
+      const data = att.data as unknown as { title?: string; data?: TrendCardDataPoint[]; changePct?: number; };
+      if (!data.data || data.data.length === 0) return null;
+      return (
+        <div key={cardKey} className="cursor-pointer" onClick={handleClick}
+          role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}>
+          <TrendCard title={data.title || '价格走势'} data={data.data} changePct={data.changePct} />
+        </div>
+      );
+    }
+    case 'compare': {
+      const data = att.data as unknown as { eyebrow?: string; title?: string; categories?: CompareCategory[]; source?: string; sourceTime?: string; };
+      if (!data.categories || data.categories.length === 0) return null;
+      return (
+        <div key={cardKey} className="cursor-pointer" onClick={handleClick}
+          role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}>
+          <CompareCard eyebrow={data.eyebrow} title={data.title} categories={data.categories} source={data.source} sourceTime={data.sourceTime} />
+        </div>
+      );
+    }
+    case 'news': {
+      const data = att.data as unknown as { title?: string; news?: NewsItem[]; source?: string; sourceTime?: string; };
+      if (!data.news || data.news.length === 0) return null;
+      return (
+        <div key={cardKey} className="cursor-pointer" onClick={handleClick}
+          role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}>
+          <NewsCard title={data.title} news={data.news} source={data.source} sourceTime={data.sourceTime} />
+        </div>
+      );
+    }
+    case 'quotation': {
+      const data = att.data as unknown as { title?: string; items?: QuotationItem[]; total?: number; currency?: string; };
+      const items: QuotationItem[] = data.items || [];
+      if (items.length === 0 && data.total == null) return null;
+      return (
+        <div key={cardKey} className="cursor-pointer" onClick={handleClick}
+          role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}>
+          <QuotationCard title={data.title || '报价单'} items={items} total={data.total || 0} currency={data.currency} />
+        </div>
+      );
+    }
+    case 'alert': {
+      const raw = att.data as Record<string, unknown>;
+      const data: AlertCardProps = {
+        id: raw.id as number | undefined,
+        category: (raw.category as string) || '',
+        spec: (raw.spec as string) || '',
+        region: (raw.region as string) || '',
+        targetPrice: (raw.target_price as number) || 0,
+        condition: (raw.condition as 'above' | 'below') || 'above',
+        notifyMethod: raw.notify_method as string | undefined,
+        isActive: raw.is_active as boolean | undefined,
+        isTriggered: raw.is_triggered as boolean | undefined,
+        currentPrice: raw.current_price as number | undefined,
+        triggeredAt: raw.triggered_at as string | undefined,
+      };
+      return (
+        <div key={cardKey} onClick={handleClick} role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}>
+          <AlertCard {...data} />
+        </div>
+      );
+    }
+    case 'tender_list': {
+      const raw = att.data as Record<string, unknown>;
+      const items = (raw.items as TenderCardProps['items']) || [];
+      if (items.length === 0) {
+        return (
+          <div key={cardKey}>
+            <TenderCard items={[]} />
+          </div>
+        );
+      }
+      return (
+        <div key={cardKey} className="cursor-pointer" onClick={handleClick}
+          role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}>
+          <TenderCard
+            title={raw.title as string}
+            subtitle={raw.subtitle as string}
+            items={items}
+            totalCount={raw.total_count as number}
+            isReminder={raw.is_reminder as boolean}
+            source={raw.source as string}
+            sourceTime={raw.sourceTime as string}
+          />
+        </div>
+      );
+    }
+    case 'tender_detail': {
+      const raw = att.data as Record<string, unknown>;
+      const detailData: TenderDetailCardData = {
+        id: raw.id as (number | string),
+        title: (raw.title as string) || '',
+        bidding_company: raw.bidding_company as string,
+        budget: (raw.budget as number) || 0,
+        region: (raw.region as string) || '',
+        category: (raw.category as string) || '',
+        deadline: (raw.deadline as string) || '',
+        bid_deadline: (raw.bid_deadline as string) || '',
+        description: raw.description as string,
+        items: raw.items as TenderDetailCardData['items'],
+        source_url: raw.source_url as string,
+      };
+      return (
+        <div key={cardKey} className="cursor-pointer" onClick={handleClick}
+          role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}>
+          <TenderDetailCard data={detailData} />
+        </div>
+      );
+    }
+    case 'quick_select': {
+      const data = att.data as unknown as { options?: string[]; label?: string; single?: boolean; };
+      if (!data.options || data.options.length === 0) return null;
+      return (
+        <div key={cardKey}>
+          <QuickSelectChips
+            options={data.options}
+            label={data.label}
+            disabled={false}
+            onSelect={() => {}}
+          />
+        </div>
+      );
+    }
+    default:
+      return null;
+  }
+}
+
 export interface ChatBubbleProps {
   message: ChatMessage;
   isStreaming?: boolean;
@@ -197,6 +389,8 @@ export interface ChatBubbleProps {
   onDelete?: (messageId: number) => void;
   onSwipeQuote?: () => void;
   onDisclaimer?: (text: string, messageId: number) => void;
+  onCardClick?: (att: CardAttachment) => void;
+  onCardDoubleClick?: (att: CardAttachment) => void;
 }
 
 export const ChatBubble = React.memo(function ChatBubble({
@@ -211,6 +405,8 @@ export const ChatBubble = React.memo(function ChatBubble({
   onDelete,
   onSwipeQuote,
   onDisclaimer,
+  onCardClick,
+  onCardDoubleClick,
 }: ChatBubbleProps) {
   const [showTouchActions, setShowTouchActions] = React.useState(false);
   const [swipeOffset, setSwipeOffset] = React.useState(0);
@@ -334,13 +530,28 @@ export const ChatBubble = React.memo(function ChatBubble({
       onTouchEnd={handleTouchEnd}
     >
       <AIBubble hideAvatar={hideAvatar} isError={isError} ariaLive={isStreaming ? "polite" : undefined}>
-        <MemoMarkdownContent content={mainContent} />
+        {mainContent.trim().length > 0 && <MemoMarkdownContent content={mainContent} />}
         {sourceCitation && (
           <div className="mt-1.5 text-[12px] leading-[1.5] text-steel-muted">
             来源：{sourceCitation}
           </div>
         )}
         {isStreaming && <StreamCursor />}
+        {/* Render cards inside the bubble */}
+        {isAssistant && message.attachments && message.attachments.length > 0 && (
+          <div className={mainContent.trim().length > 0 ? "mt-3 pt-3 border-t border-steel-line" : ""}>
+            {message.attachments.map((att, idx) => {
+              const card = renderInlineCard(att, idx, message.id, onCardClick, onCardDoubleClick);
+              if (!card) return null;
+              return (
+                <React.Fragment key={`bubble-card-${message.id}-${idx}`}>
+                  {idx > 0 && <div className="my-3 border-t border-steel-line" />}
+                  {card}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        )}
       </AIBubble>
       {hasStop && (
         <div className="flex items-center gap-2 mt-1.5 ml-[calc(1.75rem+12px)]">

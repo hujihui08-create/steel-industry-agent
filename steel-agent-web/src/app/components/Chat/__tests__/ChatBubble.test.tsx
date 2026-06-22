@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll } from "vitest";
 import {
   ChatBubble,
   AIBubble,
@@ -8,7 +8,16 @@ import {
   TypingIndicator,
   ErrorBubble,
 } from "@/app/components/Chat/ChatBubble";
-import type { ChatMessage } from "@/app/types/chat";
+import type { ChatMessage, CardAttachment } from "@/app/types/chat";
+
+// Mock ResizeObserver for recharts (not available in jsdom)
+beforeAll(() => {
+  global.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+});
 
 // ===========================================================================
 // Factory helper - create a ChatMessage matching the type definition
@@ -387,5 +396,192 @@ describe("ChatBubble - Action buttons", () => {
 
     expect(screen.getByLabelText("有帮助")).toBeInTheDocument();
     expect(screen.getByLabelText("不准确")).toBeInTheDocument();
+  });
+});
+
+// ===========================================================================
+// ChatBubble - Card inline rendering
+// ===========================================================================
+
+function makeAssistantMsgWithCards(
+  content: string,
+  attachments: CardAttachment[],
+  overrides?: Partial<ChatMessage>,
+): ChatMessage {
+  return {
+    id: 200,
+    session_id: 1,
+    role: "assistant",
+    content,
+    tokens: 0,
+    created_at: "2026-01-01T00:00:00Z",
+    attachments,
+    ...overrides,
+  } as ChatMessage;
+}
+
+const mockPriceAttachment: CardAttachment = {
+  type: "price",
+  data: {
+    eyebrow: "PRICE",
+    title: "螺纹钢",
+    prices: [
+      { region: "上海", spec: "HRB400E 20mm", price: 3850, change: 12, changePct: 0.31 },
+    ],
+  },
+};
+
+describe("ChatBubble - Card inline rendering", () => {
+  it("renders price card inside the AI bubble when assistant has attachments", () => {
+    const msg = makeAssistantMsgWithCards("今日螺纹钢小幅上涨", [mockPriceAttachment]);
+
+    const { container } = render(<ChatBubble message={msg} />);
+
+    // The card is inside the AI bubble (bg-steel-surface)
+    const bubble = container.querySelector('[class*="bg-steel-surface"]');
+    expect(bubble).toBeInTheDocument();
+
+    // The price card renders "PRICE" as eyebrow text
+    expect(bubble!.textContent).toContain("PRICE");
+    expect(bubble!.textContent).toContain("螺纹钢");
+
+    // Verify text content is also present
+    expect(screen.getByText("今日螺纹钢小幅上涨")).toBeInTheDocument();
+  });
+
+  it("shows border-t divider between text and cards", () => {
+    const msg = makeAssistantMsgWithCards("今日螺纹钢小幅上涨", [mockPriceAttachment]);
+
+    render(<ChatBubble message={msg} />);
+
+    // There should be a border-t element between text content and card area
+    const divider = document.querySelector('[class*="border-t"][class*="border-steel-line"]');
+    expect(divider).toBeInTheDocument();
+  });
+
+  it("renders only card when content is empty", () => {
+    const msg = makeAssistantMsgWithCards("", [mockPriceAttachment]);
+
+    const { container } = render(<ChatBubble message={msg} />);
+
+    // Card should render
+    expect(screen.getByText("PRICE")).toBeInTheDocument();
+    expect(screen.getByText("螺纹钢")).toBeInTheDocument();
+
+    // No border-t divider when no text content
+    const cardArea = container.querySelector('[class*="border-t"][class*="border-steel-line"]');
+    // The divider should NOT have the "border-t border-steel-line" classes that are only added when content exists
+    const dividers = container.querySelectorAll('[class*="border-t"][class*="border-steel-line"]');
+    // When content is empty, the card area wrapper has className="" (no border-t)
+    expect(dividers.length).toBe(0);
+  });
+
+  it("renders normally when no attachments", () => {
+    const msg = makeAssistantMsgWithCards("just text", []);
+
+    const { container } = render(<ChatBubble message={msg} />);
+
+    // Text renders
+    expect(screen.getByText("just text")).toBeInTheDocument();
+
+    // No card elements rendered
+    expect(screen.queryByText("PRICE")).not.toBeInTheDocument();
+    expect(container.querySelector('[role="button"]')).not.toBeInTheDocument();
+  });
+
+  it("calls onCardClick when clicking a card", async () => {
+    const msg = makeAssistantMsgWithCards("今日螺纹钢小幅上涨", [mockPriceAttachment]);
+    const onCardClick = vi.fn();
+    const user = userEvent.setup();
+
+    render(<ChatBubble message={msg} onCardClick={onCardClick} />);
+
+    // Find the clickable card wrapper (div with role="button" + cursor-pointer class,
+    // NOT the internal PriceCard "设置预警" button)
+    const cardButton = document.querySelector('[role="button"][class*="cursor-pointer"]');
+    expect(cardButton).toBeInTheDocument();
+
+    await user.click(cardButton!);
+
+    expect(onCardClick).toHaveBeenCalledOnce();
+    expect(onCardClick).toHaveBeenCalledWith(mockPriceAttachment);
+  });
+
+  it("calls onCardDoubleClick when double-clicking a card", async () => {
+    const msg = makeAssistantMsgWithCards("今日螺纹钢小幅上涨", [mockPriceAttachment]);
+    const onCardClick = vi.fn();
+    const onCardDoubleClick = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <ChatBubble
+        message={msg}
+        onCardClick={onCardClick}
+        onCardDoubleClick={onCardDoubleClick}
+      />,
+    );
+
+    const cardButton = document.querySelector('[role="button"][class*="cursor-pointer"]');
+    expect(cardButton).toBeInTheDocument();
+
+    // dblClick fires two clicks rapidly, which triggers the double-click logic
+    await user.dblClick(cardButton!);
+
+    // First click triggers onCardClick, second click (within 400ms) triggers onCardDoubleClick
+    expect(onCardClick).toHaveBeenCalledOnce();
+    expect(onCardDoubleClick).toHaveBeenCalledOnce();
+    expect(onCardDoubleClick).toHaveBeenCalledWith(mockPriceAttachment);
+  });
+
+  it("shows divider between multiple cards", () => {
+    const trendAttachment: CardAttachment = {
+      type: "trend",
+      data: {
+        title: "走势",
+        data: [
+          { date: "06-20", price: 3800 },
+          { date: "06-21", price: 3850 },
+        ],
+      },
+    };
+
+    const msg = makeAssistantMsgWithCards("多卡片消息", [
+      mockPriceAttachment,
+      trendAttachment,
+    ]);
+
+    const { container } = render(<ChatBubble message={msg} />);
+
+    // Both cards should render
+    expect(screen.getByText("PRICE")).toBeInTheDocument();
+    expect(screen.getByText("螺纹钢")).toBeInTheDocument();
+    expect(screen.getByText("走势")).toBeInTheDocument();
+
+    // There should be dividers: one between text and cards + one between cards
+    // Actually: border-t between text and card area, and my-3 border-t between cards
+    const dividers = container.querySelectorAll('[class*="border-t"][class*="border-steel-line"]');
+    // At least 2: one for text/card separation, one between the two cards
+    expect(dividers.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("does not render cards for user messages", () => {
+    const msg: ChatMessage = {
+      id: 300,
+      session_id: 1,
+      role: "user",
+      content: "帮我查一下价格",
+      tokens: 0,
+      created_at: "2026-01-01T00:00:00Z",
+      attachments: [mockPriceAttachment],
+    };
+
+    render(<ChatBubble message={msg} />);
+
+    // User bubble renders normally
+    expect(screen.getByText("帮我查一下价格")).toBeInTheDocument();
+
+    // No card content should be rendered
+    expect(screen.queryByText("PRICE")).not.toBeInTheDocument();
+    expect(screen.queryByText("螺纹钢")).not.toBeInTheDocument();
   });
 });
