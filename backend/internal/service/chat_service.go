@@ -577,18 +577,38 @@ func applyContextWindow(messages []openai.ChatCompletionMessage, maxTurns int) [
 		result = append(result, messages[0])
 	}
 
-	// Insert a summary describing earlier conversations.
-	result = append(result, openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleSystem,
-		Content: fmt.Sprintf("（之前的 %d 轮对话讨论了钢材价格查询、报价计算等内容，以下是最近的对话。）", userCount-maxTurns),
-	})
-
 	// Keep the last maxTurns*2 non-system messages.
 	keep := maxTurns * 2
 	startIdx := len(messages) - keep
 	if startIdx < 1 {
 		startIdx = 1 // skip the original system message
 	}
+
+	// Build summary from the user messages that will be truncated.
+	var topicParts []string
+	for i := 1; i < startIdx; i++ {
+		if messages[i].Role == openai.ChatMessageRoleUser {
+			topic := messages[i].Content
+			if len(topic) > 20 {
+				topic = topic[:20] + "…"
+			}
+			topicParts = append(topicParts, topic)
+		}
+	}
+	if len(topicParts) > 3 {
+		topicParts = topicParts[:3] // Keep at most 3 topics
+	}
+	summaryText := "（以下是最近的对话）"
+	if len(topicParts) > 0 {
+		summaryText = fmt.Sprintf("（之前的对话涉及：%s，以下是最近的对话。）", strings.Join(topicParts, "、"))
+	}
+
+	// Insert a summary describing earlier conversations.
+	result = append(result, openai.ChatCompletionMessage{
+		Role:    openai.ChatMessageRoleSystem,
+		Content: summaryText,
+	})
+
 	for i := startIdx; i < len(messages); i++ {
 		result = append(result, messages[i])
 	}
@@ -642,10 +662,30 @@ func (s *ChatService) buildIntentClassifierPrompt(ctx context.Context) string {
 	return b.String()
 }
 
-func (s *ChatService) classifyIntentWithLLM(ctx context.Context, text string) (string, float64, error) {
+func (s *ChatService) classifyIntentWithLLM(ctx context.Context, text string, history []model.ChatMessage) (string, float64, error) {
+	userContent := text
+	if len(history) > 0 {
+		// Take last few messages as context, stop before the last user message (which is "text")
+		contextMsgs := history
+		if len(history) > 5 {
+			contextMsgs = history[len(history)-5:]
+		}
+		var parts []string
+		for _, m := range contextMsgs {
+			if m.Role == "user" && m.Content != text {
+				parts = append(parts, "用户: "+m.Content)
+			} else if m.Role == "assistant" {
+				parts = append(parts, "助手: "+truncateStr(m.Content, 100))
+			}
+		}
+		if len(parts) > 0 {
+			userContent = "对话历史:\n" + strings.Join(parts, "\n") + "\n\n当前用户输入: " + text
+		}
+	}
+
 	msgs := []openai.ChatCompletionMessage{
 		{Role: openai.ChatMessageRoleSystem, Content: s.buildIntentClassifierPrompt(ctx)},
-		{Role: openai.ChatMessageRoleUser, Content: text},
+		{Role: openai.ChatMessageRoleUser, Content: userContent},
 	}
 
 	resp, err := s.aiClient.Chat(ctx, msgs)
@@ -669,7 +709,7 @@ func (s *ChatService) classifyIntentWithLLM(ctx context.Context, text string) (s
 	return result.Intent, result.Confidence, nil
 }
 
-func (s *ChatService) matchIntent(ctx context.Context, userMessage string) intentMatchResult {
+func (s *ChatService) matchIntent(ctx context.Context, userMessage string, chatCtx model.ChatContext, messages []model.ChatMessage) intentMatchResult {
 	defer func() {
 		if r := recover(); r != nil {
 			return
@@ -694,6 +734,10 @@ func (s *ChatService) matchIntent(ctx context.Context, userMessage string) inten
 				score++
 			}
 		}
+		// Boost score if context intent matches the current intent candidate
+		if chatCtx.Intent != "" && intent.IntentCode == chatCtx.Intent {
+			score++
+		}
 		if score > bestScore {
 			bestScore = score
 			bestMatch = intent
@@ -712,7 +756,7 @@ func (s *ChatService) matchIntent(ctx context.Context, userMessage string) inten
 		}
 	}
 
-	llmIntent, llmConfidence, llmErr := s.classifyIntentWithLLM(ctx, userMessage)
+	llmIntent, llmConfidence, llmErr := s.classifyIntentWithLLM(ctx, userMessage, messages)
 	if llmErr != nil || llmIntent == "" {
 		return intentMatchResult{matchMethod: "none"}
 	}
@@ -1321,10 +1365,16 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 	// Apply context window (Task 4.1-4.2).
 	openaiMessages = applyContextWindow(openaiMessages, contextTurns)
 
+	// Load session context for intent matching
+	chatCtx := model.ChatContext{}
+	if sess, ctxErr := s.chatRepo.FindSessionByID(ctx, sessionID); ctxErr == nil {
+		chatCtx = sess.GetContext()
+	}
+
 	var intentResult intentMatchResult
 	if len(messages) > 0 {
 		userMessage := messages[len(messages)-1].Content
-		intentResult = s.matchIntent(ctx, userMessage)
+		intentResult = s.matchIntent(ctx, userMessage, chatCtx, messages)
 		if intentResult.matchMethod != "none" {
 			builder := fmt.Sprintf("[意图识别结果]\n用户意图: %s\n置信度: %.0f%%\n匹配方式: %s",
 				intentResult.intentName, intentResult.confidence*100, intentResult.matchMethod)
