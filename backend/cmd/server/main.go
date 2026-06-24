@@ -11,6 +11,7 @@ import (
 
 	"steel-agent-backend/internal/config"
 	"steel-agent-backend/internal/handler"
+	"steel-agent-backend/internal/model"
 	"steel-agent-backend/internal/repository"
 	"steel-agent-backend/internal/router"
 	"steel-agent-backend/internal/service"
@@ -31,6 +32,47 @@ func main() {
 
 	db := config.InitDB()
 	redisClient := config.InitRedis()
+
+	// --- Auto-migrate models to keep schema in sync ---
+	if err := db.AutoMigrate(
+		&model.Admin{},
+		&model.AdminLog{},
+		&model.AdminNotification{},
+		&model.AdminSettings{},
+		&model.AgentConfig{},
+		&model.AIFeedback{},
+		&model.ApiCallLog{},
+		&model.BadCase{},
+		&model.Category{},
+		&model.ChatMessage{},
+		&model.ChatSession{},
+		&model.CrawlerLog{},
+		&model.CrawlerSource{},
+		&model.EntityConfig{},
+		&model.Intent{},
+		&model.Knowledge{},
+		&model.LoginLog{},
+		&model.Menu{},
+		&model.MobileRole{},
+		&model.News{},
+		&model.Notification{},
+		&model.PriceAlert{},
+		&model.Quotation{},
+		&model.RAGConfig{},
+		&model.RAGSearchHistory{},
+		&model.ScheduledTask{},
+		&model.SteelPrice{},
+		&model.TaskExecutionLog{},
+		&model.Tender{},
+		&model.TokenUsage{},
+		&model.User{},
+		&model.UserCertification{},
+		&model.UserFavorite{},
+		&model.UserFeedback{},
+		&model.UserSettings{},
+	); err != nil {
+		log.Fatalf("AutoMigrate failed: %v", err)
+	}
 
 	// --- Repositories ---
 	userRepo := repository.NewUserRepository(db)
