@@ -71,7 +71,7 @@ func main() {
 		&model.UserFeedback{},
 		&model.UserSettings{},
 	); err != nil {
-		log.Fatalf("AutoMigrate failed: %v", err)
+		log.Printf("AutoMigrate warning (non-fatal): %v", err)
 	}
 
 	// --- Repositories ---
