@@ -84,14 +84,14 @@ func (s *AuthService) SendSMSCode(ctx context.Context, phone string) error {
 
 	settings, err := s.adminSettingsRepo.Get(ctx)
 	if err != nil || settings == nil {
-		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-		code := fmt.Sprintf("%06d", rng.Intn(1000000))
-		fmt.Printf("SMS code (settings unavailable) for %s: %s\n", phone, code)
-		if s.redisClient != nil {
-			key := fmt.Sprintf("sms_code:%s", phone)
-			_ = s.redisClient.Set(ctx, key, code, smsCodeTTL)
+		// Fallback: use default settings so SMS code is stored in Redis
+		// instead of silently failing when admin_settings table is empty.
+		defaults := model.SettingsDefaults()
+		settings = &model.AdminSettings{SettingsData: defaults}
+		log.Printf("SMS: admin_settings table empty, using defaults fallback")
+		if err != nil {
+			log.Printf("SMS: adminSettingsRepo.Get error: %v", err)
 		}
-		return nil
 	}
 
 	enabled := false
