@@ -27,6 +27,28 @@ func (s *NotificationService) MarkAsRead(ctx context.Context, id uint) error {
 	return s.repo.MarkAsRead(id)
 }
 
+// MarkAllAsRead marks all unread notifications for a user as read.
+func (s *NotificationService) MarkAllAsRead(ctx context.Context, userID uint) error {
+	return s.repo.MarkAllAsRead(userID)
+}
+
+// GetUnreadCount returns the number of unread notifications for a user.
+func (s *NotificationService) GetUnreadCount(ctx context.Context, userID uint) (int64, error) {
+	return s.repo.CountUnread(userID)
+}
+
+// CreateNotification inserts a new notification for a user.
+func (s *NotificationService) CreateNotification(ctx context.Context, userID uint, notifType, title, summary, content string) error {
+	n := &model.Notification{
+		UserID:  userID,
+		Type:    notifType,
+		Title:   title,
+		Summary: summary,
+		Content: content,
+	}
+	return s.repo.Create(ctx, n)
+}
+
 // SettingsService handles user settings business logic.
 type SettingsService struct {
 	repo *repository.SettingsRepository

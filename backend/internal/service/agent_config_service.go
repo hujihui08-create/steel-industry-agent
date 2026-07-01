@@ -33,7 +33,6 @@ type AgentConfigDO struct {
 	UseTemplateForChat bool                  `json:"useTemplateForChat"`
 	ContextTurns       int                   `json:"contextTurns"`
 	Models             []ModelConfigDO       `json:"models"`
-	AgentMode          bool                  `json:"agentMode"`  // controls whether to use Agent planner+executor flow
 	MaxSteps           int                   `json:"maxSteps"`   // maximum steps in a plan, default 5
 	MaxRetries         int                   `json:"maxRetries"` // max retries per step, default 2
 }
@@ -367,7 +366,6 @@ func (s *AgentConfigService) defaultConfig(ctx context.Context) *AgentConfigDO {
 		ForceToolForData:   true,
 		UseTemplateForChat: false,
 		ContextTurns:       5,
-		AgentMode:          false,
 		MaxSteps:           5,
 		MaxRetries:         2,
 		Models: []ModelConfigDO{

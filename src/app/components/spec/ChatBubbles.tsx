@@ -4,13 +4,13 @@ import { Avatar, AvatarFallback } from "../ui/avatar";
 
 function AIBubble({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-3 max-w-[85%]">
-      <Avatar className="size-8 shrink-0 border border-neutral-200 bg-white">
-        <AvatarFallback className="bg-white">
-          <Sparkles className="size-4 text-neutral-900" strokeWidth={1.5} />
+    <div className="flex gap-2 max-w-[85%]">
+      <Avatar className="size-8 shrink-0 border border-border bg-card">
+        <AvatarFallback className="bg-card">
+          <Sparkles className="size-4 text-foreground" strokeWidth={2} />
         </AvatarFallback>
       </Avatar>
-      <div className="rounded-2xl rounded-tl-sm bg-neutral-50 border border-neutral-200/60 px-4 py-3 text-[15px] leading-[1.6] text-neutral-800">
+      <div className="rounded-xl rounded-tl-sm bg-muted border border-border/60 px-4 py-3 text-[14px] leading-[20px] text-foreground">
         {children}
       </div>
     </div>
@@ -19,13 +19,13 @@ function AIBubble({ children }: { children: React.ReactNode }) {
 
 function UserBubble({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-3 max-w-[85%] ml-auto flex-row-reverse">
+    <div className="flex gap-2 max-w-[85%] ml-auto flex-row-reverse">
       <Avatar className="size-8 shrink-0">
-        <AvatarFallback className="bg-neutral-900 text-white">
-          <User className="size-4" strokeWidth={1.5} />
+        <AvatarFallback className="bg-primary text-primary-foreground">
+          <User className="size-4" strokeWidth={2} />
         </AvatarFallback>
       </Avatar>
-      <div className="rounded-2xl rounded-tr-sm bg-neutral-900 text-white px-4 py-3 text-[15px] leading-[1.6]">
+      <div className="rounded-xl rounded-tr-sm bg-primary text-primary-foreground px-4 py-3 text-[14px] leading-[20px]">
         {children}
       </div>
     </div>
@@ -34,16 +34,16 @@ function UserBubble({ children }: { children: React.ReactNode }) {
 
 function TypingBubble() {
   return (
-    <div className="flex gap-3 max-w-[85%]">
-      <Avatar className="size-8 shrink-0 border border-neutral-200 bg-white">
-        <AvatarFallback className="bg-white">
-          <Sparkles className="size-4 text-neutral-900" strokeWidth={1.5} />
+    <div className="flex gap-2 max-w-[85%]">
+      <Avatar className="size-8 shrink-0 border border-border bg-card">
+        <AvatarFallback className="bg-card">
+          <Sparkles className="size-4 text-foreground" strokeWidth={2} />
         </AvatarFallback>
       </Avatar>
-      <div className="rounded-2xl rounded-tl-sm bg-neutral-50 border border-neutral-200/60 px-4 py-3 flex gap-1.5">
-        <span className="size-1.5 rounded-full bg-neutral-400 animate-pulse" />
-        <span className="size-1.5 rounded-full bg-neutral-400 animate-pulse [animation-delay:120ms]" />
-        <span className="size-1.5 rounded-full bg-neutral-400 animate-pulse [animation-delay:240ms]" />
+      <div className="rounded-xl rounded-tl-sm bg-muted border border-border/60 px-4 py-3 flex gap-1.5">
+        <span className="size-1.5 rounded-full bg-muted-foreground animate-pulse" />
+        <span className="size-1.5 rounded-full bg-muted-foreground animate-pulse [animation-delay:120ms]" />
+        <span className="size-1.5 rounded-full bg-muted-foreground animate-pulse [animation-delay:240ms]" />
       </div>
     </div>
   );
@@ -73,17 +73,17 @@ export function ChatBubbles() {
           <div className="space-y-4">
             <UserBubble>螺纹钢今天什么价格？</UserBubble>
             <UserBubble>那热卷呢？</UserBubble>
-            <div className="flex gap-3 max-w-[85%] ml-auto flex-row-reverse">
+            <div className="flex gap-2 max-w-[85%] ml-auto flex-row-reverse">
               <Avatar className="size-8 shrink-0">
-                <AvatarFallback className="bg-neutral-900 text-white">
-                  <User className="size-4" strokeWidth={1.5} />
+                <AvatarFallback className="bg-primary text-primary-foreground">
+                  <User className="size-4" strokeWidth={2} />
                 </AvatarFallback>
               </Avatar>
               <div>
-                <div className="mb-1 rounded-lg border-l-2 border-neutral-300 bg-neutral-50 px-3 py-1.5 text-[12px] text-neutral-500">
+                <div className="mb-1 rounded-md border-l-2 border-border bg-muted px-3 py-1.5 text-[12px] leading-[16px] text-muted-foreground">
                   引用 · 螺纹钢 HRB400E 20mm
                 </div>
-                <div className="rounded-2xl rounded-tr-sm bg-neutral-900 text-white px-4 py-3 text-[15px]">
+                <div className="rounded-xl rounded-tr-sm bg-primary text-primary-foreground px-4 py-3 text-[14px] leading-[20px]">
                   100 吨送到上海多少钱？
                 </div>
               </div>

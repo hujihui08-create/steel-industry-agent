@@ -21,3 +21,21 @@ type AgentMemory struct {
 func (AgentMemory) TableName() string {
 	return "agent_memories"
 }
+
+// AgentMemoryEmbedding represents a semantic memory entry with a pgvector embedding
+// for similarity-based retrieval across sessions.
+type AgentMemoryEmbedding struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `gorm:"not null;index" json:"user_id"`
+	Content   string    `gorm:"type:text;not null" json:"content"`
+	Embedding string    `gorm:"type:vector(1536)" json:"-"` // stored as pgvector string
+	CreatedAt time.Time `json:"created_at"`
+
+	// Similarity is populated by VectorSearch queries and is not persisted.
+	Similarity float64 `gorm:"-" json:"similarity,omitempty"`
+}
+
+// TableName returns the database table name for AgentMemoryEmbedding.
+func (AgentMemoryEmbedding) TableName() string {
+	return "agent_memory_embeddings"
+}

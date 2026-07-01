@@ -26,17 +26,17 @@ function ReplayBubble() {
           key={k}
           className="flex gap-2 max-w-[80%] [animation:bubbleIn_240ms_cubic-bezier(.2,.8,.2,1)_both]"
         >
-          <div className="size-7 shrink-0 rounded-full border border-neutral-200 bg-white flex items-center justify-center">
-            <Sparkles className="size-3.5" strokeWidth={1.5} />
+          <div className="size-7 shrink-0 rounded-full border border-border bg-card flex items-center justify-center">
+            <Sparkles className="size-3.5" strokeWidth={2} />
           </div>
-          <div className="rounded-2xl rounded-tl-sm bg-neutral-50 border border-neutral-200/60 px-3.5 py-2.5 text-[13.5px] text-neutral-800">
+          <div className="rounded-xl rounded-tl-sm bg-muted border border-border/60 px-3.5 py-2.5 text-[13px] leading-[18px] text-foreground">
             正在为您查询螺纹钢价格…
           </div>
         </div>
       </div>
       <button
         onClick={() => setK((v) => v + 1)}
-        className="mt-3 inline-flex items-center gap-1.5 text-[12px] text-neutral-500 hover:text-neutral-900"
+        className="mt-3 inline-flex items-center gap-1.5 text-[12px] leading-[16px] text-muted-foreground hover:text-foreground"
       >
         <RefreshCw className="size-3" /> 重放
       </button>
@@ -49,8 +49,8 @@ function StreamText() {
   const text = "今日螺纹钢 HRB400E 20mm 上海价格 ¥3,850";
   return (
     <div>
-      <div key={k} className="rounded-2xl bg-neutral-50 border border-neutral-200/60 px-4 py-3 min-h-[60px]">
-        <span className="text-[14px] text-neutral-800">
+      <div key={k} className="rounded-xl bg-muted border border-border/60 px-4 py-3 min-h-[60px]">
+        <span className="text-[14px] leading-[20px] text-foreground">
           {text.split("").map((c, i) => (
             <span
               key={i}
@@ -61,14 +61,14 @@ function StreamText() {
             </span>
           ))}
           <span
-            className="ml-0.5 inline-block w-1.5 h-4 align-middle bg-neutral-900 [animation:caretBlink_900ms_steps(2)_infinite]"
+            className="ml-0.5 inline-block w-1.5 h-4 align-middle bg-primary [animation:caretBlink_900ms_steps(2)_infinite]"
             style={{ animationDelay: `${text.length * 22}ms` }}
           />
         </span>
       </div>
       <button
         onClick={() => setK((v) => v + 1)}
-        className="mt-3 inline-flex items-center gap-1.5 text-[12px] text-neutral-500 hover:text-neutral-900"
+        className="mt-3 inline-flex items-center gap-1.5 text-[12px] leading-[16px] text-muted-foreground hover:text-foreground"
       >
         <RefreshCw className="size-3" /> 重放
       </button>
@@ -85,26 +85,26 @@ function CardStream() {
   ];
   return (
     <div>
-      <div key={k} className="rounded-2xl border border-neutral-200 bg-white overflow-hidden [animation:cardIn_400ms_cubic-bezier(.3,0,0,1)_both]">
-        <div className="px-4 py-2.5 border-b border-neutral-100 text-[11px] tracking-wider uppercase text-neutral-400">
+      <div key={k} className="rounded-xl border border-border bg-card overflow-hidden [animation:cardIn_400ms_cubic-bezier(.3,0,0,1)_both]">
+        <div className="px-4 py-2.5 border-b border-border text-[12px] leading-[16px] tracking-wider uppercase text-muted-foreground">
           Price · Streaming
         </div>
-        <div className="divide-y divide-neutral-100 text-[13px]">
+        <div className="divide-y divide-border text-[13px] leading-[18px]">
           {rows.map(([c, p], i) => (
             <div
               key={c}
               className="px-4 py-2.5 flex justify-between opacity-0 [animation:rowIn_280ms_cubic-bezier(.2,.8,.2,1)_both]"
               style={{ animationDelay: `${200 + i * 100}ms` }}
             >
-              <span className="text-neutral-700">{c}</span>
-              <span className="tabular-nums text-neutral-900">{p}</span>
+              <span className="text-foreground">{c}</span>
+              <span className="tabular-nums text-foreground">{p}</span>
             </div>
           ))}
         </div>
       </div>
       <button
         onClick={() => setK((v) => v + 1)}
-        className="mt-3 inline-flex items-center gap-1.5 text-[12px] text-neutral-500 hover:text-neutral-900"
+        className="mt-3 inline-flex items-center gap-1.5 text-[12px] leading-[16px] text-muted-foreground hover:text-foreground"
       >
         <RefreshCw className="size-3" /> 重放
       </button>
@@ -115,16 +115,16 @@ function CardStream() {
 function PressDemo() {
   return (
     <div className="space-y-3">
-      <div className="text-[12px] text-neutral-500">悬停 / 按下查看反馈</div>
-      <div className="flex gap-3 items-center">
-        <button className="rounded-full bg-neutral-900 text-white px-5 py-2.5 text-[14px] transition-all duration-150 ease-out hover:opacity-90 active:scale-[0.97]">
+      <div className="text-[12px] leading-[16px] text-muted-foreground">悬停 / 按下查看反馈</div>
+      <div className="flex gap-2 items-center">
+        <button className="rounded-full bg-primary text-primary-foreground px-5 py-2.5 text-[14px] leading-[20px] transition-all duration-150 ease-out hover:opacity-90 active:scale-[0.97]">
           发送
           <ArrowUp className="inline size-3.5 ml-1" strokeWidth={2} />
         </button>
-        <button className="rounded-full border border-neutral-300 px-5 py-2.5 text-[14px] transition-colors duration-150 hover:border-neutral-900 hover:bg-neutral-50 active:bg-neutral-100">
+        <button className="rounded-full border border-border px-5 py-2.5 text-[14px] leading-[20px] transition-colors duration-150 hover:border-primary hover:bg-muted active:bg-muted">
           快捷指令
         </button>
-        <button className="rounded-full px-5 py-2.5 text-[14px] text-neutral-500 transition-colors duration-150 hover:text-neutral-900">
+        <button className="rounded-full px-5 py-2.5 text-[14px] leading-[20px] text-muted-foreground transition-colors duration-150 hover:text-foreground">
           取消
         </button>
       </div>
@@ -135,10 +135,10 @@ function PressDemo() {
 function FocusDemo() {
   return (
     <div className="space-y-3">
-      <div className="text-[12px] text-neutral-500">点击输入框查看聚焦动效（描边 + 4px 柔光）</div>
+      <div className="text-[12px] leading-[16px] text-muted-foreground">点击输入框查看聚焦动效（描边 + 4px 柔光）</div>
       <input
         placeholder="输入消息…"
-        className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-[14px] outline-none transition-all duration-200 ease-out focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5"
+        className="w-full rounded-xl border border-border bg-card px-4 py-3 text-[14px] leading-[20px] outline-none transition-all duration-200 ease-out focus:border-primary focus:ring-4 focus:ring-primary/5"
       />
     </div>
   );
@@ -172,10 +172,10 @@ export function Motion() {
         <Block label="时长 Token / Duration">
           <div className="space-y-2">
             {durations.map((d) => (
-              <div key={d.name} className="flex items-baseline gap-4 border-b border-neutral-100 pb-2 last:border-0">
-                <div className="w-20 text-[12px] text-neutral-900 font-mono">{d.name}</div>
-                <div className="w-20 text-[12px] text-neutral-500 font-mono">{d.v}</div>
-                <div className="text-[12px] text-neutral-500">{d.use}</div>
+              <div key={d.name} className="flex items-baseline gap-4 border-b border-border pb-2 last:border-0">
+                <div className="w-20 text-[12px] leading-[16px] text-foreground font-mono">{d.name}</div>
+                <div className="w-20 text-[12px] leading-[16px] text-muted-foreground font-mono">{d.v}</div>
+                <div className="text-[12px] leading-[16px] text-muted-foreground">{d.use}</div>
               </div>
             ))}
           </div>
@@ -184,12 +184,12 @@ export function Motion() {
         <Block label="缓动曲线 / Easing">
           <div className="space-y-2">
             {easings.map((e) => (
-              <div key={e.name} className="border-b border-neutral-100 pb-2 last:border-0">
-                <div className="flex items-baseline gap-3">
-                  <div className="text-[12px] text-neutral-900 font-mono">{e.name}</div>
-                  <div className="text-[11px] text-neutral-500">{e.use}</div>
+              <div key={e.name} className="border-b border-border pb-2 last:border-0">
+                <div className="flex items-baseline gap-2">
+                  <div className="text-[12px] leading-[16px] text-foreground font-mono">{e.name}</div>
+                  <div className="text-[12px] leading-[16px] text-muted-foreground">{e.use}</div>
                 </div>
-                <div className="text-[11px] text-neutral-400 font-mono mt-0.5">{e.v}</div>
+                <div className="text-[12px] leading-[16px] text-muted-foreground font-mono mt-0.5">{e.v}</div>
               </div>
             ))}
           </div>
@@ -216,8 +216,8 @@ export function Motion() {
         </Block>
       </div>
 
-      <div className="mt-6 rounded-2xl bg-neutral-50 border border-neutral-200 p-5 text-[13px] text-neutral-600 leading-relaxed">
-        <span className="text-neutral-900">原则：</span>
+      <div className="mt-6 rounded-xl bg-muted border border-border p-4 text-[13px] leading-[18px] text-muted-foreground leading-relaxed">
+        <span className="text-foreground">原则：</span>
         ① 入场用 standard / emphasized，退场用 exit；
         ② 同屏多元素入场使用 60–120ms 的 stagger，避免同时弹出；
         ③ 长流式内容必须显示光标，告知"仍在输出"；

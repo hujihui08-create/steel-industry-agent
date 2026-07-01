@@ -14,7 +14,7 @@ export function Section({
   return (
     <section id={id} className="scroll-mt-16 border-t border-neutral-200 py-16">
       <div className="mb-8">
-        <div className="text-xs tracking-[0.18em] text-neutral-400 uppercase mb-2">
+        <div className="text-[12px] leading-[16px] tracking-[0.18em] text-neutral-400 uppercase mb-2">
           {id}
         </div>
         <h2 className="text-neutral-900">{title}</h2>
@@ -37,9 +37,9 @@ export function Block({
   return (
     <div className={className}>
       {label && (
-        <div className="mb-3 text-xs text-neutral-400">{label}</div>
+        <div className="mb-3 text-[12px] leading-[16px] text-neutral-400">{label}</div>
       )}
-      <div className="rounded-2xl border border-neutral-200 bg-white p-6">
+      <div className="rounded-xl border border-neutral-200 bg-white p-6">
         {children}
       </div>
     </div>

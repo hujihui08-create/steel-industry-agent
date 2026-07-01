@@ -34,7 +34,27 @@ func (r *NotificationRepository) MarkAsRead(id uint) error {
 	return r.db.Model(&model.Notification{}).Where("id = ?", id).Update("is_read", true).Error
 }
 
+// MarkAllAsRead marks all unread notifications for a user as read.
+func (r *NotificationRepository) MarkAllAsRead(userID uint) error {
+	return r.db.Model(&model.Notification{}).Where("user_id = ? AND is_read = false", userID).Update("is_read", true).Error
+}
+
+// CountUnread returns the number of unread notifications for a user.
+func (r *NotificationRepository) CountUnread(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&model.Notification{}).Where("user_id = ? AND is_read = false", userID).Count(&count).Error
+	return count, err
+}
+
 // Create inserts a new notification record.
 func (r *NotificationRepository) Create(ctx context.Context, n *model.Notification) error {
 	return r.db.WithContext(ctx).Create(n).Error
+}
+
+// CreateBatch inserts multiple notification records in a single batch.
+func (r *NotificationRepository) CreateBatch(ctx context.Context, notifications []model.Notification) error {
+	if len(notifications) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).CreateInBatches(notifications, 100).Error
 }

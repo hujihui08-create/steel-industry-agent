@@ -15,8 +15,10 @@ import (
 )
 
 type mockNotificationService struct {
-	getListFn   func(ctx context.Context, userID uint, limit, offset int) ([]model.Notification, error)
-	markAsReadFn func(ctx context.Context, id uint) error
+	getListFn     func(ctx context.Context, userID uint, limit, offset int) ([]model.Notification, error)
+	markAsReadFn  func(ctx context.Context, id uint) error
+	markAllAsReadFn func(ctx context.Context, userID uint) error
+	getUnreadCountFn func(ctx context.Context, userID uint) (int64, error)
 }
 
 func (m *mockNotificationService) GetList(ctx context.Context, userID uint, limit, offset int) ([]model.Notification, error) {
@@ -31,6 +33,20 @@ func (m *mockNotificationService) MarkAsRead(ctx context.Context, id uint) error
 		return m.markAsReadFn(ctx, id)
 	}
 	return nil
+}
+
+func (m *mockNotificationService) MarkAllAsRead(ctx context.Context, userID uint) error {
+	if m.markAllAsReadFn != nil {
+		return m.markAllAsReadFn(ctx, userID)
+	}
+	return nil
+}
+
+func (m *mockNotificationService) GetUnreadCount(ctx context.Context, userID uint) (int64, error) {
+	if m.getUnreadCountFn != nil {
+		return m.getUnreadCountFn(ctx, userID)
+	}
+	return 0, nil
 }
 
 func setupNotificationRouter(mock *mockNotificationService) *gin.Engine {

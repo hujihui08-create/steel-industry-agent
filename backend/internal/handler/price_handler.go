@@ -31,12 +31,18 @@ type priceService interface {
 
 // PriceHandler handles steel price-related HTTP requests.
 type PriceHandler struct {
-	priceService priceService
+	priceService     priceService
+	predictionSvc    predictionService
 }
 
 // NewPriceHandler creates a new PriceHandler with the given price service.
 func NewPriceHandler(priceService *service.PriceService) *PriceHandler {
 	return &PriceHandler{priceService: priceService}
+}
+
+// SetPredictionService injects an optional prediction service for extended trend support.
+func (h *PriceHandler) SetPredictionService(predictSvc predictionService) {
+	h.predictionSvc = predictSvc
 }
 
 // GetLatestPrice returns the most recent price for the given category.
@@ -57,9 +63,11 @@ func (h *PriceHandler) GetLatestPrice(c *gin.Context) {
 }
 
 // GetPriceTrend returns historical price data for the specified number of days.
+// When include_predict=true, prediction data is appended to the response.
 func (h *PriceHandler) GetPriceTrend(c *gin.Context) {
 	category := c.Query("category")
 	daysStr := c.DefaultQuery("days", "30")
+	includePredictStr := c.DefaultQuery("include_predict", "false")
 
 	days, err := strconv.Atoi(daysStr)
 	if err != nil {
@@ -70,6 +78,33 @@ func (h *PriceHandler) GetPriceTrend(c *gin.Context) {
 	prices, err := h.priceService.GetPriceTrend(c.Request.Context(), category, days)
 	if err != nil {
 		response.Error(c, errors.CodeInternalError, err.Error())
+		return
+	}
+
+	// If prediction is requested, append prediction data
+	if includePredictStr == "true" && h.predictionSvc != nil {
+		horizonStr := c.DefaultQuery("horizon_days", "30")
+		horizonDays, parseErr := strconv.Atoi(horizonStr)
+		if parseErr != nil || horizonDays < 1 || horizonDays > 90 {
+			response.Error(c, errors.CodeParamError, "参数错误：horizon_days需为1-90之间的整数")
+			return
+		}
+
+		predPoints, predErr := h.predictionSvc.GetPredictionForTrend(c.Request.Context(), category, horizonDays)
+		if predErr != nil {
+			// Log but don't fail — return historical data with a warning
+			response.Success(c, gin.H{
+				"historical":  prices,
+				"predictions": []interface{}{},
+				"warning":     predErr.Error(),
+			})
+			return
+		}
+
+		response.Success(c, gin.H{
+			"historical":  prices,
+			"predictions": predPoints,
+		})
 		return
 	}
 

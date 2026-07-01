@@ -3,21 +3,21 @@ import { Check, X } from "lucide-react";
 
 function CompareRow({ ok, no, ctx }: { ok: string; no: string; ctx?: string }) {
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
-        <div className="flex items-center gap-1.5 text-[11px] text-emerald-700 mb-1.5">
+    <div className="grid grid-cols-2 gap-2">
+      <div className="rounded-xl border border-success/20 bg-success/10 p-3">
+        <div className="flex items-center gap-1.5 text-[12px] leading-[16px] text-success mb-1.5">
           <Check className="size-3" strokeWidth={2.5} /> 推荐
         </div>
-        <div className="text-[13px] text-neutral-800 leading-relaxed">{ok}</div>
+        <div className="text-[13px] leading-[18px] text-foreground leading-relaxed">{ok}</div>
       </div>
-      <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
-        <div className="flex items-center gap-1.5 text-[11px] text-neutral-500 mb-1.5">
+      <div className="rounded-xl border border-border bg-muted p-3">
+        <div className="flex items-center gap-1.5 text-[12px] leading-[16px] text-muted-foreground mb-1.5">
           <X className="size-3" strokeWidth={2.5} /> 避免
         </div>
-        <div className="text-[13px] text-neutral-500 leading-relaxed">{no}</div>
+        <div className="text-[13px] leading-[18px] text-muted-foreground leading-relaxed">{no}</div>
       </div>
       {ctx && (
-        <div className="col-span-2 text-[11px] text-neutral-400 -mt-1">{ctx}</div>
+        <div className="col-span-2 text-[12px] leading-[16px] text-muted-foreground -mt-1">{ctx}</div>
       )}
     </div>
   );
@@ -52,7 +52,7 @@ export function Voice() {
         </Block>
 
         <Block label="数字格式 / Number">
-          <div className="space-y-3 text-[13px]">
+          <div className="space-y-3 text-[13px] leading-[18px]">
             {[
               ["价格", "¥3,850 / 吨", "千分位 + 单位"],
               ["涨跌", "+12 (+0.31%)", "符号在前"],
@@ -61,10 +61,10 @@ export function Voice() {
               ["范围", "¥3,800 – ¥3,900", "en-dash，前后空格"],
               ["枚举", "上海、北京、广州", "中文顿号分隔"],
             ].map(([k, v, note]) => (
-              <div key={k} className="flex items-baseline gap-3 border-b border-neutral-100 pb-2 last:border-0">
-                <div className="w-12 text-[11px] text-neutral-400">{k}</div>
-                <div className="w-40 tabular-nums text-neutral-900 font-mono text-[12.5px]">{v}</div>
-                <div className="text-[11px] text-neutral-500">{note}</div>
+              <div key={k} className="flex items-baseline gap-2 border-b border-border pb-2 last:border-0">
+                <div className="w-12 text-[12px] leading-[16px] text-muted-foreground">{k}</div>
+                <div className="w-40 tabular-nums text-foreground font-mono text-[13px]">{v}</div>
+                <div className="text-[12px] leading-[16px] text-muted-foreground">{note}</div>
               </div>
             ))}
           </div>
@@ -73,34 +73,34 @@ export function Voice() {
         <Block label="对比度 / Contrast">
           <div className="space-y-2">
             {[
-              { fg: "#0A0A0A", bg: "#FFFFFF", ratio: "20.1", label: "主文字 / 白底", ok: true },
-              { fg: "#404040", bg: "#FFFFFF", ratio: "10.4", label: "正文 / 白底", ok: true },
-              { fg: "#737373", bg: "#FFFFFF", ratio: "4.7", label: "辅助 / 白底（≥ 4.5 ✓）", ok: true },
-              { fg: "#A3A3A3", bg: "#FFFFFF", ratio: "2.8", label: "占位 / 白底（仅装饰）", ok: false },
+              { fg: "hsl(var(--primary))", bg: "hsl(var(--card))", ratio: "20.1", label: "主文字 / 白底", ok: true },
+              { fg: "hsl(var(--foreground))", bg: "hsl(var(--card))", ratio: "10.4", label: "正文 / 白底", ok: true },
+              { fg: "hsl(var(--muted-foreground))", bg: "hsl(var(--card))", ratio: "4.7", label: "辅助 / 白底（≥ 4.5 ✓）", ok: true },
+              { fg: "#A3A3A3", bg: "hsl(var(--card))", ratio: "2.8", label: "占位 / 白底（仅装饰）", ok: false },
             ].map((c) => (
-              <div key={c.label} className="flex items-center gap-3 rounded-lg border border-neutral-200 px-3 py-2">
+              <div key={c.label} className="flex items-center gap-2 rounded-md border border-border px-3 py-2">
                 <div
-                  className="h-8 w-12 rounded flex items-center justify-center text-[12px]"
+                  className="h-8 w-12 rounded flex items-center justify-center text-[12px] leading-[16px]"
                   style={{ background: c.bg, color: c.fg }}
                 >
                   Aa
                 </div>
-                <div className="flex-1 text-[12.5px] text-neutral-700">{c.label}</div>
-                <div className="text-[12px] tabular-nums font-mono">
-                  <span className={c.ok ? "text-emerald-700" : "text-neutral-400"}>
+                <div className="flex-1 text-[13px] text-foreground">{c.label}</div>
+                <div className="text-[12px] leading-[16px] tabular-nums font-mono">
+                  <span className={c.ok ? "text-success" : "text-muted-foreground"}>
                     {c.ratio}:1
                   </span>
                 </div>
               </div>
             ))}
           </div>
-          <div className="mt-3 text-[11px] text-neutral-500">
+          <div className="mt-3 text-[12px] leading-[16px] text-muted-foreground">
             正文须满足 WCAG AA（≥ 4.5:1），大文本与图标 ≥ 3:1
           </div>
         </Block>
 
         <Block label="无障碍 / A11y 清单">
-          <ul className="space-y-2 text-[13px] text-neutral-700">
+          <ul className="space-y-2 text-[13px] leading-[18px] text-foreground">
             {[
               "所有图标按钮提供 aria-label，仅图形不传达语义",
               "AI 流式输出使用 aria-live='polite'，避免打断用户",
@@ -111,7 +111,7 @@ export function Voice() {
               "表单错误使用 aria-invalid + aria-describedby",
             ].map((t) => (
               <li key={t} className="flex gap-2">
-                <Check className="size-4 mt-0.5 text-emerald-700 shrink-0" strokeWidth={2} />
+                <Check className="size-4 mt-0.5 text-success shrink-0" strokeWidth={2} />
                 <span>{t}</span>
               </li>
             ))}
@@ -119,7 +119,7 @@ export function Voice() {
         </Block>
 
         <Block label="空态 / 拒答模板" className="lg:col-span-2">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
             {[
               {
                 t: "无搜索结果",
@@ -142,10 +142,10 @@ export function Voice() {
                 a: "建议联系行业分析师确认",
               },
             ].map((s) => (
-              <div key={s.t} className="rounded-xl border border-neutral-200 p-4">
-                <div className="text-[11px] tracking-wider uppercase text-neutral-400">{s.t}</div>
-                <div className="mt-1 text-[14px] text-neutral-900">{s.b}</div>
-                <div className="mt-1 text-[12px] text-neutral-500">{s.a}</div>
+              <div key={s.t} className="rounded-xl border border-border p-4">
+                <div className="text-[12px] leading-[16px] tracking-wider uppercase text-muted-foreground">{s.t}</div>
+                <div className="mt-1 text-[14px] leading-[20px] text-foreground">{s.b}</div>
+                <div className="mt-1 text-[12px] leading-[16px] text-muted-foreground">{s.a}</div>
               </div>
             ))}
           </div>

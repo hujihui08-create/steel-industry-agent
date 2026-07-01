@@ -32,6 +32,7 @@ func main() {
 
 	db := config.InitDB()
 	redisClient := config.InitRedis()
+	config.InitMinio()
 
 	// --- Auto-migrate models to keep schema in sync ---
 	if err := db.AutoMigrate(
@@ -70,6 +71,7 @@ func main() {
 		&model.UserFavorite{},
 		&model.UserFeedback{},
 		&model.UserSettings{},
+		&model.File{},
 	); err != nil {
 		log.Printf("AutoMigrate warning (non-fatal): %v", err)
 	}
@@ -106,6 +108,7 @@ func main() {
 	userFavoriteRepo := repository.NewUserFavoriteRepository(db)
 	certificationRepo := repository.NewUserCertificationRepository(db)
 	feedbackRepo := repository.NewUserFeedbackRepository(db)
+	fileRepo := repository.NewFileRepository(db)
 
 	// --- AI Adapter ---
 	llmAdapter := ai.NewAdapter()
@@ -143,7 +146,8 @@ func main() {
 	crawlerService := service.NewCrawlerService(db, crawlerSourceRepo, crawlerLogRepo, steelPriceRepo, newsRepo, tenderRepo, categoryRepo, cacheService)
 	agentConfigService := service.NewAgentConfigService(agentConfigRepo, categoryRepo)
 	agentMemoryRepo := repository.NewAgentMemoryRepository(db)
-	agentService := service.NewAgentService(llmAdapter, agentConfigService, agentMemoryRepo)
+	agentMemoryVectorRepo := repository.NewAgentMemoryVectorRepository(db)
+	agentService := service.NewAgentService(llmAdapter, agentConfigService, agentMemoryRepo, agentMemoryVectorRepo)
 	categoryService := service.NewCategoryService(categoryRepo, steelPriceRepo)
 	intentService := service.NewIntentService(intentRepo)
 	entityConfigService := service.NewEntityConfigService(entityConfigRepo)
@@ -155,8 +159,10 @@ func main() {
 	certificationService := service.NewCertificationService(certificationRepo, userRepo)
 	feedbackService := service.NewFeedbackService(feedbackRepo)
 
+	predictionService := service.NewPredictionService(steelPriceRepo)
+
 	badCaseService := service.NewBadCaseService(badCaseRepo, nil)
-	chatService := service.NewChatService(chatRepo, llmAdapter, agentConfigService, steelPriceRepo, quotationRepo, knowledgeRepo, knowledgeService, tenderRepo, priceAlertRepo, newsRepo, categoryRepo, badCaseService, intentRepo, tokenUsageRepo, entityConfigService, agentService, agentMemoryRepo)
+	chatService := service.NewChatService(chatRepo, llmAdapter, agentConfigService, steelPriceRepo, quotationRepo, knowledgeRepo, knowledgeService, tenderRepo, priceAlertRepo, newsRepo, categoryRepo, badCaseService, intentRepo, tokenUsageRepo, entityConfigService, agentService, agentMemoryRepo, agentMemoryVectorRepo)
 	badCaseService.SetChatService(chatService)
 
 	debugService := service.NewDebugService(chatService, intentRepo, agentConfigService, chatRepo, categoryRepo, entityConfigService, redisClient)
@@ -165,12 +171,27 @@ func main() {
 	crawlerService.CleanupZombieLogs()
 	crawlerService.StartScheduler()
 
+	// --- Cron scheduler (robfig/cron based autonomous tasks) ---
+	schedulerService := service.NewSchedulerService(
+		priceService,
+		alertService,
+		tenderService,
+		notificationService,
+		steelPriceRepo,
+		tenderRepo,
+		userFavoriteRepo,
+		userRepo,
+		notificationRepo,
+		settingsRepo,
+	)
+	schedulerService.Start()
+
 	// --- Handlers ---
 	healthHandler := handler.NewHealthHandler(db, redisClient, version)
 	authHandler := handler.NewAuthHandler(authService, loginLogService)
 	userHandler := handler.NewUserHandler(userService)
 	priceHandler := handler.NewPriceHandler(priceService)
-	quotationHandler := handler.NewQuotationHandler(quotationService)
+	quotationHandler := handler.NewQuotationHandler(quotationService, fileRepo, llmAdapter)
 	knowledgeHandler := handler.NewKnowledgeHandler(knowledgeService)
 	tenderHandler := handler.NewTenderHandler(tenderService)
 	alertHandler := handler.NewAlertHandler(alertService)
@@ -178,6 +199,9 @@ func main() {
 	adminHandler := handler.NewAdminHandler(adminService, menuService, loginLogService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
 	settingsHandler := handler.NewSettingsHandler(settingsService)
+
+	// Wire SSE notifier between scheduler and notification handler
+	schedulerService.SetSSENotifier(notificationHandler.GetSSENotifier())
 	adminKnowledgeHandler := handler.NewAdminKnowledgeHandler(knowledgeService)
 	crawlerHandler := handler.NewCrawlerHandler(crawlerService, crawlerSourceRepo, crawlerLogRepo)
 	agentConfigHandler := handler.NewAgentConfigHandler(agentConfigService)
@@ -199,6 +223,12 @@ func main() {
 	certificationHandler := handler.NewCertificationHandler(certificationService)
 	adminCertificationHandler := handler.NewAdminCertificationHandler(certificationService)
 	feedbackHandler := handler.NewFeedbackHandler(feedbackService)
+	fileHandler := handler.NewFileHandler(fileRepo)
+
+	predictionHandler := handler.NewPredictionHandler(predictionService)
+
+	// Inject prediction service into price handler for extended trend support
+	priceHandler.SetPredictionService(predictionService)
 
 	// --- Router ---
 	r := gin.New()
@@ -238,6 +268,8 @@ func main() {
 		adminCertificationHandler,
 		feedbackHandler,
 		entityConfigHandler,
+		fileHandler,
+		predictionHandler,
 		adminRepo,
 		adminLogRepo,
 		apiCallLogRepo,
@@ -272,6 +304,7 @@ func main() {
 	log.Println("Shutting down server...")
 
 	crawlerService.Stop()
+	schedulerService.Stop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

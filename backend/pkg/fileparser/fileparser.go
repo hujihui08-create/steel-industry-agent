@@ -4,11 +4,51 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"io"
 	"strings"
 
 	"github.com/ledongthuc/pdf"
 )
+
+// ErrImageBasedPDF is returned when a PDF contains only images and no extractable text.
+var ErrImageBasedPDF = errors.New("无法识别该文件内容，请上传文字型 PDF")
+
+// ErrEmptyContent is returned when the file contains no meaningful text.
+var ErrEmptyContent = errors.New("文件内容为空，无法提取有效信息")
+
+// ExtractPDFText takes raw PDF bytes and returns plain text.
+// Returns ErrImageBasedPDF if the PDF appears to be image-based (no extractable text).
+// Returns an error if the PDF data is malformed.
+func ExtractPDFText(data []byte) (string, error) {
+	text, err := parsePDF(data)
+	if err != nil {
+		return "", err
+	}
+
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return "", ErrImageBasedPDF
+	}
+
+	return trimmed, nil
+}
+
+// ExtractDocxText takes raw DOCX bytes and returns plain text.
+// Returns ErrEmptyContent if no text could be extracted.
+func ExtractDocxText(data []byte) (string, error) {
+	text, err := parseDOCX(data)
+	if err != nil {
+		return "", err
+	}
+
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return "", ErrEmptyContent
+	}
+
+	return trimmed, nil
+}
 
 // ParseFile extracts text content from a file based on its extension.
 // Supported formats: .txt, .md, .pdf, .docx
@@ -20,10 +60,10 @@ func ParseFile(filename string, data []byte) (string, error) {
 		return string(data), nil
 
 	case strings.HasSuffix(lower, ".pdf"):
-		return parsePDF(data)
+		return ExtractPDFText(data)
 
 	case strings.HasSuffix(lower, ".docx"):
-		return parseDOCX(data)
+		return ExtractDocxText(data)
 
 	default:
 		// Try as plain text

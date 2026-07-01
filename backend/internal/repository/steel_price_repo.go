@@ -154,3 +154,10 @@ func (r *SteelPriceRepository) FindByCategoryWithPagination(ctx context.Context,
 	err := query.Order("price_date DESC").Limit(limit).Offset(offset).Find(&prices).Error
 	return prices, count, err
 }
+
+// FindDistinctCategories returns all distinct category values from steel_prices.
+func (r *SteelPriceRepository) FindDistinctCategories(ctx context.Context) ([]string, error) {
+	var categories []string
+	err := r.db.WithContext(ctx).Model(&model.SteelPrice{}).Distinct("category").Pluck("category", &categories).Error
+	return categories, err
+}

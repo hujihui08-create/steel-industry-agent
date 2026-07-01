@@ -3,14 +3,20 @@ package handler
 import (
 	"context"
 	"fmt"
+	"io"
 	"strconv"
 
+	"steel-agent-backend/internal/config"
 	"steel-agent-backend/internal/model"
+	"steel-agent-backend/internal/repository"
 	"steel-agent-backend/internal/service"
+	"steel-agent-backend/pkg/ai"
 	"steel-agent-backend/pkg/errors"
+	"steel-agent-backend/pkg/fileparser"
 	"steel-agent-backend/pkg/response"
 
 	"github.com/gin-gonic/gin"
+	"github.com/minio/minio-go/v7"
 )
 
 type quotationService interface {
@@ -26,11 +32,21 @@ type quotationService interface {
 // QuotationHandler handles quotation-related HTTP requests.
 type QuotationHandler struct {
 	quotationService quotationService
+	fileRepo         *repository.FileRepository
+	llmAdapter       *ai.LLMAdapter
 }
 
-// NewQuotationHandler creates a new QuotationHandler with the given quotation service.
-func NewQuotationHandler(quotationService *service.QuotationService) *QuotationHandler {
-	return &QuotationHandler{quotationService: quotationService}
+// NewQuotationHandler creates a new QuotationHandler with the given dependencies.
+func NewQuotationHandler(
+	quotationService *service.QuotationService,
+	fileRepo *repository.FileRepository,
+	llmAdapter *ai.LLMAdapter,
+) *QuotationHandler {
+	return &QuotationHandler{
+		quotationService: quotationService,
+		fileRepo:         fileRepo,
+		llmAdapter:       llmAdapter,
+	}
 }
 
 // CalculateQuotation computes a quotation breakdown for the given material and quantity.
@@ -262,4 +278,126 @@ func (h *QuotationHandler) ExportPDF(c *gin.Context) {
 	c.Header("Content-Type", "application/pdf")
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=quotation_%d.pdf", id))
 	c.Writer.Write(pdfBytes)
+}
+
+// FromFile handles quotation generation from an uploaded file (PDF/DOCX).
+// The flow: look up file record -> download from MinIO -> extract text -> AI extract steel info -> calculate quotation -> save.
+func (h *QuotationHandler) FromFile(c *gin.Context) {
+	// 1. Parse request body
+	var req struct {
+		FileID uint `json:"file_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, errors.CodeParamError, "参数错误：请提供 file_id")
+		return
+	}
+
+	// 2. Look up the file record
+	fileRecord, err := h.fileRepo.FindByID(c.Request.Context(), req.FileID)
+	if err != nil {
+		response.Error(c, errors.CodeNotFound, "文件不存在")
+		return
+	}
+
+	// 3. Download file bytes from MinIO
+	minioClient := config.MinioClient
+	if minioClient == nil {
+		response.Error(c, errors.CodeInternalError, "文件存储服务未就绪")
+		return
+	}
+
+	obj, err := minioClient.GetObject(
+		c.Request.Context(),
+		config.AppConfig.MinioBucket,
+		fileRecord.MinioPath,
+		minio.GetObjectOptions{},
+	)
+	if err != nil {
+		response.Error(c, errors.CodeInternalError, "文件下载失败")
+		return
+	}
+	defer obj.Close()
+
+	fileData, err := io.ReadAll(obj)
+	if err != nil {
+		response.Error(c, errors.CodeInternalError, "文件读取失败")
+		return
+	}
+
+	// 4. Extract text from file
+	var rawText string
+	switch fileRecord.FileType {
+	case "pdf":
+		rawText, err = fileparser.ExtractPDFText(fileData)
+	case "docx":
+		rawText, err = fileparser.ExtractDocxText(fileData)
+	default:
+		response.Error(c, errors.CodeParamError, "不支持的文件类型，仅支持 PDF 和 DOCX")
+		return
+	}
+	if err != nil {
+		response.Error(c, errors.CodeInternalError, fmt.Sprintf("文件解析失败: %s", err.Error()))
+		return
+	}
+
+	// 5. Extract steel information using LLM
+	extraction, err := fileparser.ExtractSteelInfo(c.Request.Context(), h.llmAdapter, rawText)
+	if err != nil {
+		response.Error(c, errors.CodeInternalError, fmt.Sprintf("AI 信息提取失败: %s", err.Error()))
+		return
+	}
+
+	if extraction.Confidence == 0 || extraction.Category == "" {
+		response.Error(c, errors.CodeParamError, "未能从文件中识别出钢材相关信息，请确认文件内容")
+		return
+	}
+
+	// 6. Default quantity if not extracted
+	if extraction.Quantity == 0 {
+		extraction.Quantity = 1
+	}
+	if extraction.Unit == "" {
+		extraction.Unit = "吨"
+	}
+
+	// 7. Calculate quotation breakdown
+	breakdown, err := h.quotationService.CalculateQuotation(
+		c.Request.Context(),
+		extraction.Category,
+		extraction.Spec,
+		extraction.Quantity,
+	)
+	if err != nil {
+		response.Error(c, errors.CodeInternalError, fmt.Sprintf("报价计算失败: %s", err.Error()))
+		return
+	}
+
+	// 8. Save quotation record
+	userIDVal, _ := c.Get("user_id")
+	quotation := model.Quotation{
+		UserID:       userIDVal.(uint),
+		Title:        fmt.Sprintf("文件报价 - %s", fileRecord.Filename),
+		Category:     extraction.Category,
+		Spec:         extraction.Spec,
+		Quantity:     extraction.Quantity,
+		Unit:         extraction.Unit,
+		MaterialCost: breakdown.MaterialCost,
+		ProcessCost:  breakdown.ProcessCost,
+		FreightCost:  breakdown.FreightCost,
+		TaxCost:      breakdown.TaxCost,
+		TotalPrice:   breakdown.TotalPrice,
+		Status:       "draft",
+	}
+
+	if err := h.quotationService.CreateQuotation(c.Request.Context(), &quotation); err != nil {
+		response.Error(c, errors.CodeInternalError, fmt.Sprintf("报价单保存失败: %s", err.Error()))
+		return
+	}
+
+	// 9. Return combined result
+	response.Success(c, gin.H{
+		"quotation":  quotation,
+		"extraction": extraction,
+		"breakdown":  breakdown,
+	})
 }

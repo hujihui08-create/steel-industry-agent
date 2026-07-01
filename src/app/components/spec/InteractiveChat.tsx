@@ -125,43 +125,43 @@ function ChatContent() {
 
   return (
     <div className="flex justify-center">
-      <div className="w-full max-w-[380px] rounded-[36px] border border-neutral-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden flex flex-col h-[680px]">
+      <div className="w-full max-w-[380px] rounded-[36px] border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden flex flex-col h-[680px]">
         <div className="flex-shrink-0 flex items-center justify-between px-5 pt-5 pb-3">
-          <button className="size-8 rounded-full hover:bg-neutral-100 flex items-center justify-center">
-            <Menu className="size-4" strokeWidth={1.75} />
+          <button className="size-8 rounded-full hover:bg-muted flex items-center justify-center">
+            <Menu className="size-4" strokeWidth={2} />
           </button>
           <div className="text-center">
-            <div className="text-[14px] text-neutral-900">钢铁助手</div>
-            <div className="text-[10px] text-neutral-400">AI · 实时在线</div>
+            <div className="text-[14px] leading-[20px] text-foreground">钢铁助手</div>
+            <div className="text-[10px] text-muted-foreground">AI · 实时在线</div>
           </div>
-          <button className="size-8 rounded-full hover:bg-neutral-100 flex items-center justify-center">
-            <MoreHorizontal className="size-4" strokeWidth={1.75} />
+          <button className="size-8 rounded-full hover:bg-muted flex items-center justify-center">
+            <MoreHorizontal className="size-4" strokeWidth={2} />
           </button>
         </div>
 
-        <div className="px-4 py-4 space-y-4 bg-neutral-50/50 flex-1 overflow-y-auto">
+        <div className="px-4 py-4 space-y-4 bg-muted/50 flex-1 overflow-y-auto">
           {messages.map((message) => (
             <div key={message.id}>
               {message.type === "ai" && !message.isTyping && (
                 <div className="flex gap-2 max-w-[88%]">
-                  <div className="size-7 shrink-0 rounded-full border border-neutral-200 bg-white flex items-center justify-center">
-                    <Sparkles className="size-3.5" strokeWidth={1.5} />
+                  <div className="size-7 shrink-0 rounded-full border border-border bg-card flex items-center justify-center">
+                    <Sparkles className="size-3.5" strokeWidth={2} />
                   </div>
                   <div className="space-y-2 flex-1">
-                    <div className="rounded-2xl rounded-tl-sm bg-white border border-neutral-200/60 px-3.5 py-2.5 text-[13.5px] text-neutral-800">
+                    <div className="rounded-xl rounded-tl-sm bg-card border border-border/60 px-3.5 py-2.5 text-[13px] leading-[18px] text-foreground">
                       {message.content}
                     </div>
                     {message.hasCard && (
-                      <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
-                        <div className="px-4 py-2.5 border-b border-neutral-100 flex justify-between">
-                          <span className="text-[11px] tracking-wider uppercase text-neutral-400">
+                      <div className="rounded-xl border border-border bg-card overflow-hidden">
+                        <div className="px-4 py-2.5 border-b border-border flex justify-between">
+                          <span className="text-[12px] leading-[16px] tracking-wider uppercase text-muted-foreground">
                             Price
                           </span>
-                          <span className="text-[10px] text-neutral-400">
+                          <span className="text-[10px] text-muted-foreground">
                             14:32
                           </span>
                         </div>
-                        <div className="divide-y divide-neutral-100 text-[13px]">
+                        <div className="divide-y divide-border text-[13px] leading-[18px]">
                           {[
                             ["上海", "3,850", 12, 0.31],
                             ["北京", "3,780", 8, 0.21],
@@ -171,12 +171,12 @@ function ChatContent() {
                               key={c as string}
                               className="px-4 py-2.5 flex justify-between"
                             >
-                              <span className="text-neutral-700">{c}</span>
+                              <span className="text-foreground">{c}</span>
                               <span className="flex items-baseline gap-2">
-                                <span className="tabular-nums text-neutral-900">
+                                <span className="tabular-nums text-foreground">
                                   ¥{p}
                                 </span>
-                                <span className="flex items-center text-emerald-700 text-[11px] tabular-nums">
+                                <span className="flex items-center text-success text-[12px] leading-[16px] tabular-nums">
                                   <ArrowUpRight className="size-3" />
                                   {d} ({pc}%)
                                 </span>
@@ -188,10 +188,10 @@ function ChatContent() {
                     )}
                     {message.hasCard && (
                       <div className="flex flex-wrap gap-1.5">
-                        <button className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-[12px] text-neutral-700">
+                        <button className="rounded-full border border-border bg-card px-3 py-1 text-[12px] leading-[16px] text-foreground">
                           查看走势图
                         </button>
-                        <button className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-[12px] text-neutral-700">
+                        <button className="rounded-full border border-border bg-card px-3 py-1 text-[12px] leading-[16px] text-foreground">
                           设置预警
                         </button>
                       </div>
@@ -202,7 +202,7 @@ function ChatContent() {
 
               {message.type === "user" && (
                 <div className="flex justify-end">
-                  <div className="rounded-2xl rounded-tr-sm bg-neutral-900 text-white px-3.5 py-2.5 text-[13.5px] max-w-[80%]">
+                  <div className="rounded-xl rounded-tr-sm bg-primary text-primary-foreground px-3.5 py-2.5 text-[13px] leading-[18px] max-w-[80%]">
                     {message.content}
                   </div>
                 </div>
@@ -210,13 +210,13 @@ function ChatContent() {
 
               {message.type === "typing" && message.isTyping && (
                 <div className="flex gap-2 max-w-[88%]">
-                  <div className="size-7 shrink-0 rounded-full border border-neutral-200 bg-white flex items-center justify-center">
-                    <Sparkles className="size-3.5" strokeWidth={1.5} />
+                  <div className="size-7 shrink-0 rounded-full border border-border bg-card flex items-center justify-center">
+                    <Sparkles className="size-3.5" strokeWidth={2} />
                   </div>
-                  <div className="rounded-2xl rounded-tl-sm bg-white border border-neutral-200/60 px-3.5 py-2.5 flex gap-1.5 items-center">
-                    <span className="size-1.5 rounded-full bg-neutral-400 animate-pulse" />
-                    <span className="size-1.5 rounded-full bg-neutral-400 animate-pulse [animation-delay:120ms]" />
-                    <span className="size-1.5 rounded-full bg-neutral-400 animate-pulse [animation-delay:240ms]" />
+                  <div className="rounded-xl rounded-tl-sm bg-card border border-border/60 px-3.5 py-2.5 flex gap-1.5 items-center">
+                    <span className="size-1.5 rounded-full bg-muted-foreground animate-pulse" />
+                    <span className="size-1.5 rounded-full bg-muted-foreground animate-pulse [animation-delay:120ms]" />
+                    <span className="size-1.5 rounded-full bg-muted-foreground animate-pulse [animation-delay:240ms]" />
                   </div>
                 </div>
               )}
@@ -225,7 +225,7 @@ function ChatContent() {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="flex-shrink-0 bg-white border-t border-neutral-100 overflow-hidden">
+        <div className="flex-shrink-0 bg-card border-t border-border overflow-hidden">
           <div
             className={`overflow-hidden transition-all duration-300 ease-in-out ${
               showQuickCommands ? "max-h-16 opacity-100" : "max-h-0 opacity-0"
@@ -238,10 +238,10 @@ function ChatContent() {
                     key={cmd.label}
                     onClick={() => handleQuickCommand(cmd.label)}
                     className={
-                      "shrink-0 rounded-full px-3 py-1.5 text-[12px] transition-all duration-150 " +
+                      "shrink-0 rounded-full px-3 py-1.5 text-[12px] leading-[16px] transition-all duration-150 " +
                       (i === 0
-                        ? "bg-neutral-900 text-white"
-                        : "border border-neutral-200 text-neutral-700 hover:border-neutral-900 hover:bg-transparent")
+                        ? "bg-primary text-primary-foreground"
+                        : "border border-border text-foreground hover:border-primary hover:bg-transparent")
                     }
                   >
                     {cmd.icon} {cmd.label}
@@ -253,28 +253,28 @@ function ChatContent() {
 
           <div className="px-3 pb-5">
             {isGenerating ? (
-              <div className="flex items-center gap-2 rounded-2xl border border-neutral-200 p-2 pl-3 bg-neutral-50">
+              <div className="flex items-center gap-2 rounded-xl border border-border p-2 pl-3 bg-muted">
                 <div className="flex-1 flex items-center gap-2">
                   <div className="flex gap-1.5">
-                    <span className="size-1.5 rounded-full bg-neutral-400 animate-pulse" />
-                    <span className="size-1.5 rounded-full bg-neutral-400 animate-pulse [animation-delay:120ms]" />
-                    <span className="size-1.5 rounded-full bg-neutral-400 animate-pulse [animation-delay:240ms]" />
+                    <span className="size-1.5 rounded-full bg-muted-foreground animate-pulse" />
+                    <span className="size-1.5 rounded-full bg-muted-foreground animate-pulse [animation-delay:120ms]" />
+                    <span className="size-1.5 rounded-full bg-muted-foreground animate-pulse [animation-delay:240ms]" />
                   </div>
-                  <span className="text-[12px] text-neutral-500">
+                  <span className="text-[12px] leading-[16px] text-muted-foreground">
                     正在生成中...
                   </span>
                 </div>
                 <button
                   onClick={handleStop}
-                  className="size-8 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 flex items-center justify-center transition-colors"
+                  className="size-8 rounded-full bg-muted text-foreground hover:bg-muted/80 flex items-center justify-center transition-colors"
                 >
-                  <StopCircle className="size-4" strokeWidth={1.75} />
+                  <StopCircle className="size-4" strokeWidth={2} />
                 </button>
               </div>
             ) : (
-              <div className="flex items-end gap-1.5 rounded-2xl border border-neutral-200 p-1.5 pl-2.5 bg-white transition-all duration-150 hover:border-neutral-300 focus-within:border-neutral-900 focus-within:ring-4 focus-within:ring-neutral-900/5">
-                <button className="size-7 rounded-full hover:bg-neutral-100 flex items-center justify-center text-neutral-500 transition-colors">
-                  <Plus className="size-3.5" strokeWidth={1.75} />
+              <div className="flex items-end gap-1.5 rounded-xl border border-border p-1.5 pl-2.5 bg-card transition-all duration-150 hover:border-muted-foreground focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/5">
+                <button className="size-7 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground transition-colors">
+                  <Plus className="size-3.5" strokeWidth={2} />
                 </button>
                 <textarea
                   value={inputValue}
@@ -282,19 +282,19 @@ function ChatContent() {
                   onKeyDown={handleKeyDown}
                   placeholder="输入消息…"
                   rows={1}
-                  className="flex-1 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 px-0 py-1 min-h-0 text-[13px] text-neutral-900 placeholder:text-neutral-400 max-h-24"
+                  className="flex-1 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 px-0 py-1 min-h-0 text-[13px] leading-[18px] text-foreground placeholder:text-muted-foreground max-h-24"
                   style={{ height: "auto", minHeight: "28px" }}
                 />
-                <button className="size-7 rounded-full hover:bg-neutral-100 flex items-center justify-center text-neutral-500 transition-colors">
-                  <Mic className="size-3.5" strokeWidth={1.75} />
+                <button className="size-7 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground transition-colors">
+                  <Mic className="size-3.5" strokeWidth={2} />
                 </button>
                 <button
                   onClick={handleSend}
                   disabled={!inputValue.trim()}
                   className={`size-7 rounded-full flex items-center justify-center transition-all duration-150 ${
                     inputValue.trim()
-                      ? "bg-neutral-900 text-white hover:bg-neutral-800"
-                      : "bg-neutral-200 text-neutral-400 cursor-not-allowed"
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                      : "bg-muted text-muted-foreground cursor-not-allowed"
                   }`}
                 >
                   {inputValue.trim() ? (

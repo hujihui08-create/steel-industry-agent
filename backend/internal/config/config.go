@@ -11,6 +11,8 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"github.com/joho/godotenv"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -33,6 +35,8 @@ type Config struct {
 	MinioEndpoint         string
 	MinioAccessKey        string
 	MinioSecretKey        string
+	MinioBucket           string
+	MinioUseSSL           bool
 	OpenAIAPIKey          string
 	QwenAPIKey            string
 	DeepSeekAPIKey        string
@@ -67,6 +71,8 @@ func Load() {
 		MinioEndpoint:         getEnv("MINIO_ENDPOINT", "localhost:9000"),
 		MinioAccessKey:        getEnv("MINIO_ACCESS_KEY", "minioadmin"),
 		MinioSecretKey:        getEnv("MINIO_SECRET_KEY", "minioadmin"),
+		MinioBucket:           getEnv("MINIO_BUCKET", "steel-agent"),
+		MinioUseSSL:           getEnvBool("MINIO_USE_SSL", false),
 		OpenAIAPIKey:          getEnv("OPENAI_API_KEY", ""),
 		QwenAPIKey:            getEnv("QWEN_API_KEY", ""),
 		DeepSeekAPIKey:        getEnv("DEEPSEEK_API_KEY", ""),
@@ -102,7 +108,19 @@ func getEnvInt(key string, defaultVal int) int {
 	return defaultVal
 }
 
+func getEnvBool(key string, defaultVal bool) bool {
+	if val := os.Getenv(key); val != "" {
+		if b, err := strconv.ParseBool(val); err == nil {
+			return b
+		}
+	}
+	return defaultVal
+}
+
 var RedisClient *redis.Client
+
+// MinioClient is the global MinIO client instance initialized by InitMinio.
+var MinioClient *minio.Client
 
 func InitRedis() *redis.Client {
 	client := redis.NewClient(&redis.Options{
@@ -122,6 +140,45 @@ func InitRedis() *redis.Client {
 
 	log.Println("Redis connected successfully")
 	RedisClient = client
+	return client
+}
+
+// InitMinio creates and initializes the MinIO client using configured credentials.
+func InitMinio() *minio.Client {
+	cfg := AppConfig
+
+	client, err := minio.New(cfg.MinioEndpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(cfg.MinioAccessKey, cfg.MinioSecretKey, ""),
+		Secure: cfg.MinioUseSSL,
+	})
+	if err != nil {
+		log.Printf("WARNING: MinIO client creation failed: %v", err)
+		return nil
+	}
+
+	// Verify connection by checking if the bucket exists, creating it if necessary.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	exists, err := client.BucketExists(ctx, cfg.MinioBucket)
+	if err != nil {
+		log.Printf("WARNING: MinIO bucket check failed: %v", err)
+		MinioClient = client
+		return client
+	}
+
+	if !exists {
+		err = client.MakeBucket(ctx, cfg.MinioBucket, minio.MakeBucketOptions{})
+		if err != nil {
+			log.Printf("WARNING: MinIO bucket creation failed: %v", err)
+			MinioClient = client
+			return client
+		}
+		log.Printf("MinIO bucket '%s' created successfully", cfg.MinioBucket)
+	}
+
+	log.Println("MinIO connected successfully")
+	MinioClient = client
 	return client
 }
 

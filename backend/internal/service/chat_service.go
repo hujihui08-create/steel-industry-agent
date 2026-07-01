@@ -377,6 +377,7 @@ type ChatService struct {
 	agentConfigService  *AgentConfigService
 	agentService        *AgentService
 	memoryRepo          *repository.AgentMemoryRepository
+	vectorRepo          *repository.AgentMemoryVectorRepository
 	priceRepo           *repository.SteelPriceRepository
 	quotationRepo       *repository.QuotationRepository
 	knowledgeRepo       *repository.KnowledgeRepository
@@ -419,6 +420,7 @@ func NewChatService(
 	entityConfigService *EntityConfigService,
 	agentService *AgentService,
 	memoryRepo *repository.AgentMemoryRepository,
+	vectorRepo *repository.AgentMemoryVectorRepository,
 ) *ChatService {
 	return &ChatService{
 		chatRepo:            chatRepo,
@@ -426,6 +428,7 @@ func NewChatService(
 		agentConfigService:  agentConfigService,
 		agentService:        agentService,
 		memoryRepo:          memoryRepo,
+		vectorRepo:          vectorRepo,
 		priceRepo:           priceRepo,
 		quotationRepo:       quotationRepo,
 		knowledgeRepo:       knowledgeRepo,
@@ -867,6 +870,73 @@ func (s *ChatService) saveMemories(ctx context.Context, userID uint, sessionID u
 		truncated = string([]rune(truncated)[:200])
 	}
 	_ = s.memoryRepo.UpsertByUserAndKey(ctx, userID, "last_query", truncated)
+}
+
+// saveSemanticMemory generates a brief conversation summary, vectorizes it,
+// and stores it in the agent_memory_embeddings table for future semantic retrieval.
+// This runs after each AI conversation turn. Errors are logged but not surfaced,
+// as semantic memory is a non-critical feature.
+func (s *ChatService) saveSemanticMemory(ctx context.Context, userID uint, sessionID uint, userMessage string, assistantContent string) {
+	if s.vectorRepo == nil || s.aiClient == nil {
+		return
+	}
+	if userMessage == "" {
+		return
+	}
+
+	// Step 1: Generate a brief summary (1-2 sentences) using the LLM.
+	summaryPrompt := fmt.Sprintf(
+		`Summarize the following user request in 1-2 brief Chinese sentences. Capture the key intent and entities (category, spec, region if mentioned). Output only the summary, no other text.
+
+User: %s
+%s`,
+		userMessage,
+		func() string {
+			if assistantContent != "" {
+				summary := assistantContent
+				if len([]rune(summary)) > 100 {
+					summary = string([]rune(summary)[:100])
+				}
+				return "Assistant: " + summary
+			}
+			return ""
+		}(),
+	)
+
+	messages := []openai.ChatCompletionMessage{
+		{Role: openai.ChatMessageRoleSystem, Content: "You are a summarizer. Output only the summary in Chinese, 1-2 sentences."},
+		{Role: openai.ChatMessageRoleUser, Content: summaryPrompt},
+	}
+
+	resp, err := s.aiClient.Chat(ctx, messages)
+	if err != nil {
+		return
+	}
+	if len(resp.Choices) == 0 || resp.Choices[0].Message.Content == "" {
+		return
+	}
+
+	summary := strings.TrimSpace(resp.Choices[0].Message.Content)
+
+	// Step 2: Vectorize the summary.
+	embeddings, err := s.aiClient.CreateEmbeddings(ctx, "text-embedding-3-small", []string{summary})
+	if err != nil || len(embeddings) == 0 || len(embeddings[0]) == 0 {
+		return
+	}
+
+	embeddingStr := float32ArrayToVector(embeddings[0])
+
+	// Step 3: Save to agent_memory_embeddings table.
+	memory := &model.AgentMemoryEmbedding{
+		UserID:    userID,
+		Content:   summary,
+		Embedding: embeddingStr,
+	}
+
+	if saveErr := s.vectorRepo.Create(ctx, memory); saveErr != nil {
+		// Log but don't fail — semantic memory is best-effort.
+		return
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1397,9 +1467,9 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 	// Read agent config once — used for agent-mode routing and context window / sys prompt.
 	cfg, _ := s.agentConfigService.GetAgentConfig(ctx)
 
-	// --- Agent mode routing (Task 6): if agent mode is enabled and AgentService is
-	//     wired, delegate to the Planner+Executor flow instead of function-calling. ---
-	if cfg != nil && cfg.AgentMode && s.agentService != nil {
+	// --- Agent mode routing: Agent Planner+Executor is the default path.
+	//     Fall back to function-calling when AgentService is not available. ---
+	if s.agentService != nil {
 		return s.chatCompletionsAgentCore(ctx, userID, sessionID, title, messages, cfg)
 	}
 
@@ -1712,6 +1782,9 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 			userMsg := messages[len(messages)-1].Content
 			s.saveMemories(context.Background(), userID, sessionID, userMsg, assistantContent)
 
+			// Task 21.4: Auto-save semantic memory embedding.
+			s.saveSemanticMemory(context.Background(), userID, sessionID, userMsg, assistantContent)
+
 			// Emit structured card data before [DONE]
 			for _, tr := range toolResults {
 				if tr.err != nil {
@@ -1902,8 +1975,8 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 // ---------------------------------------------------------------------------
 
 // chatCompletionsAgentCore runs the full Agent flow (Planner -> Executor) and
-// streams AgentEvents as SSE chunks. It is called when AgentMode is enabled
-// in the agent config AND the AgentService is wired in.
+// streams AgentEvents as SSE chunks. This is the default path when
+// AgentService is wired in.
 func (s *ChatService) chatCompletionsAgentCore(
 	ctx context.Context,
 	userID uint,
@@ -2056,6 +2129,9 @@ func (s *ChatService) chatCompletionsAgentCore(
 
 							// Task 7.1: Save long-term memories from this agent turn.
 							s.saveMemories(context.Background(), userID, sessionID, userMessage, content)
+
+							// Task 21.4: Auto-save semantic memory embedding.
+							s.saveSemanticMemory(context.Background(), userID, sessionID, userMessage, content)
 
 							// Stream as content chunks for backward compatibility.
 							contentPayload, _ := json.Marshal(map[string]string{"content": content})

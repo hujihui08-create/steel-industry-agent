@@ -133,44 +133,44 @@
   }
 
   h1 {
-    font-size: var(--text-2xl);
+    font-size: 24px;
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 32px;
   }
 
   h2 {
-    font-size: var(--text-xl);
+    font-size: 20px;
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 28px;
   }
 
   h3 {
-    font-size: var(--text-lg);
+    font-size: 16px;
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 24px;
   }
 
   h4 {
-    font-size: var(--text-base);
+    font-size: 14px;
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 20px;
   }
 
   label {
-    font-size: var(--text-base);
+    font-size: 14px;
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 20px;
   }
 
   button {
-    font-size: var(--text-base);
+    font-size: 14px;
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 20px;
   }
 
   input {
-    font-size: var(--text-base);
+    font-size: 14px;
     font-weight: var(--font-weight-normal);
-    line-height: 1.5;
+    line-height: 20px;
   }
 }

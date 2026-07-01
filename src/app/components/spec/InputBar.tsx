@@ -37,11 +37,11 @@ export function InputBar() {
                 size="sm"
                 className={
                   i === 0
-                    ? "rounded-full bg-neutral-900 hover:bg-neutral-800 text-[13px] h-8"
-                    : "rounded-full border-neutral-200 hover:border-neutral-900 hover:bg-transparent text-[13px] text-neutral-700 h-8"
+                    ? "rounded-full bg-primary hover:bg-primary/90 text-[13px] leading-[18px] h-8"
+                    : "rounded-full border-border hover:border-primary hover:bg-transparent text-[13px] leading-[18px] text-foreground h-8"
                 }
               >
-                <q.icon className="size-3.5" strokeWidth={1.75} />
+                <q.icon className="size-3.5" strokeWidth={2} />
                 {q.label}
               </Button>
             ))}
@@ -51,55 +51,55 @@ export function InputBar() {
         <Block label="输入栏 / Composer (Textarea + Button)">
           <div className="space-y-4">
             {/* default state */}
-            <div className="flex items-end gap-2 rounded-2xl border border-neutral-200 bg-white p-2 pl-3">
+            <div className="flex items-end gap-2 rounded-xl border border-border bg-card p-2 pl-3">
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-8 rounded-full text-neutral-500"
+                className="size-8 rounded-full text-muted-foreground"
               >
-                <Plus className="size-4" strokeWidth={1.75} />
+                <Plus className="size-4" strokeWidth={2} />
               </Button>
               <Textarea
                 placeholder="询问钢材价格、报价、招标信息…"
                 rows={1}
-                className="flex-1 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 px-0 py-1.5 min-h-0 text-[14px]"
+                className="flex-1 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 px-0 py-1.5 min-h-0 text-[14px] leading-[20px]"
               />
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-8 rounded-full text-neutral-500"
+                className="size-8 rounded-full text-muted-foreground"
               >
-                <Mic className="size-4" strokeWidth={1.75} />
+                <Mic className="size-4" strokeWidth={2} />
               </Button>
               <Button
                 size="icon"
-                className="size-8 rounded-full bg-neutral-900 hover:bg-neutral-800"
+                className="size-8 rounded-full bg-primary hover:bg-primary/90"
               >
                 <ArrowUp className="size-4" strokeWidth={2} />
               </Button>
             </div>
 
             {/* focused state */}
-            <div className="flex items-end gap-2 rounded-2xl border border-neutral-900 bg-white p-2 pl-3 ring-4 ring-neutral-900/5">
+            <div className="flex items-end gap-2 rounded-xl border border-primary bg-card p-2 pl-3 ring-4 ring-primary/5">
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-8 rounded-full text-neutral-500"
+                className="size-8 rounded-full text-muted-foreground"
               >
-                <Plus className="size-4" strokeWidth={1.75} />
+                <Plus className="size-4" strokeWidth={2} />
               </Button>
-              <div className="flex-1 min-h-[36px] py-1.5 text-[14px] text-neutral-900">
+              <div className="flex-1 min-h-[36px] py-1.5 text-[14px] leading-[20px] text-foreground">
                 给我报 100 吨 HRB400E 20mm 螺纹钢的价格
               </div>
               <Button
                 size="icon"
-                className="size-8 rounded-full bg-neutral-900 hover:bg-neutral-800"
+                className="size-8 rounded-full bg-primary hover:bg-primary/90"
               >
                 <ArrowUp className="size-4" strokeWidth={2} />
               </Button>
             </div>
-            <div className="text-[11px] text-neutral-400">
-              状态：默认 / 聚焦 — 描边由 neutral-200 → neutral-900，附 4px 柔光
+            <div className="text-[12px] leading-[16px] text-muted-foreground">
+              状态：默认 / 聚焦 — 描边由 border → primary，附 4px 柔光
             </div>
           </div>
         </Block>

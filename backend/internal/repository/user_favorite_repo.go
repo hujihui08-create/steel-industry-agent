@@ -34,3 +34,10 @@ func (r *UserFavoriteRepository) FindByUserID(ctx context.Context, userID uint) 
 	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Find(&favorites).Error
 	return favorites, err
 }
+
+// FindByTenderID finds all favorite records for a given tender ID.
+func (r *UserFavoriteRepository) FindByTenderID(ctx context.Context, tenderID uint) ([]model.UserFavorite, error) {
+	var favorites []model.UserFavorite
+	err := r.db.WithContext(ctx).Where("tender_id = ?", tenderID).Find(&favorites).Error
+	return favorites, err
+}

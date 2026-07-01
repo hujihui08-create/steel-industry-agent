@@ -110,7 +110,6 @@ func nilAgentService(cfg *AgentConfigDO, mem memoryRepoInterface) *AgentService 
 func nilAgentConfigSvc(cfg *AgentConfigDO) *AgentConfigService {
 	if cfg == nil {
 		cfg = &AgentConfigDO{
-			AgentMode:  false,
 			MaxSteps:   5,
 			MaxRetries: 2,
 		}
@@ -288,6 +287,9 @@ func TestGeneratePlan_SimpleSingleStep(t *testing.T) {
 	if plan.Steps[0].Step != 1 {
 		t.Errorf("expected step 1, got %d", plan.Steps[0].Step)
 	}
+	if plan.Steps[0].SubAgentName != "" {
+		t.Errorf("expected empty sub_agent_name, got '%s'", plan.Steps[0].SubAgentName)
+	}
 }
 
 // ============================================================================
@@ -304,9 +306,9 @@ func TestGeneratePlan_MultiStepComplex(t *testing.T) {
 					{
 						Message: openai.ChatCompletionMessage{
 							Content: `{"steps":[
-								{"step":1,"intent":"query price","tool_name":"query_steel_price","params":{"category":"螺纹钢"}},
-								{"step":2,"intent":"get trend","tool_name":"get_price_trend","params":{"category":"螺纹钢"},"depends_on":[1]},
-								{"step":3,"intent":"calculate quote","tool_name":"calculate_quotation","params":{},"depends_on":[1,2]}
+								{"step":1,"intent":"query price","tool_name":"query_steel_price","params":{"category":"螺纹钢"},"sub_agent_name":"price_agent"},
+								{"step":2,"intent":"get trend","tool_name":"get_price_trend","params":{"category":"螺纹钢"},"depends_on":[1],"sub_agent_name":"price_agent"},
+								{"step":3,"intent":"calculate quote","tool_name":"calculate_quotation","params":{},"depends_on":[1,2],"sub_agent_name":"quotation_agent"}
 							]}`,
 						},
 					},
@@ -340,6 +342,15 @@ func TestGeneratePlan_MultiStepComplex(t *testing.T) {
 	}
 	if len(plan.Steps[2].DependsOn) != 2 {
 		t.Errorf("expected step 3 to have 2 dependencies, got %v", plan.Steps[2].DependsOn)
+	}
+	if plan.Steps[0].SubAgentName != "price_agent" {
+		t.Errorf("expected step 1 sub_agent_name 'price_agent', got '%s'", plan.Steps[0].SubAgentName)
+	}
+	if plan.Steps[1].SubAgentName != "price_agent" {
+		t.Errorf("expected step 2 sub_agent_name 'price_agent', got '%s'", plan.Steps[1].SubAgentName)
+	}
+	if plan.Steps[2].SubAgentName != "quotation_agent" {
+		t.Errorf("expected step 3 sub_agent_name 'quotation_agent', got '%s'", plan.Steps[2].SubAgentName)
 	}
 }
 
@@ -1060,14 +1071,10 @@ func TestReplan_NoRemainingSteps(t *testing.T) {
 func TestAgentConfigDO_Defaults(t *testing.T) {
 	// Verify that default config has expected values per spec.
 	cfg := &AgentConfigDO{
-		AgentMode:  false,
 		MaxSteps:   5,
 		MaxRetries: 2,
 	}
 
-	if cfg.AgentMode {
-		t.Errorf("expected AgentMode=false, got true")
-	}
 	if cfg.MaxSteps != 5 {
 		t.Errorf("expected MaxSteps=5, got %d", cfg.MaxSteps)
 	}
@@ -1430,11 +1437,12 @@ func TestBuildToolListForPlanner_ToolWithoutFunction(t *testing.T) {
 
 func TestPlanStep_JSONRoundtrip(t *testing.T) {
 	step := PlanStep{
-		Step:     1,
-		Intent:   "query steel price",
-		ToolName: "query_steel_price",
-		Params:   map[string]interface{}{"category": "螺纹钢", "region": "上海"},
-		DependsOn: []int{},
+		Step:         1,
+		Intent:       "query steel price",
+		ToolName:     "query_steel_price",
+		Params:       map[string]interface{}{"category": "螺纹钢", "region": "上海"},
+		DependsOn:    []int{},
+		SubAgentName: "price_agent",
 	}
 
 	data, err := json.Marshal(step)
@@ -1455,6 +1463,9 @@ func TestPlanStep_JSONRoundtrip(t *testing.T) {
 	}
 	if restored.ToolName != step.ToolName {
 		t.Errorf("expected tool '%s', got '%s'", step.ToolName, restored.ToolName)
+	}
+	if restored.SubAgentName != step.SubAgentName {
+		t.Errorf("expected sub_agent_name '%s', got '%s'", step.SubAgentName, restored.SubAgentName)
 	}
 }
 

@@ -44,6 +44,8 @@ func Setup(
 	adminCertificationHandler *handler.AdminCertificationHandler,
 	feedbackHandler *handler.FeedbackHandler,
 	entityConfigHandler *handler.EntityConfigHandler,
+	fileHandler *handler.FileHandler,
+	predictionHandler *handler.PredictionHandler,
 	adminRepo *repository.AdminRepository,
 	adminLogRepo *repository.AdminLogRepository,
 	apiCallLogRepo *repository.ApiCallLogRepository,
@@ -100,12 +102,15 @@ func Setup(
 		prices.GET("/latest", priceHandler.GetLatestPrice)
 		prices.GET("/trend", priceHandler.GetPriceTrend)
 		prices.GET("/compare", priceHandler.ComparePrices)
+		prices.GET("/predict", predictionHandler.GetPrediction)
+		prices.GET("/seasonal-tips", predictionHandler.GetSeasonalTips)
 	}
 
 	quotations := api.Group("/quotations")
 	{
 		quotations.POST("/calculate", quotationHandler.CalculateQuotation)
 		quotations.POST("", quotationHandler.CreateQuotation)
+		quotations.POST("/from-file", quotationHandler.FromFile)
 		quotations.GET("", quotationHandler.GetQuotationList)
 		quotations.GET("/:id", quotationHandler.GetQuotationDetail)
 		quotations.PUT("/:id", quotationHandler.UpdateQuotation)
@@ -175,7 +180,10 @@ func Setup(
 	notifications := api.Group("/notifications")
 	{
 		notifications.GET("", notificationHandler.GetNotifications)
+		notifications.GET("/unread-count", notificationHandler.GetUnreadCount)
+		notifications.GET("/stream", notificationHandler.StreamNotifications)
 		notifications.PUT("/:id/read", notificationHandler.MarkAsRead)
+		notifications.PUT("/read-all", notificationHandler.MarkAllAsRead)
 	}
 
 	settings := api.Group("/settings")
@@ -185,6 +193,11 @@ func Setup(
 	}
 
 	api.POST("/feedback", feedbackHandler.SubmitFeedback)
+
+	files := api.Group("/files")
+	{
+		files.POST("/upload", fileHandler.Upload)
+	}
 
 	api.GET("/news", priceHandler.GetNewsList)
 	api.GET("/news/:id", priceHandler.GetNewsDetail)
