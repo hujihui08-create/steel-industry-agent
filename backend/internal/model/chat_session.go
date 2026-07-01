@@ -38,28 +38,37 @@ func (ChatMessage) TableName() string {
 	return "chat_messages"
 }
 
-// ChatContext stores the current conversation context as JSON in chat_sessions.context.
-type ChatContext struct {
-	Intent    string            `json:"intent"`
-	Entities  map[string]string `json:"entities"`
-	LastQuery string            `json:"last_query"`
-	TurnCount int               `json:"turn_count"`
+// AgentContext stores the current conversation context as JSON in chat_sessions.context.
+// Extended from ChatContext with agent execution plan, current step, and working memory.
+type AgentContext struct {
+	Intent       string            `json:"intent"`
+	Entities     map[string]string `json:"entities"`
+	LastQuery    string            `json:"last_query"`
+	TurnCount    int               `json:"turn_count"`
+	Plan         string            `json:"plan"`          // JSON string storing the serialized agent execution plan
+	CurrentStep  int               `json:"current_step"`  // current step index in the plan
+	WorkMemory   map[string]string `json:"work_memory"`   // working memory key-value store
 }
 
-// GetContext parses the JSON context field into a ChatContext struct.
-// Returns an empty ChatContext if the field is empty or invalid.
+// ChatContext is a type alias for AgentContext, maintained for backward compatibility.
+type ChatContext = AgentContext
+
+// GetContext parses the JSON context field into an AgentContext struct.
+// Returns an empty AgentContext if the field is empty or invalid.
+// When deserializing old data without plan/current_step/work_memory, defaults are used
+// (plan="", current_step=0, work_memory=nil).
 func (s *ChatSession) GetContext() ChatContext {
-	var ctx ChatContext
+	var ctx AgentContext
 	if s.Context == "" {
 		return ctx
 	}
 	if err := json.Unmarshal([]byte(s.Context), &ctx); err != nil {
-		return ChatContext{}
+		return AgentContext{}
 	}
 	return ctx
 }
 
-// SetContext serializes a ChatContext struct into the Context JSON string field.
+// SetContext serializes an AgentContext struct into the Context JSON string field.
 func (s *ChatSession) SetContext(ctx ChatContext) {
 	data, err := json.Marshal(ctx)
 	if err != nil {

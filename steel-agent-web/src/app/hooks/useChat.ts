@@ -90,6 +90,8 @@ export function useChat() {
             // 静默失败
           }
         }
+        // Reset agent state on completion
+        s.resetAgentState();
       },
       (card) => {
         const s = useChatStore.getState();
@@ -122,6 +124,38 @@ export function useChat() {
       (status) => {
         useChatStore.getState().setStatusMessage(status);
       },
+      (eventType, data) => {
+        const s = useChatStore.getState();
+        switch (eventType) {
+          case 'plan_created':
+            s.setAgentPlan(data as unknown as import('@/app/stores/chatStore').AgentPlan);
+            break;
+          case 'step_start': {
+            const stepIdx = (data.step as number) - 1;
+            s.updateAgentStep(stepIdx, { status: 'running' });
+            break;
+          }
+          case 'step_complete': {
+            const stepIdx = (data.step as number) - 1;
+            s.updateAgentStep(stepIdx, {
+              status: 'done',
+              result: typeof data.result === 'string' ? data.result : JSON.stringify(data.result),
+            });
+            break;
+          }
+          case 'step_failed': {
+            const stepIdx = (data.step as number) - 1;
+            s.updateAgentStep(stepIdx, {
+              status: 'failed',
+              error: typeof data.error === 'string' ? data.error : '步骤执行失败',
+            });
+            break;
+          }
+          case 'reflection':
+            // Reflection data stored for potential display
+            break;
+        }
+      },
     );
 
     abortRef.current = controller;
@@ -138,6 +172,7 @@ export function useChat() {
     abortRef.current?.abort();
     store.setStreaming(false);
     store.markLastMessageStopped();
+    store.resetAgentState();
 
     try {
       await chatApi.stopGeneration(store.currentSessionId);

@@ -1,12 +1,37 @@
 // ============================================================
 // AI 对话 Zustand 状态管理
-// 管理会话列表、消息列表、流式输出、输入状态
+// 管理会话列表、消息列表、流式输出、输入状态、Agent 执行进度
 // ============================================================
 
 import { create } from "zustand";
 import type { ChatSession, ChatMessage, QuickCommand, CardAttachment } from "@/app/types/chat";
 
 let __messageIdCounter = 0;
+
+// ---- Agent execution types ----
+
+export interface AgentStep {
+  step: number;
+  intent: string;
+  tool_name: string;
+  params?: Record<string, unknown>;
+}
+
+export interface AgentPlan {
+  steps: AgentStep[];
+  max_steps: number;
+}
+
+export interface AgentStepState {
+  step: number;
+  status: 'pending' | 'running' | 'done' | 'failed';
+  tool_name: string;
+  intent?: string;
+  result?: string;
+  error?: string;
+}
+
+// ---- ChatState ----
 
 interface ChatState {
   currentSessionId: number | null;
@@ -19,6 +44,10 @@ interface ChatState {
   selectedCard: CardAttachment | null;
   focusInputTrigger: number;
   statusMessage: string | null;
+
+  // Agent execution progress
+  agentPlan: AgentPlan | null;
+  agentSteps: AgentStepState[];
 
   setCurrentSessionId: (id: number | null) => void;
   triggerFocusInput: () => void;
@@ -41,6 +70,12 @@ interface ChatState {
   clearAttachments: () => void;
   fixMessageSessionIds: (sessionId: number) => void;
   reset: () => void;
+
+  // Agent actions
+  setAgentPlan: (plan: AgentPlan) => void;
+  updateAgentStep: (stepIndex: number, update: Partial<AgentStepState>) => void;
+  setAgentSteps: (steps: AgentStepState[]) => void;
+  resetAgentState: () => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -54,6 +89,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   selectedCard: null,
   focusInputTrigger: 0,
   statusMessage: null,
+  agentPlan: null,
+  agentSteps: [],
 
   setCurrentSessionId: (id) => set({ currentSessionId: id }),
 
@@ -138,6 +175,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       selectedCard: null,
       statusMessage: null,
       focusInputTrigger: 0,
+      agentPlan: null,
+      agentSteps: [],
     }),
 
   removeSession: (sessionId) =>
@@ -153,6 +192,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           activeQuickCommand: null,
           selectedCard: null,
           statusMessage: null,
+          agentPlan: null,
+          agentSteps: [],
         }),
       };
     }),
@@ -173,9 +214,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearAttachments: () =>
     set((state) => ({
-      messages: state.messages.map((msg, i) =>
-        i === state.messages.length - 1 ? { ...msg, attachments: [] } : msg
-      ),
+      messages: state.messages.map((msg) => {
+        const { attachments: _, ...rest } = msg as any;
+        return rest;
+      }),
     })),
 
   fixMessageSessionIds: (sessionId) =>
@@ -198,5 +240,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
       selectedCard: null,
       focusInputTrigger: 0,
       statusMessage: null,
+      agentPlan: null,
+      agentSteps: [],
     }),
+
+  // Agent actions
+  setAgentPlan: (plan) =>
+    set({
+      agentPlan: plan,
+      agentSteps: plan.steps.map((s) => ({
+        step: s.step,
+        status: 'pending' as const,
+        tool_name: s.tool_name,
+        intent: s.intent,
+      })),
+    }),
+
+  updateAgentStep: (stepIndex, update) =>
+    set((state) => {
+      const steps = [...state.agentSteps];
+      if (stepIndex >= 0 && stepIndex < steps.length) {
+        steps[stepIndex] = { ...steps[stepIndex], ...update };
+      }
+      return { agentSteps: steps };
+    }),
+
+  setAgentSteps: (steps) => set({ agentSteps: steps }),
+
+  resetAgentState: () => set({ agentPlan: null, agentSteps: [] }),
 }));

@@ -142,6 +142,8 @@ func main() {
 	adminSettingsService := service.NewAdminSettingsService(adminSettingsRepo)
 	crawlerService := service.NewCrawlerService(db, crawlerSourceRepo, crawlerLogRepo, steelPriceRepo, newsRepo, tenderRepo, categoryRepo, cacheService)
 	agentConfigService := service.NewAgentConfigService(agentConfigRepo, categoryRepo)
+	agentMemoryRepo := repository.NewAgentMemoryRepository(db)
+	agentService := service.NewAgentService(llmAdapter, agentConfigService, agentMemoryRepo)
 	categoryService := service.NewCategoryService(categoryRepo, steelPriceRepo)
 	intentService := service.NewIntentService(intentRepo)
 	entityConfigService := service.NewEntityConfigService(entityConfigRepo)
@@ -154,7 +156,7 @@ func main() {
 	feedbackService := service.NewFeedbackService(feedbackRepo)
 
 	badCaseService := service.NewBadCaseService(badCaseRepo, nil)
-	chatService := service.NewChatService(chatRepo, llmAdapter, agentConfigService, steelPriceRepo, quotationRepo, knowledgeRepo, knowledgeService, tenderRepo, priceAlertRepo, newsRepo, categoryRepo, badCaseService, intentRepo, tokenUsageRepo, entityConfigService)
+	chatService := service.NewChatService(chatRepo, llmAdapter, agentConfigService, steelPriceRepo, quotationRepo, knowledgeRepo, knowledgeService, tenderRepo, priceAlertRepo, newsRepo, categoryRepo, badCaseService, intentRepo, tokenUsageRepo, entityConfigService, agentService, agentMemoryRepo)
 	badCaseService.SetChatService(chatService)
 
 	debugService := service.NewDebugService(chatService, intentRepo, agentConfigService, chatRepo, categoryRepo, entityConfigService, redisClient)

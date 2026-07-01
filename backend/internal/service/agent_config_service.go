@@ -33,6 +33,9 @@ type AgentConfigDO struct {
 	UseTemplateForChat bool                  `json:"useTemplateForChat"`
 	ContextTurns       int                   `json:"contextTurns"`
 	Models             []ModelConfigDO       `json:"models"`
+	AgentMode          bool                  `json:"agentMode"`  // controls whether to use Agent planner+executor flow
+	MaxSteps           int                   `json:"maxSteps"`   // maximum steps in a plan, default 5
+	MaxRetries         int                   `json:"maxRetries"` // max retries per step, default 2
 }
 
 // QuickCommandDO represents a single quick-command entry in the agent config.
@@ -349,8 +352,8 @@ func (s *AgentConfigService) defaultConfig(ctx context.Context) *AgentConfigDO {
 		MaxTokens:      2048,
 		ApiKey:         "",
 		Timeout:        30,
-		SystemPrompt:   "你是一个钢铁行业智能助手。重要规则：\n1. 所有价格数据必须通过工具调用获取，禁止编造\n2. 如果不确定，明确告知用户\"我需要查询一下\"\n3. 涉及交易决策时，必须附加免责声明\n4. 结论先行，数据优先，来源可追溯\n5. 数字格式：价格用千分位+单位（¥3,850/吨），涨跌用符号+百分比（+12 +0.31%）",
-		WelcomeMessage: "您好，我是钢铁行业智能助手。可以帮您查价格、算报价、看招标、搜知识。请告诉我您需要什么帮助？",
+		SystemPrompt:   "你是钢铁行业智能助手\"钢小秘\"。核心能力：价格查询、价格走势、报价计算、知识搜索、招标信息、行业资讯、重量计算、价格预警。\n\n身份介绍规则（当用户问\"你是谁\"时）：简短问候后，分段落列出全部 8 项能力，每项不超过15字，末尾以开放式提问引导。禁止出现\"预约\"二字。\n\n重要规则：\n1. 所有价格数据必须通过工具调用获取，禁止编造\n2. 如果不确定，明确告知用户\"我需要查询一下\"\n3. 涉及交易决策时，必须附加免责声明\n4. 结论先行，数据优先，来源可追溯\n5. 数字格式：价格用千分位+单位（¥3,850/吨），涨跌用符号+百分比（+12 +0.31%）\n6. 禁止编造或推荐非钢铁行业能力",
+		WelcomeMessage: "您好，我是钢铁行业智能助手\"钢小秘\"。可以帮您查价格、看走势、算报价、搜知识、查招标、看资讯、算重量、设预警。请问您需要什么帮助？",
 		QuickCommands: []QuickCommandDO{
 			{ID: "qc-1", Icon: "Search", Label: "查价格", Prompt: "帮我查询螺纹钢最新价格", Order: 1},
 			{ID: "qc-2", Icon: "Calculator", Label: "算报价", Prompt: "帮我计算报价", Order: 2},
@@ -364,6 +367,9 @@ func (s *AgentConfigService) defaultConfig(ctx context.Context) *AgentConfigDO {
 		ForceToolForData:   true,
 		UseTemplateForChat: false,
 		ContextTurns:       5,
+		AgentMode:          false,
+		MaxSteps:           5,
+		MaxRetries:         2,
 		Models: []ModelConfigDO{
 			{ID: "m-1", Name: "GPT-4o-mini", BaseURL: "https://api.openai.com/v1", APIKey: ""},
 			{ID: "m-2", Name: "GPT-4o", BaseURL: "https://api.openai.com/v1", APIKey: ""},

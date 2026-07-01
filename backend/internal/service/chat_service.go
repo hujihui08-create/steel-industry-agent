@@ -22,7 +22,20 @@ import (
 // ---------------------------------------------------------------------------
 
 const SystemPrompt = `你是钢铁行业智能助手"钢小秘"。你服务于钢铁行业的采购商、销售商和分析师，核心能力包括：价格查询、价格走势、报价计算、知识搜索、招标信息、行业资讯、重量计算、价格预警。
-    
+
+身份介绍规则（当用户问"你是谁"、自我介绍、打招呼时，严格按以下格式回复）：
+简短问候后，用分段落 + **加粗关键词** 格式逐项列出以下全部 8 项核心能力，每项描述不超过15字，末尾以开放式提问引导用户。禁止在任何介绍中出现"预约"二字。参考格式：
+"您好，我是钢铁行业智能助手"钢小秘"。我可以帮您：
+**查价格** 钢材实时市场价格
+**看走势** 历史价格趋势分析
+**算报价** 材料+加工费合计
+**搜知识** 国标牌号术语释义
+**查招标** 全国招标信息筛选
+**看资讯** 行业新闻动态追踪
+**算重量** 钢材理论重量估算
+**设预警** 价格达到目标通知
+请问您需要什么帮助？"
+
 重要规则:
 1. 所有价格、规格、标准等数据必须通过工具调用获取，绝不允许自行编造
 2. 如果工具返回数据，必须原样使用，不得修改数值
@@ -36,7 +49,7 @@ const SystemPrompt = `你是钢铁行业智能助手"钢小秘"。你服务于�
 10. 回复应专业、简洁，结论先行
 11. 使用中文回复，数字格式遵循中国习惯
 12. 禁止在回复中使用任何 emoji 表情符号或装饰性 Unicode 图标。使用纯文本 + Markdown 结构（标题、表格、列表）组织内容。
-13. 首次欢迎消息格式：简短问候后，使用分段落 + **加粗关键词**：简短描述 的格式逐项介绍核心能力，每项描述不超过15字。禁止使用 emoji 无序列表。末尾以开放式提问引导用户。
+13. 禁止在回复中编造或推荐任何非钢铁行业的能力或功能。你的能力仅限上述 8 项，不得添加预约、下单、客服、娱乐等其他功能。
 14. 数据已通过结构化卡片自动展示，你的回复中仅需包含分析性自然语言，不得在文字中重复卡片内的具体数据
 15. 禁止用 Markdown 表格或列表重复展示数据
 16. 数据风险提示：所有涉及价格、走势、对比的回复，末尾必须附带声明："数据更新至 [工具返回的updated_at时间]，以上数据仅供参考，不构成投资建议"
@@ -362,6 +375,8 @@ type ChatService struct {
 	chatRepo            *repository.ChatRepository
 	aiClient            *ai.LLMAdapter
 	agentConfigService  *AgentConfigService
+	agentService        *AgentService
+	memoryRepo          *repository.AgentMemoryRepository
 	priceRepo           *repository.SteelPriceRepository
 	quotationRepo       *repository.QuotationRepository
 	knowledgeRepo       *repository.KnowledgeRepository
@@ -384,7 +399,8 @@ type ChatService struct {
 }
 
 // NewChatService creates a new ChatService with all required repositories
-// for function-calling tool execution.
+// for function-calling tool execution. The agentService parameter may be nil
+// to run in non-agent (function-calling-only) mode.
 func NewChatService(
 	chatRepo *repository.ChatRepository,
 	aiClient *ai.LLMAdapter,
@@ -401,11 +417,15 @@ func NewChatService(
 	intentRepo *repository.IntentRepository,
 	tokenUsageRepo *repository.TokenUsageRepository,
 	entityConfigService *EntityConfigService,
+	agentService *AgentService,
+	memoryRepo *repository.AgentMemoryRepository,
 ) *ChatService {
 	return &ChatService{
 		chatRepo:            chatRepo,
 		aiClient:            aiClient,
 		agentConfigService:  agentConfigService,
+		agentService:        agentService,
+		memoryRepo:          memoryRepo,
 		priceRepo:           priceRepo,
 		quotationRepo:       quotationRepo,
 		knowledgeRepo:       knowledgeRepo,
@@ -798,6 +818,55 @@ func (s *ChatService) extractEntitiesFromText(ctx context.Context, text string) 
 	}
 
 	return entities
+}
+
+// extractSpecFromText attempts to extract a steel specification (e.g. HRB400E)
+// from the user message using common pattern matching.
+func extractSpecFromText(text string) string {
+	patterns := []string{
+		"HRB400E", "HRB500E", "HRB400", "HRB500", "HRB335",
+		"Q235B", "Q345B", "Q355B", "Q420B", "Q235", "Q345",
+	}
+	upper := strings.ToUpper(text)
+	for _, p := range patterns {
+		if strings.Contains(upper, strings.ToUpper(p)) {
+			return p
+		}
+	}
+	return ""
+}
+
+// saveMemories persists key entities from a user message into long-term memory
+// so they can be retrieved across sessions by the agent planner.
+func (s *ChatService) saveMemories(ctx context.Context, userID uint, sessionID uint, userMessage string, _ string) {
+	if s.memoryRepo == nil {
+		return
+	}
+
+	entities := s.extractEntitiesFromText(ctx, userMessage)
+	spec := extractSpecFromText(userMessage)
+
+	// Upsert last_category.
+	if cat, ok := entities["category"]; ok && cat != "" {
+		_ = s.memoryRepo.UpsertByUserAndKey(ctx, userID, "last_category", cat)
+	}
+
+	// Upsert last_spec.
+	if spec != "" {
+		_ = s.memoryRepo.UpsertByUserAndKey(ctx, userID, "last_spec", spec)
+	}
+
+	// Upsert last_region.
+	if reg, ok := entities["region"]; ok && reg != "" {
+		_ = s.memoryRepo.UpsertByUserAndKey(ctx, userID, "last_region", reg)
+	}
+
+	// Upsert last_query (truncated to 200 chars).
+	truncated := userMessage
+	if len([]rune(truncated)) > 200 {
+		truncated = string([]rune(truncated)[:200])
+	}
+	_ = s.memoryRepo.UpsertByUserAndKey(ctx, userID, "last_query", truncated)
 }
 
 // ---------------------------------------------------------------------------
@@ -1325,9 +1394,18 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 	// Apply agent config from the database (so admin UI changes take effect immediately).
 	s.applyAgentConfig(ctx)
 
+	// Read agent config once — used for agent-mode routing and context window / sys prompt.
+	cfg, _ := s.agentConfigService.GetAgentConfig(ctx)
+
+	// --- Agent mode routing (Task 6): if agent mode is enabled and AgentService is
+	//     wired, delegate to the Planner+Executor flow instead of function-calling. ---
+	if cfg != nil && cfg.AgentMode && s.agentService != nil {
+		return s.chatCompletionsAgentCore(ctx, userID, sessionID, title, messages, cfg)
+	}
+
 	// Read ContextTurns from agent config, with a safe default of 5.
 	contextTurns := 5
-	if cfg, cfgErr := s.agentConfigService.GetAgentConfig(ctx); cfgErr == nil && cfg != nil {
+	if cfg != nil {
 		if cfg.ContextTurns >= 1 && cfg.ContextTurns <= 10 {
 			contextTurns = cfg.ContextTurns
 		}
@@ -1353,7 +1431,7 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 
 	// Prepend system prompt — DB value takes priority, fallback to hardcoded constant.
 	sysPrompt := SystemPrompt
-	if cfg, cfgErr := s.agentConfigService.GetAgentConfig(ctx); cfgErr == nil && cfg != nil && cfg.SystemPrompt != "" {
+	if cfg != nil && cfg.SystemPrompt != "" {
 		sysPrompt = cfg.SystemPrompt
 	}
 	openaiMessages = append(
@@ -1630,6 +1708,10 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 			// Task 4.3: Persist context.
 			s.persistContext(ctx, sessionID, choice.Message.ToolCalls)
 
+			// Task 7.1: Save long-term memories from this conversation turn.
+			userMsg := messages[len(messages)-1].Content
+			s.saveMemories(context.Background(), userID, sessionID, userMsg, assistantContent)
+
 			// Emit structured card data before [DONE]
 			for _, tr := range toolResults {
 				if tr.err != nil {
@@ -1813,6 +1895,407 @@ func (s *ChatService) chatCompletionsCore(ctx context.Context, userID uint, sess
 	}()
 
 	return ch, nil
+}
+
+// ---------------------------------------------------------------------------
+// Task 6: chatCompletionsAgentCore — Agent Planner+Executor flow
+// ---------------------------------------------------------------------------
+
+// chatCompletionsAgentCore runs the full Agent flow (Planner -> Executor) and
+// streams AgentEvents as SSE chunks. It is called when AgentMode is enabled
+// in the agent config AND the AgentService is wired in.
+func (s *ChatService) chatCompletionsAgentCore(
+	ctx context.Context,
+	userID uint,
+	sessionID uint,
+	title string,
+	messages []model.ChatMessage,
+	cfg *AgentConfigDO,
+) (<-chan string, error) {
+	contextTurns := 5
+	if cfg.ContextTurns >= 1 && cfg.ContextTurns <= 10 {
+		contextTurns = cfg.ContextTurns
+	}
+
+	// Convert DB messages to OpenAI format (needed for plan generation context).
+	openaiMessages := make([]openai.ChatCompletionMessage, 0, len(messages)+1)
+	for _, m := range messages {
+		var role string
+		switch m.Role {
+		case "user":
+			role = openai.ChatMessageRoleUser
+		case "assistant":
+			role = openai.ChatMessageRoleAssistant
+		default:
+			role = openai.ChatMessageRoleUser
+		}
+		openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
+			Role:    role,
+			Content: m.Content,
+		})
+	}
+
+	// Prepend system prompt.
+	sysPrompt := SystemPrompt
+	if cfg.SystemPrompt != "" {
+		sysPrompt = cfg.SystemPrompt
+	}
+	openaiMessages = append(
+		[]openai.ChatCompletionMessage{
+			{Role: openai.ChatMessageRoleSystem, Content: sysPrompt},
+		},
+		openaiMessages...,
+	)
+
+	// Apply context window.
+	openaiMessages = applyContextWindow(openaiMessages, contextTurns)
+
+	// Build tools.
+	tools := s.BuildTools(ctx)
+
+	// Extract user message (last message in the DB messages list).
+	userMessage := ""
+	if len(messages) > 0 {
+		userMessage = messages[len(messages)-1].Content
+	}
+
+	// Create cancellable context and register it.
+	ctx, cancel := context.WithCancel(ctx)
+	s.mu.Lock()
+	s.activeCancels[sessionID] = cancel
+	s.mu.Unlock()
+
+	ch := make(chan string, 100)
+
+	startTime := time.Now()
+
+	go func() {
+		defer close(ch)
+		defer func() {
+			s.mu.Lock()
+			delete(s.activeCancels, sessionID)
+			s.mu.Unlock()
+		}()
+
+		// Send session_id event so frontend can update currentSessionId.
+		if sessionID > 0 {
+			sessionPayload, _ := json.Marshal(map[string]interface{}{
+				"session_id": sessionID,
+				"title":      title,
+			})
+			ch <- fmt.Sprintf("data: %s\n\n", string(sessionPayload))
+		}
+
+		// ---- Phase 1: Planner ----
+		plan, planErr := s.agentService.GeneratePlan(ctx, userID, userMessage, messages, tools)
+		if planErr != nil {
+			ch <- fmt.Sprintf("data: {\"error\": %q}\n\n", planErr.Error())
+			ch <- "data: [DONE]\n\n"
+			return
+		}
+
+		// ---- Phase 2: Executor ----
+		agentEventCh, execErr := s.agentService.ExecutePlan(ctx, plan, tools)
+		if execErr != nil {
+			ch <- fmt.Sprintf("data: {\"error\": %q}\n\n", execErr.Error())
+			ch <- "data: [DONE]\n\n"
+			return
+		}
+
+		// ---- Phase 3: Stream AgentEvents as SSE ----
+		for {
+			select {
+			case event, ok := <-agentEventCh:
+				if !ok {
+					// Channel closed — executor finished.
+					return
+				}
+
+				if event.Type == "[DONE]" {
+					ch <- "data: [DONE]\n\n"
+
+					// Record token usage.
+					if s.tokenUsageRepo != nil {
+						sessIDStr := fmt.Sprintf("%d", sessionID)
+						usage := &model.TokenUsage{
+							UserID:     userID,
+							SessionID:  sessIDStr,
+							Model:      s.getCurrentModelName(ctx),
+							APIPath:    "/api/v1/chat/completions?agent=true",
+							StatusCode: 200,
+							DurationMs: int(time.Since(startTime).Milliseconds()),
+						}
+						_ = s.tokenUsageRepo.Create(context.Background(), usage)
+					}
+
+					// Update session metadata.
+					sess, sessErr := s.chatRepo.FindSessionByID(context.Background(), sessionID)
+					if sessErr == nil {
+						sess.MessageCount += 2
+						_ = s.chatRepo.UpdateSession(context.Background(), sess)
+					}
+					continue
+				}
+
+				// Handle summary event: save as assistant message and stream content.
+				if event.Type == "summary" {
+					dataMap, ok := event.Data.(map[string]interface{})
+					if ok {
+						content, _ := dataMap["content"].(string)
+						if content != "" {
+							// Save as assistant message (use background context since
+							// the streaming context may be cancelled by now).
+							assistantMsg := &model.ChatMessage{
+								SessionID: sessionID,
+								Role:      "assistant",
+								Content:   content,
+							}
+							if err := s.chatRepo.CreateMessage(context.Background(), assistantMsg); err != nil {
+								ch <- fmt.Sprintf("data: {\"error\": %q}\n\n", err.Error())
+							}
+
+							// Task 7.1: Save long-term memories from this agent turn.
+							s.saveMemories(context.Background(), userID, sessionID, userMessage, content)
+
+							// Stream as content chunks for backward compatibility.
+							contentPayload, _ := json.Marshal(map[string]string{"content": content})
+							ch <- fmt.Sprintf("data: %s\n\n", contentPayload)
+						}
+					}
+				}
+
+				// Handle step_complete: emit tool result cards (price, trend, etc.).
+				if event.Type == "step_complete" {
+					s.emitAgentToolCards(ch, event)
+				}
+
+				// Serialize all agent events to SSE.
+				payload, _ := json.Marshal(event)
+				ch <- fmt.Sprintf("data: %s\n\n", payload)
+
+			case <-ctx.Done():
+				// Agent was interrupted — push an interrupted event and exit.
+				interruptedPayload, _ := json.Marshal(map[string]interface{}{
+					"type": "interrupted",
+					"data": map[string]interface{}{
+						"message": "已停止生成",
+					},
+				})
+				ch <- fmt.Sprintf("data: %s\n\n", string(interruptedPayload))
+				ch <- "data: [DONE]\n\n"
+				return
+			}
+		}
+	}()
+
+	return ch, nil
+}
+
+// emitAgentToolCards emits structured card SSE events from a step_complete
+// AgentEvent. It extracts the tool result and emits the corresponding card
+// type (price, trend, etc.) for frontend rendering.
+func (s *ChatService) emitAgentToolCards(ch chan<- string, event AgentEvent) {
+	dataMap, ok := event.Data.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	resultStr, _ := dataMap["result"].(string)
+	if resultStr == "" {
+		return
+	}
+
+	// Parse the agent step result to extract the tool name and arguments.
+	var stepResult struct {
+		Tool      string `json:"tool"`
+		Arguments string `json:"arguments"`
+	}
+	if err := json.Unmarshal([]byte(resultStr), &stepResult); err != nil || stepResult.Tool == "" {
+		return
+	}
+
+	// Re-execute the tool to get the actual result data for card generation.
+	// We use context.Background() because the original context may be cancelled
+	// by the time we process this event in the streaming loop.
+	bgCtx := context.Background()
+	toolResult, execErr := s.ExecuteTool(bgCtx, 0, openai.ToolCall{
+		ID:   fmt.Sprintf("agent_step_%v", dataMap["step"]),
+		Type: openai.ToolTypeFunction,
+		Function: openai.FunctionCall{
+			Name:      stepResult.Tool,
+			Arguments: stepResult.Arguments,
+		},
+	})
+	if execErr != nil {
+		return
+	}
+
+	// Emit card events based on tool type (mirrors the existing card logic in
+	// the function-calling flow).
+	switch stepResult.Tool {
+	case "query_steel_price":
+		var priceResult struct {
+			Prices []struct {
+				Category  string  `json:"category"`
+				Spec      string  `json:"spec"`
+				Price     float64 `json:"price"`
+				Change    float64 `json:"change"`
+				ChangePct float64 `json:"change_pct"`
+				Region    string  `json:"region"`
+				Source    string  `json:"source"`
+				Date      string  `json:"date"`
+			} `json:"prices"`
+			Count  int    `json:"count"`
+			Source string `json:"source"`
+		}
+		if json.Unmarshal([]byte(toolResult), &priceResult) == nil && len(priceResult.Prices) > 0 {
+			first := priceResult.Prices[0]
+			categories := make(map[string]bool)
+			for _, p := range priceResult.Prices {
+				categories[p.Category] = true
+			}
+			cardType := "price"
+			if len(categories) > 1 {
+				cardType = "compare"
+			}
+			cardPayload, _ := json.Marshal(map[string]interface{}{
+				"type":      "card",
+				"card_type": cardType,
+				"data": map[string]interface{}{
+					"eyebrow":    "PRICE",
+					"title":      first.Category + " " + first.Spec,
+					"prices":     priceResult.Prices,
+					"source":     first.Source,
+					"sourceTime": first.Date,
+				},
+			})
+			ch <- fmt.Sprintf("data: %s\n\n", cardPayload)
+		}
+
+	case "get_price_trend":
+		var trendResult struct {
+			Points []struct {
+				Date  string  `json:"date"`
+				Price float64 `json:"price"`
+			} `json:"points"`
+		}
+		if json.Unmarshal([]byte(toolResult), &trendResult) == nil && len(trendResult.Points) > 0 {
+			trendData := make([]map[string]interface{}, 0, len(trendResult.Points))
+			var lastPrice, firstPrice float64
+			var changePct float64
+			for i, d := range trendResult.Points {
+				trendData = append(trendData, map[string]interface{}{
+					"date":  d.Date,
+					"value": d.Price,
+				})
+				if i == 0 {
+					firstPrice = d.Price
+				}
+				lastPrice = d.Price
+			}
+			if len(trendResult.Points) > 1 && firstPrice != 0 {
+				changePct = ((lastPrice - firstPrice) / firstPrice) * 100
+			}
+			cardPayload, _ := json.Marshal(map[string]interface{}{
+				"type":      "card",
+				"card_type": "trend",
+				"data": map[string]interface{}{
+					"title":     "价格走势",
+					"data":      trendData,
+					"changePct": changePct,
+				},
+			})
+			ch <- fmt.Sprintf("data: %s\n\n", cardPayload)
+		}
+
+	case "search_news":
+		var newsResult struct {
+			News []struct {
+				ID          uint   `json:"id"`
+				Title       string `json:"title"`
+				Summary     string `json:"summary"`
+				Source      string `json:"source"`
+				SourceURL   string `json:"source_url"`
+				Category    string `json:"category"`
+				PublishedAt string `json:"published_at"`
+			} `json:"news"`
+			Count  int    `json:"count"`
+			Source string `json:"source"`
+			Date   string `json:"date"`
+		}
+		if json.Unmarshal([]byte(toolResult), &newsResult) == nil && len(newsResult.News) > 0 {
+			cardPayload, _ := json.Marshal(map[string]interface{}{
+				"type":      "card",
+				"card_type": "news",
+				"data": map[string]interface{}{
+					"title":      "行业资讯",
+					"news":       newsResult.News,
+					"source":     newsResult.Source,
+					"sourceTime": newsResult.Date,
+				},
+			})
+			ch <- fmt.Sprintf("data: %s\n\n", cardPayload)
+		}
+
+	case "set_price_alert":
+		var alertResult struct {
+			AlertID     uint    `json:"alert_id"`
+			Category    string  `json:"category"`
+			TargetPrice float64 `json:"target_price"`
+			Condition   string  `json:"condition"`
+			Source      string  `json:"source"`
+		}
+		if json.Unmarshal([]byte(toolResult), &alertResult) == nil && alertResult.AlertID > 0 {
+			cardPayload, _ := json.Marshal(map[string]interface{}{
+				"type":      "card",
+				"card_type": "alert",
+				"data": map[string]interface{}{
+					"id":           alertResult.AlertID,
+					"category":     alertResult.Category,
+					"target_price": alertResult.TargetPrice,
+					"condition":    alertResult.Condition,
+					"is_active":    true,
+				},
+			})
+			ch <- fmt.Sprintf("data: %s\n\n", cardPayload)
+		}
+
+	case "calculate_quotation":
+		var qResult struct {
+			Category     string  `json:"category"`
+			Spec         string  `json:"spec"`
+			Quantity     float64 `json:"quantity"`
+			Unit         string  `json:"unit"`
+			UnitPrice    float64 `json:"unit_price"`
+			MaterialCost float64 `json:"material_cost"`
+			ProcessCost  float64 `json:"process_cost"`
+			FreightCost  float64 `json:"freight_cost"`
+			TaxCost      float64 `json:"tax_cost"`
+			TotalPrice   float64 `json:"total_price"`
+			Source       string  `json:"source"`
+		}
+		if json.Unmarshal([]byte(toolResult), &qResult) == nil && qResult.TotalPrice > 0 {
+			cardPayload, _ := json.Marshal(map[string]interface{}{
+				"type":      "card",
+				"card_type": "quotation",
+				"data": map[string]interface{}{
+					"title":         qResult.Category + " " + qResult.Spec,
+					"category":      qResult.Category,
+					"spec":          qResult.Spec,
+					"quantity":      qResult.Quantity,
+					"unit":          qResult.Unit,
+					"material_cost": qResult.MaterialCost,
+					"process_cost":  qResult.ProcessCost,
+					"freight_cost":  qResult.FreightCost,
+					"tax_cost":      qResult.TaxCost,
+					"total":         qResult.TotalPrice,
+					"unit_price":    qResult.UnitPrice,
+					"currency":      "¥",
+				},
+			})
+			ch <- fmt.Sprintf("data: %s\n\n", cardPayload)
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------

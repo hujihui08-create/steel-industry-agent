@@ -15,6 +15,7 @@ import { useChat } from '@/app/hooks/useChat';
 import { ChatSidebar } from '@/app/components/Chat/ChatSidebar';
 import { ChatBubble, TypingIndicator } from '@/app/components/Chat/ChatBubble';
 import ChatInput from '@/app/components/Chat/ChatInput';
+import AgentProgressCard from '@/app/components/Chat/AgentProgressCard';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquare, Sparkles, X, Bookmark, ExternalLink, Info, ArrowUpRight, ArrowDownRight, Minus, BarChart3, PanelRight } from 'lucide-react';
 import { toast } from 'sonner';
@@ -1229,7 +1230,7 @@ export default function ChatPage() {
                 })}
 
                 {/* Typing indicator — shown when AI is generating but hasn't started output yet */}
-                {store.isStreaming && isLastMessageUser && (
+                {store.isStreaming && isLastMessageUser && store.agentSteps.length === 0 && (
                   <TypingIndicator />
                 )}
                 {/* Tool status message — shown during function calling */}
@@ -1240,6 +1241,18 @@ export default function ChatPage() {
                       <span className="inline-block size-[1.5px] rounded-full bg-steel-placeholder animate-pulse" />
                       {store.statusMessage}
                     </div>
+                  </div>
+                )}
+                {/* Agent execution progress */}
+                {store.agentSteps.length > 0 && (
+                  <div className="flex gap-3 max-w-[85%] animate-splash-in">
+                    <div className="size-7 shrink-0 rounded-full bg-steel-surface border border-steel-line flex items-center justify-center" aria-hidden="true">
+                      <Sparkles className="size-3.5 text-steel-ink" strokeWidth={1.75} />
+                    </div>
+                    <AgentProgressCard
+                      steps={store.agentSteps}
+                      isActive={store.isStreaming}
+                    />
                   </div>
                 )}
 

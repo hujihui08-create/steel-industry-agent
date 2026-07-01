@@ -61,6 +61,7 @@ function parseSSEStream(
   onCard?: (card: CardAttachment) => void,
   onSessionId?: (sessionId: number, title?: string) => void,
   onStatus?: (status: string) => void,
+  onAgentEvent?: (eventType: string, data: Record<string, unknown>) => void,
 ): Promise<void> {
   return new Promise<void>(async (resolve) => {
     try {
@@ -94,6 +95,22 @@ function parseSSEStream(
 
           try {
             const parsed = JSON.parse(data);
+
+            // Agent events: check type field first
+            if (parsed.type === "summary" && typeof parsed.content === "string") {
+              onChunk(parsed.content);
+              continue;
+            }
+            if (parsed.type === "interrupted") {
+              onDone();
+              resolve();
+              return;
+            }
+            if (parsed.type && ["plan_created", "step_start", "step_complete", "step_failed", "reflection"].includes(parsed.type)) {
+              onAgentEvent?.(parsed.type, parsed);
+              continue;
+            }
+
             if (parsed.error) {
               onError(parsed.error);
             } else if (parsed.status) {
@@ -134,6 +151,7 @@ export function sendMessage(
   onCard?: (card: CardAttachment) => void,
   onSessionId?: (sessionId: number, title?: string) => void,
   onStatus?: (status: string) => void,
+  onAgentEvent?: (eventType: string, data: Record<string, unknown>) => void,
 ): AbortController {
   const controller = new AbortController();
   const { access_token } = getStoredTokens();
@@ -199,7 +217,7 @@ export function sendMessage(
       throw new Error(`Unexpected response: ${text.slice(0, 100)}`);
     }
 
-    await parseSSEStream(response, onChunk, onError, onDone, onCard, onSessionId, onStatus);
+    await parseSSEStream(response, onChunk, onError, onDone, onCard, onSessionId, onStatus, onAgentEvent);
   };
 
   if (access_token) {
@@ -237,6 +255,7 @@ export function continueGeneration(
   onCard?: (card: CardAttachment) => void,
   onSessionId?: (sessionId: number, title?: string) => void,
   onStatus?: (status: string) => void,
+  onAgentEvent?: (eventType: string, data: Record<string, unknown>) => void,
 ): AbortController {
   const controller = new AbortController();
   const { access_token } = getStoredTokens();
@@ -302,7 +321,7 @@ export function continueGeneration(
       throw new Error(`Unexpected response: ${text.slice(0, 100)}`);
     }
 
-    await parseSSEStream(response, onChunk, onError, onDone, onCard, onSessionId, onStatus);
+    await parseSSEStream(response, onChunk, onError, onDone, onCard, onSessionId, onStatus, onAgentEvent);
   };
 
   if (access_token) {

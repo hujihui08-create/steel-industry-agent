@@ -117,6 +117,9 @@ export interface AgentConfig {
   forceToolForData: boolean;
   useTemplateForChat: boolean;
   models: ModelConfig[];
+  agentMode?: boolean;
+  maxSteps?: number;
+  maxRetries?: number;
 }
 
 /** 快捷指令 */

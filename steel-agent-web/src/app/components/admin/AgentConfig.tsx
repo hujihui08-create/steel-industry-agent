@@ -197,6 +197,9 @@ export function AgentConfigPage() {
   const [forceToolForData, setForceToolForData] = useState(true);
   const [useTemplateForChat, setUseTemplateForChat] = useState(false);
   const [models, setModels] = useState<ModelConfig[]>([]);
+  const [agentMode, setAgentMode] = useState(false);
+  const [maxSteps, setMaxSteps] = useState(5);
+  const [maxRetries, setMaxRetries] = useState(2);
 
   // 动态品种分类（用于生成幻觉防控规则默认值）
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
@@ -250,6 +253,9 @@ export function AgentConfigPage() {
         setForceToolForData(config.forceToolForData ?? true);
         setUseTemplateForChat(config.useTemplateForChat ?? false);
         setModels(Array.isArray(config.models) ? [...config.models] : []);
+        setAgentMode(config.agentMode ?? false);
+        setMaxSteps(config.maxSteps ?? 5);
+        setMaxRetries(config.maxRetries ?? 2);
         // 保存原始快照
         originalValues.current = JSON.stringify({
           primaryModel: config.primaryModel,
@@ -267,6 +273,9 @@ export function AgentConfigPage() {
           forceToolForData: config.forceToolForData,
           useTemplateForChat: config.useTemplateForChat,
           models: config.models,
+          agentMode: config.agentMode,
+          maxSteps: config.maxSteps,
+          maxRetries: config.maxRetries,
         });
       } catch (err) {
         if (!cancelled) {
@@ -327,12 +336,15 @@ export function AgentConfigPage() {
       forceToolForData,
       useTemplateForChat,
       models,
+      agentMode,
+      maxSteps,
+      maxRetries,
     });
     setDirty(current !== originalValues.current);
   }, [
     primaryModel, backupModel, temperature, maxTokens, timeout, contextTurns, apiKey,
     systemPrompt, welcomeMessage, quickCommands, hallucinationRules,
-    disclaimer, forceToolForData, useTemplateForChat, models,
+    disclaimer, forceToolForData, useTemplateForChat, models, agentMode, maxSteps, maxRetries,
   ]);
 
   // ---------- 页面离开拦截 ----------
@@ -364,11 +376,14 @@ export function AgentConfigPage() {
     forceToolForData,
     useTemplateForChat,
     models,
+    agentMode,
+    maxSteps,
+    maxRetries,
   }), [
     primaryModel, backupModel, temperature, maxTokens, apiKey, timeout,
     contextTurns,
     systemPrompt, welcomeMessage, quickCommands, hallucinationRules,
-    disclaimer, forceToolForData, useTemplateForChat, models,
+    disclaimer, forceToolForData, useTemplateForChat, models, agentMode, maxSteps, maxRetries,
   ]);
 
   // ---------- 保存 ----------
@@ -379,7 +394,7 @@ export function AgentConfigPage() {
       originalValues.current = JSON.stringify({
         primaryModel, backupModel, temperature, maxTokens, timeout, contextTurns, apiKey,
         systemPrompt, welcomeMessage, quickCommands, hallucinationRules,
-        disclaimer, forceToolForData, useTemplateForChat, models,
+        disclaimer, forceToolForData, useTemplateForChat, models, agentMode, maxSteps, maxRetries,
       });
       setDirty(false);
       showSuccessToast("保存成功");
@@ -388,7 +403,7 @@ export function AgentConfigPage() {
     } finally {
       setSaving(false);
     }
-  }, [buildConfig, primaryModel, backupModel, temperature, maxTokens, timeout, contextTurns, apiKey, systemPrompt, welcomeMessage, quickCommands, hallucinationRules, disclaimer, forceToolForData, useTemplateForChat, models]);
+  }, [buildConfig, primaryModel, backupModel, temperature, maxTokens, timeout, contextTurns, apiKey, systemPrompt, welcomeMessage, quickCommands, hallucinationRules, disclaimer, forceToolForData, useTemplateForChat, models, agentMode, maxSteps, maxRetries]);
 
   // ---------- 测试连接 ----------
   const handleTestConnection = useCallback(async () => {
@@ -1505,6 +1520,83 @@ export function AgentConfigPage() {
                   "data-[state=unchecked]:bg-[#CBCED4]",
                 )}
               />
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* ================================================== */}
+        {/* 6. Agent 模式设置 */}
+        {/* ================================================== */}
+        <SectionCard title="Agent 模式设置">
+          <div className="space-y-5">
+            {/* Agent 模式开关 */}
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[13px] leading-[1.5] text-[#404040] font-medium">
+                  启用 Agent 模式（规划+多步执行）
+                </span>
+                <p className="text-[11px] leading-[1.5] text-[#A3A3A3] mt-0.5">
+                  开启后将使用 Planner-Executor 流程执行复杂任务，关闭则走原 Function Calling 流程
+                </p>
+              </div>
+              <Switch
+                checked={agentMode}
+                onCheckedChange={setAgentMode}
+                className={cn(
+                  "data-[state=checked]:bg-[#0A0A0A]",
+                  "data-[state=unchecked]:bg-[#CBCED4]",
+                )}
+              />
+            </div>
+
+            {/* 最大步骤数 + 最大重试次数 */}
+            <div className={cn("pt-4 border-t border-[#E5E5E5]", agentMode ? "" : "opacity-40 pointer-events-none")}>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <FieldLabel htmlFor="maxSteps">最大步骤数</FieldLabel>
+                  <p className="text-[11px] leading-[1.5] text-[#A3A3A3] mb-2">
+                    单次 Agent 计划中允许的最大执行步骤数
+                  </p>
+                  <Input
+                    id="maxSteps"
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={maxSteps}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (v >= 1 && v <= 10) setMaxSteps(v);
+                    }}
+                    className={cn(
+                      "h-10 rounded-[10px] border-[#E5E5E5] w-[120px]",
+                      "text-[14px] text-[#404040] placeholder:text-[#A3A3A3]",
+                      "focus-visible:border-[#0A0A0A] focus-visible:ring-1 focus-visible:ring-[#0A0A0A]/10",
+                    )}
+                  />
+                </div>
+                <div>
+                  <FieldLabel htmlFor="maxRetries">最大重试次数</FieldLabel>
+                  <p className="text-[11px] leading-[1.5] text-[#A3A3A3] mb-2">
+                    单步执行失败时最多重试次数
+                  </p>
+                  <Input
+                    id="maxRetries"
+                    type="number"
+                    min={0}
+                    max={5}
+                    value={maxRetries}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (v >= 0 && v <= 5) setMaxRetries(v);
+                    }}
+                    className={cn(
+                      "h-10 rounded-[10px] border-[#E5E5E5] w-[120px]",
+                      "text-[14px] text-[#404040] placeholder:text-[#A3A3A3]",
+                      "focus-visible:border-[#0A0A0A] focus-visible:ring-1 focus-visible:ring-[#0A0A0A]/10",
+                    )}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </SectionCard>
