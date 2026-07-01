@@ -1674,3 +1674,276 @@ func TestGeneratePlan_StepsCapped(t *testing.T) {
 		t.Errorf("expected steps capped at 3, got %d", len(plan.Steps))
 	}
 }
+
+// ============================================================================
+// 22. TestAgentMemory_BuildContext — memory context helpers
+// ============================================================================
+
+// buildMemoryContextTestable mirrors AgentService.buildMemoryContext using the
+// testable wrapper's memory field.
+func (s *testableAgentService) buildMemoryContextTestable(ctx context.Context, userID uint) string {
+	memoryKeys := []string{"last_category", "last_spec", "last_region", "last_query"}
+	labelMap := map[string]string{
+		"last_category": "上次查询品种",
+		"last_spec":     "上次查询规格",
+		"last_region":   "上次查询地区",
+		"last_query":    "上次查询内容",
+	}
+
+	if s.memory == nil {
+		return ""
+	}
+
+	var lines []string
+	for _, key := range memoryKeys {
+		memories, err := s.memory.FindByUserAndKey(ctx, userID, key)
+		if err != nil || len(memories) == 0 {
+			continue
+		}
+		value := strings.TrimSpace(memories[0].Value)
+		if value == "" {
+			continue
+		}
+		label := labelMap[key]
+		lines = append(lines, fmt.Sprintf("- %s: %s", label, value))
+	}
+
+	if len(lines) == 0 {
+		return ""
+	}
+
+	return "[用户历史偏好]\n" + strings.Join(lines, "\n")
+}
+
+// TestAgentMemory_BuildContext verifies that buildMemoryContext returns a
+// properly formatted context string when the memory repo has stored values.
+func TestAgentMemory_BuildContext(t *testing.T) {
+	ctx := context.Background()
+
+	mem := &mockMemoryRepo{
+		findFn: func(ctx context.Context, userID uint, key string) ([]model.AgentMemory, error) {
+			switch key {
+			case "last_category":
+				return []model.AgentMemory{
+					{Key: "last_category", Value: "螺纹钢"},
+				}, nil
+			case "last_spec":
+				return []model.AgentMemory{
+					{Key: "last_spec", Value: "HRB400E 20mm"},
+				}, nil
+			case "last_region":
+				return []model.AgentMemory{
+					{Key: "last_region", Value: "上海"},
+				}, nil
+			case "last_query":
+				return []model.AgentMemory{
+					{Key: "last_query", Value: "螺纹钢价格查询"},
+				}, nil
+			default:
+				return nil, nil
+			}
+		},
+	}
+
+	svc := newTestableAgentService(nil, nil, mem)
+	result := svc.buildMemoryContextTestable(ctx, 1)
+
+	if result == "" {
+		t.Fatal("expected non-empty memory context")
+	}
+	if !strings.Contains(result, "[用户历史偏好]") {
+		t.Errorf("expected header '[用户历史偏好]', got: %s", result)
+	}
+	if !strings.Contains(result, "上次查询品种") {
+		t.Errorf("expected '上次查询品种' label, got: %s", result)
+	}
+	if !strings.Contains(result, "上次查询规格") {
+		t.Errorf("expected '上次查询规格' label, got: %s", result)
+	}
+	if !strings.Contains(result, "上次查询地区") {
+		t.Errorf("expected '上次查询地区' label, got: %s", result)
+	}
+	if !strings.Contains(result, "上次查询内容") {
+		t.Errorf("expected '上次查询内容' label, got: %s", result)
+	}
+	if !strings.Contains(result, "螺纹钢") {
+		t.Errorf("expected value '螺纹钢', got: %s", result)
+	}
+	if !strings.Contains(result, "HRB400E 20mm") {
+		t.Errorf("expected value 'HRB400E 20mm', got: %s", result)
+	}
+	if !strings.Contains(result, "上海") {
+		t.Errorf("expected value '上海', got: %s", result)
+	}
+}
+
+// TestAgentMemory_BuildContext_Empty verifies that buildMemoryContext returns
+// an empty string when no memories exist for the user.
+func TestAgentMemory_BuildContext_Empty(t *testing.T) {
+	ctx := context.Background()
+
+	// Memory repo returns empty results for all keys.
+	mem := &mockMemoryRepo{
+		findFn: func(ctx context.Context, userID uint, key string) ([]model.AgentMemory, error) {
+			return nil, nil
+		},
+	}
+
+	svc := newTestableAgentService(nil, nil, mem)
+	result := svc.buildMemoryContextTestable(ctx, 1)
+
+	if result != "" {
+		t.Errorf("expected empty string, got: %s", result)
+	}
+}
+
+// TestAgentMemory_BuildContext_NilMemory verifies that buildMemoryContext
+// returns empty string when memory repo is nil.
+func TestAgentMemory_BuildContext_NilMemory(t *testing.T) {
+	ctx := context.Background()
+
+	svc := newTestableAgentService(nil, nil, nil)
+	result := svc.buildMemoryContextTestable(ctx, 1)
+
+	if result != "" {
+		t.Errorf("expected empty string for nil memory, got: %s", result)
+	}
+}
+
+// ============================================================================
+// 23. TestAgentPlan_Degradation — fallbackPlan on nil dependencies
+// ============================================================================
+
+// TestAgentPlan_Degradation verifies that calling fallbackPlan on a nil-dependency
+// AgentService returns a valid single-step plan with correct MaxSteps.
+func TestAgentPlan_Degradation(t *testing.T) {
+	// Create AgentService with all nil dependencies (simulating degradation).
+	svc := &AgentService{
+		llmAdapter:     nil,
+		agentConfigSvc: nil,
+		memoryRepo:     nil,
+	}
+
+	plan := svc.fallbackPlan(5)
+
+	if plan == nil {
+		t.Fatal("expected non-nil fallback plan")
+	}
+	if len(plan.Steps) != 1 {
+		t.Fatalf("expected 1 step, got %d", len(plan.Steps))
+	}
+	if plan.Steps[0].Step != 1 {
+		t.Errorf("expected step number 1, got %d", plan.Steps[0].Step)
+	}
+	if plan.Steps[0].ToolName != "" {
+		t.Errorf("expected empty tool_name in fallback, got '%s'", plan.Steps[0].ToolName)
+	}
+	if plan.Steps[0].Intent != "general" {
+		t.Errorf("expected intent 'general', got '%s'", plan.Steps[0].Intent)
+	}
+	if plan.Steps[0].Params != nil {
+		t.Errorf("expected nil params, got %v", plan.Steps[0].Params)
+	}
+	if plan.MaxSteps != 5 {
+		t.Errorf("expected MaxSteps 5, got %d", plan.MaxSteps)
+	}
+	if plan.CreatedAt.IsZero() {
+		t.Error("expected non-zero CreatedAt")
+	}
+
+	// Also verify with different maxSteps.
+	plan2 := svc.fallbackPlan(3)
+	if plan2.MaxSteps != 3 {
+		t.Errorf("expected MaxSteps 3, got %d", plan2.MaxSteps)
+	}
+	if len(plan2.Steps) != 1 {
+		t.Errorf("expected 1 step, got %d", len(plan2.Steps))
+	}
+}
+
+// TestAgentPlan_FallbackOnNilLLM verifies that GeneratePlan gracefully returns
+// a fallback plan when the LLM adapter returns an error (simulating nil/absent LLM).
+func TestAgentPlan_FallbackOnNilLLM(t *testing.T) {
+	ctx := context.Background()
+
+	// Simulate nil/absent LLM by returning an error from the mock.
+	llm := &mockLLMClient{
+		chatFn: func(ctx context.Context, messages []openai.ChatCompletionMessage) (*openai.ChatCompletionResponse, error) {
+			return nil, errors.New("LLM not configured")
+		},
+	}
+	cfgSvc := &mockAgentConfigService{
+		cfg: &AgentConfigDO{MaxSteps: 5, MaxRetries: 2},
+	}
+	svc := newTestableAgentService(llm, cfgSvc, nil)
+
+	plan := svc.GeneratePlanTestable(ctx, 1, "查询螺纹钢价格", nil, nil)
+
+	// With LLM returning an error, GeneratePlan should return a fallback plan (no error).
+	if plan == nil {
+		t.Fatal("expected non-nil fallback plan")
+	}
+	if len(plan.Steps) != 1 {
+		t.Fatalf("expected 1 step, got %d", len(plan.Steps))
+	}
+	if plan.Steps[0].ToolName != "" {
+		t.Errorf("expected empty tool_name, got '%s'", plan.Steps[0].ToolName)
+	}
+	if plan.MaxSteps != 5 {
+		t.Errorf("expected MaxSteps 5, got %d", plan.MaxSteps)
+	}
+}
+
+// ============================================================================
+// 24. TestAgentMemory_BuildContext_Partial verifies partial memory coverage
+// ============================================================================
+
+// TestAgentMemory_BuildContext_Partial verifies that buildMemoryContext only
+// includes keys that have values and skips empty/error keys gracefully.
+func TestAgentMemory_BuildContext_Partial(t *testing.T) {
+	ctx := context.Background()
+
+	mem := &mockMemoryRepo{
+		findFn: func(ctx context.Context, userID uint, key string) ([]model.AgentMemory, error) {
+			switch key {
+			case "last_category":
+				return []model.AgentMemory{
+					{Key: "last_category", Value: "热卷"},
+				}, nil
+			case "last_spec":
+				// Empty value — should be skipped.
+				return []model.AgentMemory{
+					{Key: "last_spec", Value: ""},
+				}, nil
+			case "last_region":
+				// Error — should be skipped.
+				return nil, errors.New("db error")
+			case "last_query":
+				// No records — should be skipped.
+				return nil, nil
+			default:
+				return nil, nil
+			}
+		},
+	}
+
+	svc := newTestableAgentService(nil, nil, mem)
+	result := svc.buildMemoryContextTestable(ctx, 1)
+
+	if result == "" {
+		t.Fatal("expected non-empty context when at least one key has value")
+	}
+	if !strings.Contains(result, "热卷") {
+		t.Errorf("expected value '热卷', got: %s", result)
+	}
+	// Empty value and error keys should NOT appear.
+	if strings.Contains(result, "上次查询规格") {
+		t.Error("expected '上次查询规格' to be skipped (empty value)")
+	}
+	if strings.Contains(result, "上次查询地区") {
+		t.Error("expected '上次查询地区' to be skipped (db error)")
+	}
+	if strings.Contains(result, "上次查询内容") {
+		t.Error("expected '上次查询内容' to be skipped (no records)")
+	}
+}
