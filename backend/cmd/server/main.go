@@ -72,6 +72,7 @@ func main() {
 		&model.UserFeedback{},
 		&model.UserSettings{},
 		&model.File{},
+		&model.AgentMemoryEmbedding{},
 	); err != nil {
 		log.Printf("AutoMigrate warning (non-fatal): %v", err)
 	}
