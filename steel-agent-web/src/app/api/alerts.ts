@@ -10,7 +10,7 @@ export interface CreateAlertParams {
   condition: 'above' | 'below';
 }
 
-export type UpdateAlertParams = Partial<CreateAlertParams>;
+export type UpdateAlertParams = Partial<CreateAlertParams & { is_active: boolean }>;
 
 export async function getAlertList(): Promise<PriceAlert[]> {
   const { data } = await apiClient.get<ApiResponse<PriceAlert[]>>("/alerts");

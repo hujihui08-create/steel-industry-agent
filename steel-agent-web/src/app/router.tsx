@@ -55,6 +55,7 @@ const CertificationPage = lazy(() => import("@/app/pages/CertificationPage"));
 const OnboardingPage = lazy(() => import("@/app/pages/OnboardingPage"));
 const KnowledgeDetailPage = lazy(() => import("@/app/pages/KnowledgeDetailPage"));
 const ChatPage = lazy(() => import("@/app/pages/ChatPage"));
+const WorkbenchPage = lazy(() => import("@/app/pages/WorkbenchPage"));
 
 function LazyFallback() {
   return (
@@ -81,7 +82,12 @@ function NotFoundRedirect() {
 export const router = createBrowserRouter([
   {
     path: ROUTE.ROOT,
-    element: <Navigate to={ROUTE.SPLASH} replace />,
+    element: <Navigate to={ROUTE.WORKBENCH} replace />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: ROUTE.WORKBENCH,
+    element: withSuspense(<WorkbenchPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
