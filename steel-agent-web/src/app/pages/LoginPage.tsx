@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Building2, MessageCircle } from "lucide-react";
+import { Building2, MessageCircle, ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,7 +92,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-steel-canvas flex flex-col px-6 pt-16 pb-8">
+    <div className="min-h-screen bg-steel-canvas flex flex-col px-4 pt-4 pb-20">
+      {/* 返回按钮 */}
+      <button
+        type="button"
+        onClick={() => navigate(ROUTE.SPLASH)}
+        className="w-10 h-10 flex items-center justify-center rounded-full text-steel-ink hover:bg-steel-surface transition-colors duration-150"
+        aria-label="返回"
+      >
+        <ArrowLeft className="h-5 w-5" strokeWidth={1.75} />
+      </button>
+
       <div className="flex flex-col items-center mb-10">
         <div className="w-16 h-16 rounded-2xl bg-steel-surface border border-steel-line flex items-center justify-center mb-4">
           <Building2 className="h-12 w-12 text-steel-ink" strokeWidth={1.5} aria-hidden="true" />
@@ -134,15 +144,19 @@ export default function LoginPage() {
                 render={({ field, fieldState }) => (
                   <FormItem>
                     <FormControl>
-                      <Input
-                        placeholder="请输入手机号"
-                        type="tel"
-                        maxLength={PHONE_MAX_LENGTH}
-                        aria-invalid={!!fieldState.error}
-                        aria-describedby={fieldState.error ? "code-phone-error" : undefined}
-                        className="rounded-lg border-steel-line bg-steel-canvas px-4 h-12 text-[15px] placeholder:text-steel-placeholder"
-                        {...field}
-                      />
+                      <div className="flex items-center rounded-lg border border-steel-line bg-steel-canvas h-12 overflow-hidden">
+                        <span className="pl-4 pr-2 text-[15px] text-steel-muted shrink-0" aria-hidden="true">+86</span>
+                        <Input
+                          placeholder="请输入手机号"
+                          type="tel"
+                          maxLength={PHONE_MAX_LENGTH}
+                          inputMode="numeric"
+                          aria-invalid={!!fieldState.error}
+                          aria-describedby={fieldState.error ? "code-phone-error" : undefined}
+                          className="rounded-none border-0 bg-transparent px-1 h-full text-[15px] placeholder:text-steel-placeholder flex-1 focus-visible:ring-0"
+                          {...field}
+                        />
+                      </div>
                     </FormControl>
                     <FormMessage id="code-phone-error" className="text-[12px]" />
                   </FormItem>
@@ -191,7 +205,7 @@ export default function LoginPage() {
                 )}
               />
 
-              <div className="pt-2">
+              <div className="hidden md:block pt-2">
                 <div className="flex items-center gap-3 mb-4">
                   <Separator className="flex-1 bg-steel-line" aria-hidden="true" />
                   <span className="text-[12px] text-steel-placeholder shrink-0">
@@ -252,15 +266,19 @@ export default function LoginPage() {
                 render={({ field, fieldState }) => (
                   <FormItem>
                     <FormControl>
-                      <Input
-                        placeholder="请输入手机号"
-                        type="tel"
-                        maxLength={PHONE_MAX_LENGTH}
-                        aria-invalid={!!fieldState.error}
-                        aria-describedby={fieldState.error ? "pwd-phone-error" : undefined}
-                        className="rounded-lg border-steel-line bg-steel-canvas px-4 h-12 text-[15px] placeholder:text-steel-placeholder"
-                        {...field}
-                      />
+                      <div className="flex items-center rounded-lg border border-steel-line bg-steel-canvas h-12 overflow-hidden">
+                        <span className="pl-4 pr-2 text-[15px] text-steel-muted shrink-0" aria-hidden="true">+86</span>
+                        <Input
+                          placeholder="请输入手机号"
+                          type="tel"
+                          maxLength={PHONE_MAX_LENGTH}
+                          inputMode="numeric"
+                          aria-invalid={!!fieldState.error}
+                          aria-describedby={fieldState.error ? "pwd-phone-error" : undefined}
+                          className="rounded-none border-0 bg-transparent px-1 h-full text-[15px] placeholder:text-steel-placeholder flex-1 focus-visible:ring-0"
+                          {...field}
+                        />
+                      </div>
                     </FormControl>
                     <FormMessage id="pwd-phone-error" className="text-[12px]" />
                   </FormItem>
@@ -294,7 +312,7 @@ export default function LoginPage() {
                 )}
               />
 
-              <div className="pt-2">
+              <div className="hidden md:block pt-2">
                 <div className="flex items-center gap-3 mb-4">
                   <Separator className="flex-1 bg-steel-line" aria-hidden="true" />
                   <span className="text-[12px] text-steel-placeholder shrink-0">

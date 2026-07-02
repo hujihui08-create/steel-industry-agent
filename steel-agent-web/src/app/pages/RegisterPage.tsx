@@ -95,7 +95,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-steel-canvas flex flex-col px-6 pt-4 pb-8">
+    <div className="min-h-screen bg-steel-canvas flex flex-col px-4 pt-4 pb-20">
       {/* 返回按钮 */}
       <button
         type="button"
@@ -150,6 +150,7 @@ export default function RegisterPage() {
                       maxLength={PHONE_MAX_LENGTH}
                       aria-invalid={!!fieldState.error}
                       aria-describedby={fieldState.error ? "reg-phone-error" : undefined}
+                      inputMode="numeric"
                       className="rounded-none border-0 bg-transparent px-1 h-full text-[15px] placeholder:text-steel-placeholder flex-1 focus-visible:ring-0"
                       {...field}
                     />

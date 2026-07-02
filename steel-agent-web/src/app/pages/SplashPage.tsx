@@ -29,7 +29,7 @@ export default function SplashPage() {
         <div className="w-16 h-16 rounded-2xl bg-steel-surface border border-steel-line flex items-center justify-center">
           <Sparkles className="h-10 w-10 text-steel-ink" strokeWidth={1.75} aria-hidden="true" />
         </div>
-        <h1 className="text-[40px] leading-[1.1] font-medium text-steel-ink">
+        <h1 className="text-[32px] sm:text-[40px] leading-[1.1] font-medium text-steel-ink">
           钢铁Agent
         </h1>
         <p className="text-[15px] leading-[1.6] text-steel-muted">

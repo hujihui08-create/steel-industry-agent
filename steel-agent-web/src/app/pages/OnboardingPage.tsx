@@ -73,7 +73,7 @@ export default function OnboardingPage() {
         </button>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-8">
+      <div className="flex-1 flex flex-col items-center justify-center px-5">
         <div className="w-20 h-20 rounded-full bg-steel-surface border border-steel-line flex items-center justify-center mb-8">
           <CurrentIcon className="h-10 w-10 text-steel-ink" strokeWidth={1.75} />
         </div>
