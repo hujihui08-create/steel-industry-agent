@@ -177,7 +177,7 @@ export default function MessageCenterPage() {
         onBack={() => navigate(-1)}
       />
 
-      <div className="flex-1">{renderContent()}</div>
+      <div className="flex-1 pb-24">{renderContent()}</div>
     </div>
   );
 }

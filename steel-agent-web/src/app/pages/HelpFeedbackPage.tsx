@@ -125,7 +125,7 @@ export default function HelpFeedbackPage() {
     <div className="min-h-screen bg-steel-canvas flex flex-col">
       <PageHeader title="帮助与反馈" onBack={() => navigate(-1)} />
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto pb-24">
         {/* =====================================================
             Usage Guide — 使用指南
             ===================================================== */}

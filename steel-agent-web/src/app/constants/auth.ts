@@ -13,7 +13,8 @@ export const CODE_MAX_LENGTH = 6;
 export const ROUTE = {
   ROOT: "/",
   LOGIN: "/login",
-  CHAT: "/chat",
+  WORKBENCH: "/workbench",
+   CHAT: "/chat",
   SPLASH: "/splash",
   REGISTER: "/register",
   PRICE_BOARD: "/price-board",

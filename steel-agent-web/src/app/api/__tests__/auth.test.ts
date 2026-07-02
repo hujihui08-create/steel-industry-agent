@@ -18,6 +18,9 @@ vi.mock("@/app/api/client", () => ({
   default: {
     post: vi.fn(),
   },
+  adminApiClient: {
+    post: vi.fn(),
+  },
 }));
 
 import apiClient from "@/app/api/client";

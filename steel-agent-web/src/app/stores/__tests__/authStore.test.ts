@@ -50,7 +50,7 @@ describe("setTokens()", () => {
 
     const stored = getStoredAuthData();
     expect(stored).not.toBeNull();
-    expect(stored.version).toBe(0);
+    expect(stored.version).toBe(2);
     expect(stored.state.access_token).toBe("access-abc");
     expect(stored.state.refresh_token).toBe("refresh-xyz");
     expect(stored.state.isAuthenticated).toBe(true);
@@ -115,7 +115,7 @@ describe("hydrate() — valid data", () => {
         refresh_token: "hydrate-refresh",
         isAuthenticated: true,
       },
-      version: 0,
+      version: 2,
     };
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData));
 
@@ -295,7 +295,7 @@ describe("multiple cycles", () => {
         refresh_token: "from-hydrate-refresh",
         isAuthenticated: true,
       },
-      version: 0,
+      version: 2,
     };
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(overrideData));
 

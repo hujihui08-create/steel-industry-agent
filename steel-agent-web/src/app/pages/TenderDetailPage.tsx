@@ -153,10 +153,12 @@ export default function TenderDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-steel-canvas">
+      <div className="min-h-screen bg-steel-canvas flex flex-col">
         <PageHeader title="招标详情" onBack={() => navigate(-1)} />
-        <div className="max-w-[720px] mx-auto px-4 py-6">
-          <LoadingSkeleton variant="card" count={2} />
+        <div className="flex-1 overflow-auto pb-24">
+          <div className="max-w-[720px] mx-auto px-4 py-6">
+            <LoadingSkeleton variant="card" count={2} />
+          </div>
         </div>
       </div>
     );
@@ -164,12 +166,14 @@ export default function TenderDetailPage() {
 
   if (isError || !tender) {
     return (
-      <div className="min-h-screen bg-steel-canvas">
+      <div className="min-h-screen bg-steel-canvas flex flex-col">
         <PageHeader title="招标详情" onBack={() => navigate(-1)} />
-        <ErrorState
-          message={error instanceof Error ? error.message : "加载招标详情失败"}
-          onRetry={() => refetch()}
-        />
+        <div className="flex-1 overflow-auto pb-24">
+          <ErrorState
+            message={error instanceof Error ? error.message : "加载招标详情失败"}
+            onRetry={() => refetch()}
+          />
+        </div>
       </div>
     );
   }
@@ -179,10 +183,11 @@ export default function TenderDetailPage() {
     (tender.status === "open" && new Date(tender.bid_deadline) < new Date());
 
   return (
-    <div className="min-h-screen bg-steel-canvas">
+    <div className="min-h-screen bg-steel-canvas flex flex-col">
       <PageHeader title="招标详情" onBack={() => navigate(-1)} />
 
-      <main className="max-w-[720px] mx-auto px-4 py-6">
+      <div className="flex-1 overflow-auto pb-24">
+        <main className="max-w-[720px] mx-auto px-4 py-6">
         {/* ====== Title + Status ====== */}
         <div className="flex items-start justify-between gap-4 mb-6">
           <h1 className="text-[24px] leading-[1.3] font-medium text-steel-ink flex-1 min-w-0">
@@ -304,6 +309,7 @@ export default function TenderDetailPage() {
           )}
         </div>
       </main>
+      </div>
     </div>
   );
 }

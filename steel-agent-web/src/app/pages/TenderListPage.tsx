@@ -158,7 +158,7 @@ export default function TenderListPage() {
         onBack={() => navigate(-1)}
       />
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto pb-24">
         {renderContent()}
       </div>
     </div>

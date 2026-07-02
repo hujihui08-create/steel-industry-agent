@@ -82,7 +82,7 @@ export default function KnowledgeDetailPage() {
     <div className="min-h-screen bg-steel-canvas">
       <PageHeader title={pageTitle} onBack={() => navigate(-1)} />
 
-      <main className="max-w-[720px] mx-auto px-4 py-6">
+      <main className="max-w-[720px] mx-auto px-4 pt-6 pb-24">
         <div className="flex items-center gap-2 mb-4">
           {isStandard ? (
             <FileText className="size-4 text-steel-muted" strokeWidth={1.75} />

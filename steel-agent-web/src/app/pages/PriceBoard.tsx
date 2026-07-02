@@ -536,7 +536,7 @@ export default function PriceBoard() {
 
     return (
       <>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
           {groupedPrices.map((group) => (
             <PriceCard
               key={`${group.category}-${group.spec}`}
@@ -630,12 +630,12 @@ export default function PriceBoard() {
       />
 
       {/* 主内容区 */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto pb-24">
         <div className="max-w-[960px] mx-auto px-3 sm:px-4 py-6">
           {/* 筛选栏 */}
           <div className="mb-5 space-y-3">
             {/* Row 1: 品类 + 品种两级联动（surface 容器包裹，视觉上形成一组） */}
-            <div className="flex items-center gap-3 min-w-0 rounded-2xl bg-steel-surface px-3.5 py-2">
+            <div className="flex items-center gap-3 min-w-0 rounded-xl md:rounded-2xl bg-steel-surface px-3.5 py-2">
               <Select value={parentCategory} onValueChange={handleParentCategoryChange}>
                 <SelectTrigger variant="filter" className="shrink-0 w-auto min-w-0" aria-label="品类筛选">
                   <SelectValue placeholder="全部品类" />
@@ -656,7 +656,7 @@ export default function PriceBoard() {
             </div>
 
             {/* Row 2: 区域 + 规格 + 查询 + 视图切换 */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-nowrap overflow-x-auto scrollbar-none items-center gap-2 md:flex-wrap md:gap-3">
               <Select
                 value={region}
                 onValueChange={(v) => {

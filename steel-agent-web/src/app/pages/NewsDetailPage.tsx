@@ -60,7 +60,7 @@ export default function NewsDetailPage() {
     return (
       <div className="min-h-screen bg-steel-canvas flex flex-col">
         <PageHeader title="资讯详情" onBack={() => navigate(-1)} />
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 overflow-auto pb-24 flex items-center justify-center">
           <ErrorState message="缺少资讯 ID" />
         </div>
       </div>
@@ -72,7 +72,7 @@ export default function NewsDetailPage() {
     return (
       <div className="min-h-screen bg-steel-canvas flex flex-col">
         <PageHeader title="资讯详情" onBack={() => navigate(-1)} />
-        <div className="flex-1">
+        <div className="flex-1 overflow-auto pb-24">
           <div className="max-w-[720px] mx-auto px-4 py-6">
             <LoadingSkeleton variant="text" count={8} />
           </div>
@@ -86,7 +86,7 @@ export default function NewsDetailPage() {
     return (
       <div className="min-h-screen bg-steel-canvas flex flex-col">
         <PageHeader title="资讯详情" onBack={() => navigate(-1)} />
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 overflow-auto pb-24 flex items-center justify-center">
           <ErrorState
             message={error instanceof Error ? error.message : "加载失败"}
             onRetry={() => refetch()}
@@ -104,7 +104,7 @@ export default function NewsDetailPage() {
     <div className="min-h-screen bg-steel-canvas flex flex-col">
       <PageHeader title="资讯详情" onBack={() => navigate(-1)} />
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto pb-24">
         <div className="max-w-[720px] mx-auto px-4 py-6">
           {/* ---- 标题 ---- */}
           <h1 className="text-[24px] leading-[1.3] font-medium text-steel-ink mb-3">

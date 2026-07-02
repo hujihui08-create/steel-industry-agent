@@ -110,7 +110,7 @@ export default function AlertListPage() {
   // ==========================================================
 
   return (
-    <div className="flex flex-col h-full bg-steel-canvas">
+    <div className="flex flex-col min-h-screen bg-steel-canvas">
       {/* ---- Page Header ---- */}
       <PageHeader title="价格预警" onBack={() => navigate(-1)} />
 
@@ -136,7 +136,7 @@ export default function AlertListPage() {
 
       {/* ---- List ---- */}
       {!isLoading && !error && alerts.length > 0 && (
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto pb-24">
           <div className="divide-y divide-steel-line">
             {alerts.map((alert) => (
               <div key={alert.id} className="px-4 py-4">

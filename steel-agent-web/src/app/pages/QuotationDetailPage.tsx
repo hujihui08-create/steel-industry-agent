@@ -433,7 +433,7 @@ export default function QuotationDetailPage() {
     <div className="min-h-screen bg-steel-canvas flex flex-col">
       <PageHeader title="报价单详情" onBack={() => navigate(-1)} />
 
-      <div className="flex-1">{renderContent()}</div>
+      <div className="flex-1 overflow-auto pb-24">{renderContent()}</div>
     </div>
   );
 }

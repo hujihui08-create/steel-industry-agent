@@ -100,7 +100,7 @@ export default function KnowledgePage() {
         </div>
       )}
 
-      <div className="px-4 pb-8">
+      <div className="px-4 pb-24">
         {isLoading && <LoadingSkeleton variant="list" count={5} />}
         {error && (
           <ErrorState message={error} onRetry={() => { clearError(); fetchStandardList(); fetchTermList(); }} />

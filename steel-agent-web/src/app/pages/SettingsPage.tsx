@@ -132,7 +132,7 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-steel-canvas flex flex-col">
       <PageHeader title="设置" onBack={() => navigate(-1)} />
 
-      <div className="flex-1">
+      <div className="flex-1 pb-24">
         {/* =====================================================
             Section 1 — 通知设置
             ===================================================== */}

@@ -307,6 +307,8 @@ function setupStore(overrides: Record<string, any> = {}) {
     selectedCard: null,
     focusInputTrigger: 0,
     activeQuickCommand: null,
+    agentSteps: [],
+    agentPlan: null,
     setInputValue: vi.fn(),
     setError: vi.fn(),
     setStatusMessage: vi.fn(),

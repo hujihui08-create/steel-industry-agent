@@ -270,7 +270,7 @@ export default function CertificationPage() {
     <div className="min-h-screen bg-steel-canvas flex flex-col">
       <PageHeader title="企业认证" onBack={() => navigate(-1)} />
 
-      <div className="flex-1 px-4 py-6">
+      <div className="flex-1 px-4 pt-6 pb-24">
         {renderContent()}
       </div>
     </div>

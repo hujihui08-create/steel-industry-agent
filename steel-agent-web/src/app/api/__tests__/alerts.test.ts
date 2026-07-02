@@ -22,6 +22,12 @@ vi.mock("@/app/api/client", () => ({
     put: vi.fn(),
     delete: vi.fn(),
   },
+  adminApiClient: {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
+  },
 }));
 
 import apiClient from "@/app/api/client";

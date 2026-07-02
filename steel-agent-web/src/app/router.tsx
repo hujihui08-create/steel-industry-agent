@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import AuthGuard from "@/app/components/Auth/AuthGuard";
 import { useAuthStore } from "@/app/stores/authStore";
 import AdminAuthGuard from "@/app/components/Auth/AdminAuthGuard";
+import RootLayout from "@/app/components/Layout/RootLayout";
 import { ROUTE } from "@/app/constants/auth";
 
 function RouteErrorBoundary() {
@@ -80,6 +81,10 @@ function NotFoundRedirect() {
 }
 
 export const router = createBrowserRouter([
+  {
+    element: <RootLayout />,
+    errorElement: <RouteErrorBoundary />,
+    children: [
   {
     path: ROUTE.ROOT,
     element: <Navigate to={ROUTE.WORKBENCH} replace />,
@@ -295,4 +300,6 @@ export const router = createBrowserRouter([
     path: "*",
     element: <NotFoundRedirect />,
   },
+  ],
+},
 ]);

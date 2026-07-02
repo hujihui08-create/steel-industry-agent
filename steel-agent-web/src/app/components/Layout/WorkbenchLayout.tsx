@@ -10,9 +10,10 @@ import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Menu } from "lucide-react";
+import { Menu, MessageCircle, X } from "lucide-react";
 import { WorkbenchNav, type WorkbenchNavId } from "./WorkbenchNav";
 import { WorkbenchRightPanel } from "./WorkbenchRightPanel";
+import { useIsMobile } from "@/components/ui/use-mobile";
 
 interface WorkbenchLayoutProps {
   /** Currently active nav item */
@@ -36,6 +37,8 @@ export function WorkbenchLayout({
 }: WorkbenchLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [chatOverlayOpen, setChatOverlayOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -133,17 +136,74 @@ export function WorkbenchLayout({
           {/* Content Row: Center + RightPanel */}
           <div className="flex-1 flex min-h-0">
             {/* Center Content */}
-            <main className="flex-1 min-w-0 overflow-auto" role="main">
+            <main className="flex-1 min-w-0 overflow-auto pb-24 md:pb-0" role="main">
               <div className="p-6 lg:p-8">{children}</div>
             </main>
 
-            {/* Right Panel (collapsible via motion) */}
-            <WorkbenchRightPanel
-              isOpen={rightPanelOpen}
-              onToggle={() => setRightPanelOpen((prev) => !prev)}
-            >
-              {rightPanelContent}
-            </WorkbenchRightPanel>
+            {/* Right Panel - Desktop only */}
+            {!isMobile && (
+              <WorkbenchRightPanel
+                isOpen={rightPanelOpen}
+                onToggle={() => setRightPanelOpen((prev) => !prev)}
+              >
+                {rightPanelContent}
+              </WorkbenchRightPanel>
+            )}
+
+            {/* Mobile FAB - Chat Overlay Trigger */}
+            {isMobile && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setChatOverlayOpen(true)}
+                  className="fixed bottom-24 right-4 z-30 size-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 transition-colors duration-150 active:scale-95"
+                  aria-label="打开助手面板"
+                >
+                  <MessageCircle className="size-5" strokeWidth={2} />
+                </button>
+
+                {/* Chat Overlay - Full Screen on Mobile */}
+                <AnimatePresence>
+                  {chatOverlayOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: "100%" }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: "100%" }}
+                      transition={{ duration: 0.24, ease: [0.2, 0.8, 0.2, 1] }}
+                      className="fixed inset-0 z-50 bg-card flex flex-col"
+                    >
+                      {/* Overlay Header */}
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+                        <h3 className="text-[13px] leading-[18px] font-medium text-foreground">
+                          助手面板
+                        </h3>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          onClick={() => setChatOverlayOpen(false)}
+                          aria-label="关闭助手面板"
+                        >
+                          <X className="size-5" strokeWidth={2} />
+                        </Button>
+                      </div>
+
+                      {/* Overlay Content */}
+                      <div className="flex-1 overflow-y-auto">
+                        {rightPanelContent || (
+                          <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+                            <MessageCircle className="size-8 text-muted-foreground/40 mb-3" strokeWidth={2} aria-hidden="true" />
+                            <p className="text-[13px] leading-[18px] text-muted-foreground">
+                              助手面板内容将在此显示
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            )}
           </div>
         </div>
       </div>

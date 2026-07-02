@@ -148,7 +148,7 @@ export default function FavoritesPage() {
     <div className="min-h-screen bg-steel-canvas flex flex-col">
       <PageHeader title="我的收藏" onBack={() => navigate(-1)} />
 
-      <main className="flex-1 px-4 py-4 overflow-auto">
+      <main className="flex-1 px-4 pt-4 pb-24 overflow-auto">
         {favorites.map((item: TenderDetail) => {
           const status = statusMap[item.status];
 

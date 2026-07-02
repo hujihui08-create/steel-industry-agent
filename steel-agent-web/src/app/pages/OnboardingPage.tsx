@@ -98,7 +98,7 @@ export default function OnboardingPage() {
         ))}
       </div>
 
-      <div className="flex items-center justify-between px-5 pb-8 pt-2">
+      <div className="flex items-center justify-between px-5 pt-2 pb-24">
         <div className="w-16 flex justify-start">
           {currentStep > 0 && (
             <button

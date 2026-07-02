@@ -1279,7 +1279,7 @@ export default function ChatPage() {
         </div>
 
         {/* ---- Input Area ---- */}
-        <div className="flex-shrink-0 border-t border-steel-line bg-steel-canvas px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-3 relative z-10">
+        <div className="flex-shrink-0 border-t border-steel-line bg-steel-canvas px-4 pb-20 md:pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-3 relative z-10">
           <div className="max-w-[720px] mx-auto">
             <ChatInput
               onSend={handleSend}

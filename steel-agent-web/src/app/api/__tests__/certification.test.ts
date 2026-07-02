@@ -18,13 +18,19 @@ vi.mock("@/app/api/client", () => ({
     put: vi.fn(),
     delete: vi.fn(),
   },
+  adminApiClient: {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
+  },
 }));
 
-import apiClient from "@/app/api/client";
+import apiClient, { adminApiClient } from "@/app/api/client";
 
-const mockedGet = apiClient.get as ReturnType<typeof vi.fn>;
-const mockedPost = apiClient.post as ReturnType<typeof vi.fn>;
-const mockedPut = apiClient.put as ReturnType<typeof vi.fn>;
+const mockedGet = adminApiClient.get as ReturnType<typeof vi.fn>;
+const mockedPost = adminApiClient.post as ReturnType<typeof vi.fn>;
+const mockedPut = adminApiClient.put as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
