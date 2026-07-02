@@ -1,6 +1,5 @@
 import { createBrowserRouter, Navigate, useLocation, useRouteError } from "react-router-dom";
 import { lazy, Suspense } from "react";
-import AuthGuard from "@/app/components/Auth/AuthGuard";
 import { useAuthStore } from "@/app/stores/authStore";
 import AdminAuthGuard from "@/app/components/Auth/AdminAuthGuard";
 import RootLayout from "@/app/components/Layout/RootLayout";
@@ -117,128 +116,72 @@ export const router = createBrowserRouter([
   },
   {
     path: ROUTE.PRICE_BOARD,
-    element: withSuspense(
-      <AuthGuard>
-        <PriceBoardPage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<PriceBoardPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.CHART,
-    element: (
-      <AuthGuard>
-        <ChartRedirect />
-      </AuthGuard>
-    ),
+    element: <ChartRedirect />,
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.NEWS_DETAIL,
-    element: withSuspense(
-      <AuthGuard>
-        <NewsDetailPage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<NewsDetailPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.QUOTATIONS,
-    element: withSuspense(
-      <AuthGuard>
-        <QuotationListPage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<QuotationListPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.QUOTATION_DETAIL,
-    element: withSuspense(
-      <AuthGuard>
-        <QuotationDetailPage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<QuotationDetailPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.TENDERS,
-    element: withSuspense(
-      <AuthGuard>
-        <TenderListPage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<TenderListPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.TENDER_DETAIL,
-    element: withSuspense(
-      <AuthGuard>
-        <TenderDetailPage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<TenderDetailPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.ALERTS,
-    element: withSuspense(
-      <AuthGuard>
-        <AlertListPage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<AlertListPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.KNOWLEDGE_DETAIL,
-    element: withSuspense(
-      <AuthGuard>
-        <KnowledgeDetailPage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<KnowledgeDetailPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.KNOWLEDGE,
-    element: withSuspense(
-      <AuthGuard>
-        <KnowledgePage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<KnowledgePage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.PROFILE,
-    element: withSuspense(
-      <AuthGuard>
-        <ProfilePage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<ProfilePage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.PROFILE_EDIT,
-    element: withSuspense(
-      <AuthGuard>
-        <ProfileEditPage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<ProfileEditPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.MESSAGES,
-    element: withSuspense(
-      <AuthGuard>
-        <MessageCenterPage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<MessageCenterPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.SETTINGS,
-    element: withSuspense(
-      <AuthGuard>
-        <SettingsPage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<SettingsPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
@@ -257,38 +200,22 @@ export const router = createBrowserRouter([
   },
   {
     path: ROUTE.CALENDAR,
-    element: withSuspense(
-      <AuthGuard>
-        <TenderCalendarPage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<TenderCalendarPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.FAVORITES,
-    element: withSuspense(
-      <AuthGuard>
-        <FavoritesPage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<FavoritesPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.HELP,
-    element: withSuspense(
-      <AuthGuard>
-        <HelpFeedbackPage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<HelpFeedbackPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: ROUTE.CERTIFICATION,
-    element: withSuspense(
-      <AuthGuard>
-        <CertificationPage />
-      </AuthGuard>
-    ),
+    element: withSuspense(<CertificationPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {
