@@ -71,7 +71,7 @@ export default function LoginPage() {
     try {
       const data = await loginByCode(values.phone, values.code);
       setTokens(data.access_token, data.refresh_token);
-      navigate(ROUTE.WORKBENCH);
+      navigate(ROUTE.CHAT);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "登录失败，请稍后重试";
@@ -83,7 +83,7 @@ export default function LoginPage() {
     try {
       const data = await loginByPassword(values.phone, values.password);
       setTokens(data.access_token, data.refresh_token);
-      navigate(ROUTE.WORKBENCH);
+      navigate(ROUTE.CHAT);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "登录失败，请稍后重试";

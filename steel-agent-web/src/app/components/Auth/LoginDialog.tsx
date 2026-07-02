@@ -129,7 +129,7 @@ export default function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         onPointerDownOutside={(e) => e.preventDefault()}
-        className="sm:max-w-[400px] p-6 gap-5 rounded-2xl border-steel-line !shadow-none"
+        className="sm:max-w-[400px] max-w-[95vw] mx-2 p-5 sm:p-6 gap-5 rounded-2xl border-steel-line !shadow-none"
       >
         <DialogHeader className="text-center sm:text-left">
           <DialogTitle className="flex items-center gap-2.5 text-steel-ink text-[18px] leading-[1.4] font-medium">
@@ -172,15 +172,19 @@ export default function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
                   render={({ field, fieldState }) => (
                     <FormItem>
                       <FormControl>
-                        <Input
-                          placeholder="手机号"
-                          type="tel"
-                          maxLength={PHONE_MAX_LENGTH}
-                          aria-invalid={!!fieldState.error}
-                          aria-describedby={fieldState.error ? "dlg-code-phone-error" : undefined}
-                          className={INPUT_CLASS}
-                          {...field}
-                        />
+                        <div className="flex items-center rounded-[10px] border border-steel-line bg-steel-canvas h-12 overflow-hidden">
+                          <span className="pl-4 pr-2 text-[15px] text-steel-muted shrink-0" aria-hidden="true">+86</span>
+                          <Input
+                            placeholder="手机号"
+                            type="tel"
+                            maxLength={PHONE_MAX_LENGTH}
+                            inputMode="numeric"
+                            aria-invalid={!!fieldState.error}
+                            aria-describedby={fieldState.error ? "dlg-code-phone-error" : undefined}
+                            className="rounded-none border-0 bg-transparent px-1 h-full text-[15px] placeholder:text-steel-placeholder flex-1 focus-visible:ring-0"
+                            {...field}
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage id="dlg-code-phone-error" className="text-[12px] leading-[1.5]" />
                     </FormItem>
@@ -233,7 +237,7 @@ export default function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
                   {isSubmitting ? "登录中..." : "登录/注册"}
                 </Button>
 
-                <div className="pt-1">
+                <div className="hidden md:block pt-1">
                   <div className="flex items-center gap-3 mb-4">
                     <Separator className="flex-1 bg-steel-line" aria-hidden="true" />
                     <span className="text-[12px] text-steel-placeholder shrink-0 select-none">
@@ -274,15 +278,19 @@ export default function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
                   render={({ field, fieldState }) => (
                     <FormItem>
                       <FormControl>
-                        <Input
-                          placeholder="手机号"
-                          type="tel"
-                          maxLength={PHONE_MAX_LENGTH}
-                          aria-invalid={!!fieldState.error}
-                          aria-describedby={fieldState.error ? "dlg-pwd-phone-error" : undefined}
-                          className={INPUT_CLASS}
-                          {...field}
-                        />
+                        <div className="flex items-center rounded-[10px] border border-steel-line bg-steel-canvas h-12 overflow-hidden">
+                          <span className="pl-4 pr-2 text-[15px] text-steel-muted shrink-0" aria-hidden="true">+86</span>
+                          <Input
+                            placeholder="手机号"
+                            type="tel"
+                            maxLength={PHONE_MAX_LENGTH}
+                            inputMode="numeric"
+                            aria-invalid={!!fieldState.error}
+                            aria-describedby={fieldState.error ? "dlg-pwd-phone-error" : undefined}
+                            className="rounded-none border-0 bg-transparent px-1 h-full text-[15px] placeholder:text-steel-placeholder flex-1 focus-visible:ring-0"
+                            {...field}
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage id="dlg-pwd-phone-error" className="text-[12px] leading-[1.5]" />
                     </FormItem>
@@ -321,7 +329,7 @@ export default function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
                   {isSubmitting ? "登录中..." : "登录"}
                 </Button>
 
-                <div className="pt-1">
+                <div className="hidden md:block pt-1">
                   <div className="flex items-center gap-3 mb-4">
                     <Separator className="flex-1 bg-steel-line" aria-hidden="true" />
                     <span className="text-[12px] text-steel-placeholder shrink-0 select-none">

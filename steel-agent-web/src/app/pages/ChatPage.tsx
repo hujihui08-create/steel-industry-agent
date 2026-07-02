@@ -9,7 +9,6 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useChatStore } from '@/app/stores/chatStore';
 import { useAuthStore } from '@/app/stores/authStore';
-import { useLoginDialogStore } from '@/app/stores/loginDialogStore';
 import { useSettingsStore } from '@/app/stores/settingsStore';
 import { useChat } from '@/app/hooks/useChat';
 import { ChatSidebar } from '@/app/components/Chat/ChatSidebar';
@@ -41,6 +40,7 @@ import { QuickSelectChips } from '@/app/components/Chat/QuickSelectChips';
 import type { CardAttachment } from '@/app/types/chat';
 import { CommandPalette } from '@/app/components/shared/CommandPalette';
 import LoginDialog from '@/app/components/Auth/LoginDialog';
+import { useLoginDialogStore } from '@/app/stores/loginDialogStore';
 import { NetworkStatus } from '@/app/components/shared/NetworkStatus';
 import { createQuotation } from '@/app/api/quotations';
 import { useTenderFavorite } from '@/app/hooks/useTenderFavorite';
@@ -49,9 +49,6 @@ export default function ChatPage() {
   const navigate = useNavigate();
   const store = useChatStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const openLoginDialog = useLoginDialogStore((s) => s.openLoginDialog);
-  const closeLoginDialog = useLoginDialogStore((s) => s.closeLoginDialog);
-  const loginDialogOpen = useLoginDialogStore((s) => s.open);
   const {
     sendMessage,
     stopGeneration,
@@ -72,6 +69,9 @@ export default function ChatPage() {
 
   // ---- Mobile sidebar open state ----------------------------
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const openLoginDialog = useLoginDialogStore((s) => s.openLoginDialog);
+  const closeLoginDialog = useLoginDialogStore((s) => s.closeLoginDialog);
+  const loginDialogOpen = useLoginDialogStore((s) => s.open);
 
   // ---- Derived current session title ------------------------
   const currentSessionTitle = useMemo(() => {
@@ -1353,9 +1353,6 @@ export default function ChatPage() {
         onSelectCommand={handleCommandSelect}
       />
 
-      {/* ---- Login Dialog (未登录引导) ---- */}
-      <LoginDialog open={loginDialogOpen} onOpenChange={(open) => { if (!open) closeLoginDialog(); }} />
-
       {/* ---- 负反馈问题类型选择弹窗 ---- */}
       {feedbackDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={(e) => { if (e.target === e.currentTarget) setFeedbackDialogOpen(false); }}>
@@ -1418,6 +1415,8 @@ export default function ChatPage() {
           </div>
         </div>
       )}
+      {/* ---- Login Dialog (未登录引导) ---- */}
+      <LoginDialog open={loginDialogOpen} onOpenChange={(open) => { if (!open) closeLoginDialog(); }} />
     </div>
   );
 }
