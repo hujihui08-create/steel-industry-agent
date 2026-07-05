@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
 
+	"steel-agent-backend/internal/config"
 	"steel-agent-backend/internal/model"
 	"steel-agent-backend/internal/repository"
 	"steel-agent-backend/pkg/ai"
@@ -299,6 +302,27 @@ func (s *ChatService) BuildTools(ctx context.Context) []openai.Tool {
 						},
 					},
 					"required": []string{"id"},
+				},
+			},
+		},
+		{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "search_web",
+				Description: "联网搜索。当本地知识库和资讯库无结果时，通过搜索引擎获取互联网上的最新信息。返回标题、链接和摘要。",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"query": map[string]interface{}{
+							"type":        "string",
+							"description": "搜索关键词",
+						},
+						"num": map[string]interface{}{
+							"type":        "number",
+							"description": "返回条数，默认5条，最多10条",
+						},
+					},
+					"required": []string{"query"},
 				},
 			},
 		},
@@ -954,6 +978,7 @@ var toolStatusLabels = map[string]string{
 	"calculate_weight":    "重量计算",
 	"search_news":         "搜索行业资讯",
 	"get_news_detail":     "获取资讯详情",
+	"search_web":          "联网搜索",
 }
 
 func toolStatusMessage(toolName string, _ string) string {
@@ -987,6 +1012,8 @@ func (s *ChatService) ExecuteTool(ctx context.Context, userID uint, toolCall ope
 		return s.executeSearchNews(ctx, toolCall.Function.Arguments)
 	case "get_news_detail":
 		return s.executeGetNewsDetail(ctx, toolCall.Function.Arguments)
+	case "search_web":
+		return s.executeSearchWeb(ctx, toolCall.Function.Arguments)
 	default:
 		return "", fmt.Errorf("unknown tool: %s", toolCall.Function.Name)
 	}
@@ -2529,6 +2556,102 @@ func (s *ChatService) executeGetNewsDetail(ctx context.Context, argsJSON string)
 		"category":     n.Category,
 		"published_at": n.PublishedAt.Format("2006-01-02"),
 	}
+	data, _ := json.Marshal(result)
+	return string(data), nil
+}
+
+// searchWebArgs defines the arguments for the search_web tool.
+type searchWebArgs struct {
+	Query string `json:"query"`
+	Num   int    `json:"num"`
+}
+
+// executeSearchWeb performs an internet search via the configured search API.
+func (s *ChatService) executeSearchWeb(ctx context.Context, argsJSON string) (string, error) {
+	var args searchWebArgs
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return "", fmt.Errorf("search_web: invalid arguments: %w", err)
+	}
+
+	if args.Num <= 0 {
+		args.Num = 5
+	}
+	if args.Num > 10 {
+		args.Num = 10
+	}
+
+	baseURL := config.AppConfig.SearchAPIBaseURL
+	apiKey := config.AppConfig.SearchAPIKey
+
+	if baseURL == "" || apiKey == "" {
+		return `{"source":"web","method":"search_engine","results":[],"count":0,"error":"联网搜索未配置"}`, nil
+	}
+
+	// Build search request URL
+	searchURL := fmt.Sprintf("%s?q=%s&count=%d", baseURL, url.QueryEscape(args.Query), args.Num)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", searchURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("search_web: request creation failed: %w", err)
+	}
+	req.Header.Set("Ocp-Apim-Subscription-Key", apiKey)
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("search_web: request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("search_web: read response failed: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("search_web: API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse the search response - handle common search API response format (Bing Web Search API v7)
+	var searchResp struct {
+		WebPages *struct {
+			Value []struct {
+				Name    string `json:"name"`
+				URL     string `json:"url"`
+				Snippet string `json:"snippet"`
+			} `json:"value"`
+		} `json:"webPages"`
+	}
+
+	if err := json.Unmarshal(body, &searchResp); err != nil {
+		// If standard format fails, try a generic approach
+		var genericResp map[string]interface{}
+		if err2 := json.Unmarshal(body, &genericResp); err2 != nil {
+			return "", fmt.Errorf("search_web: parse response failed: %w", err)
+		}
+		// Return raw response as fallback
+		resultData, _ := json.Marshal(genericResp)
+		return string(resultData), nil
+	}
+
+	results := make([]map[string]string, 0)
+	if searchResp.WebPages != nil {
+		for _, item := range searchResp.WebPages.Value {
+			results = append(results, map[string]string{
+				"title":   item.Name,
+				"url":     item.URL,
+				"snippet": item.Snippet,
+			})
+		}
+	}
+
+	result := map[string]interface{}{
+		"source":  "web",
+		"method":  "search_engine",
+		"results": results,
+		"count":   len(results),
+	}
+
 	data, _ := json.Marshal(result)
 	return string(data), nil
 }

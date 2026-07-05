@@ -84,6 +84,7 @@ var toolDisplayNames = map[string]string{
 	"calculate_weight":    "重量计算",
 	"search_news":         "资讯搜索",
 	"get_news_detail":     "资讯详情",
+	"search_web":          "联网搜索",
 }
 
 func toolDisplayName(name string) string {

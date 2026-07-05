@@ -42,6 +42,9 @@ type Config struct {
 	DeepSeekAPIKey        string
 	EmbeddingAPIKey       string
 	EmbeddingBaseURL      string
+	SearchAPIBaseURL      string // 搜索 API 地址
+	SearchAPIKey          string // 搜索 API Key
+	SearchModel           string // 搜索模型
 	TokenDailyBudget      string
 	APPEnv                string
 	CORSAllowedOrigins    []string
@@ -78,6 +81,9 @@ func Load() {
 		DeepSeekAPIKey:        getEnv("DEEPSEEK_API_KEY", ""),
 		EmbeddingAPIKey:       getEnv("EMBEDDING_API_KEY", ""),
 		EmbeddingBaseURL:      getEnv("EMBEDDING_BASE_URL", ""),
+		SearchAPIBaseURL:      getEnv("SEARCH_API_BASE_URL", ""),
+		SearchAPIKey:          getEnv("SEARCH_API_KEY", ""),
+		SearchModel:           getEnv("SEARCH_MODEL", "web"),
 		TokenDailyBudget:      getEnv("TOKEN_DAILY_BUDGET", "10000"),
 		APPEnv:                getEnv("APP_ENV", "development"),
 	}

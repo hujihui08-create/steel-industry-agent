@@ -266,6 +266,19 @@ export function DebugToolTab() {
               required: ["spec", "length"],
             },
           },
+          {
+            name: "search_web",
+            displayName: "联网搜索",
+            description: "当本地知识库和资讯库无结果时，联网搜索获取最新信息",
+            parameters: {
+              type: "object",
+              properties: {
+                query: { type: "string", description: "搜索关键词" },
+                num: { type: "number", description: "返回条数（默认5）" },
+              },
+              required: ["query"],
+            },
+          },
         ]);
       });
   }, []);
