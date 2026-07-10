@@ -5,10 +5,10 @@
 // ============================================================
 
 import { useEffect, useRef, useCallback } from "react";
-import { useChatStore } from "@/app/stores/chatStore";
+import { usePanelChatStore } from "@/app/stores/panelChatStore";
 import { useAuthStore } from "@/app/stores/authStore";
 import { useLoginDialogStore } from "@/app/stores/loginDialogStore";
-import { useChat } from "@/app/hooks/useChat";
+import { usePanelChat } from "@/app/hooks/usePanelChat";
 import { ChatBubble, TypingIndicator } from "@/app/components/Chat/ChatBubble";
 import AgentProgressCard from "@/app/components/Chat/AgentProgressCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -40,7 +40,7 @@ const QUICK_COMMANDS = [
 ] as const;
 
 export function ChatPanel() {
-  const store = useChatStore();
+  const store = usePanelChatStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const openLoginDialog = useLoginDialogStore((s) => s.openLoginDialog);
 
@@ -48,7 +48,7 @@ export function ChatPanel() {
     sendMessage,
     stopGeneration,
     loadSessions,
-  } = useChat();
+  } = usePanelChat();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);

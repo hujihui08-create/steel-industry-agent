@@ -19,7 +19,6 @@ const PAGE_TITLES: Record<WorkbenchNavId, string> = {
 
 export default function WorkbenchPage() {
   const [activeNav, setActiveNav] = useState<WorkbenchNavId>("price");
-  const [notifications, setNotifications] = useState<Array<{ id: number; title: string; time: string }>>([]);
 
   const renderContent = () => {
     switch (activeNav) {
@@ -47,18 +46,7 @@ export default function WorkbenchPage() {
               <Bell className="size-3.5" strokeWidth={2} />
               通知中心
             </h4>
-            {notifications.length === 0 ? (
-              <p className="text-[12px] leading-[16px] text-muted-foreground">暂无通知</p>
-            ) : (
-              <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                {notifications.map((n) => (
-                  <div key={n.id} className="text-[12px] leading-[16px]">
-                    <p className="text-foreground">{n.title}</p>
-                    <p className="text-muted-foreground">{n.time}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+            <p className="text-[12px] leading-[16px] text-muted-foreground">暂无通知</p>
           </div>
         </div>
       }
